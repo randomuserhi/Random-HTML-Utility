@@ -22,7 +22,7 @@ var RHU;
 		let el = document.getElementById(id);
 		if (clearID) el.removeAttribute("id");
 		
-		return new RHU.Component(el);
+		return el;
 	};
 
 	/**
