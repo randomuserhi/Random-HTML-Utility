@@ -274,11 +274,11 @@ var RHU;
 			let doc = RHU.Component._domParser.parseFromString(result._source ? result._source : "", "text/html");
 
 			// Create properties
-			let referencedComponents = doc.querySelectorAll("*[rhu]");
+			let referencedComponents = doc.querySelectorAll("*[rhu-id]");
 			for (let component of referencedComponents)
 			{
-				let identifier = component.getAttribute("rhu");
-				component.removeAttribute("rhu");
+				let identifier = component.getAttribute("rhu-id");
+				component.removeAttribute("rhu-id");
 				if (result.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
 				Object.defineProperty(result, identifier, {
 					configurable: true,
