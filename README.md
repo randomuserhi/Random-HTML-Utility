@@ -1,6 +1,6 @@
 # Random HTML Utility (RHU)
 
-[GitBook](https://app.gitbook.com/o/POYXqF98F4I3vjaRHRhX/s/npbLRZ33RfQjLSFYdOka/)
+[GitBook](https://randomuserhi.gitbook.io/rhu/)
 
 This a pure javascript library that I maintain as I make random web apps.
 
