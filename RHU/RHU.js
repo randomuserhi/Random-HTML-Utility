@@ -44,7 +44,7 @@ var RHU;
     	 * Trigger another parse on load to handle issues with DOM not being fully parsed:
     	 * https://github.com/WICG/webcomponents/issues/809#issuecomment-737669670
     	 */
-		(() => {
+		/*(() => {
 			window.addEventListener("load", () => {
 				// re-parse over custom elements to handle first pass issues where DOM hasn't been fully parsed.
 				let elements = document.getElementsByTagName("rhu-component");
@@ -53,7 +53,7 @@ var RHU;
 					RHU.Component._parse(el.type, el);
 				}
 			});
-		})();
+		})();*/
 
 		/**
 		 * @property{public static} COMPONENT_SHADOW_MODE{string} determines the shadow mode for RHU.Component's 
@@ -224,6 +224,7 @@ var RHU;
 			this._options = options;
 
 			// Add constructor to template map
+			if (RHU.Component._templates.has(type)) console.warn(`Component template '${type}' already exists. Definition will be overwritten.`);
 			RHU.Component._templates.set(type, object);
 		};
 		/**
@@ -234,7 +235,7 @@ var RHU;
 			{
 				return this._element;
 			}
-		})
+		});
 		/**  
 		 * @func{public static} Parse an element and generate its component
 		 * @param type{string} type of component being created
@@ -242,6 +243,9 @@ var RHU;
 		 */
 		RHU.Component._parse = function(type, element)
 		{
+			// NOTE(randomuserhi): use of `.childNodes` instead of children to maintain things like text nodes:
+			//                     <div>text node</div> which are not listed in `.children`
+
 			// If component exists, remove dom
 			let old = element._component;
 			if (old) 
@@ -251,12 +255,12 @@ var RHU;
 				// Loop over elements and destroy
 				for (let el of old._dom)
 				{
-					el.replaceWith(...el.children);
+					el.replaceWith(...el.childNodes);
 				}
 			}
 			// Move children to temporary space
 			let temp = document.createElement("div");
-			temp.append(...element.children);
+			temp.append(...element.childNodes);
 
 			// Get constructor and create component, but do not call constructor yet
 			// such that elements and properties can be populated
@@ -311,14 +315,14 @@ var RHU;
 			// NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
 			if (result._options && result._options.shadow) 
 			{
-				element._shadowRoot.append(...doc.head.children);
-				element._shadowRoot.append(...doc.body.children);
+				element._shadowRoot.append(...doc.head.childNodes);
+				element._shadowRoot.append(...doc.body.childNodes);
 			}
 			else
 			{
 				element._shadowRoot.append(document.createElement("slot"));
-				HTMLElement.prototype.append.call(result._element, ...doc.head.children);
-				HTMLElement.prototype.append.call(result._element, ...doc.body.children);
+				HTMLElement.prototype.append.call(result._element, ...doc.head.childNodes);
+				HTMLElement.prototype.append.call(result._element, ...doc.body.childNodes);
 			}
 
 			// Get dom
@@ -332,7 +336,7 @@ var RHU;
 			constructor.call(result);
 
 			// Append children
-			element.append(...temp.children);
+			element.append(...temp.childNodes);
 		};
 		/**  
 		 * @func{public} append items to component

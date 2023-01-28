@@ -55,7 +55,7 @@ var RHU;
 			if (name == "") throw new TypeError("'name' cannot be blank.");
 
 			this._name = name;
-			this._current = name;
+			this._current = "";
 			this._style = null;
 			this._themes = new Map();
 			this._mediaQueries = new Map();
@@ -90,13 +90,15 @@ var RHU;
 			},
 			set(theme)
 			{
+				if (typeof theme != "string") throw new TypeError("'active' must be of type string.");
+
 				let _curr = `${this._name}-${this._current}`;
 			    let _new = `${this._name}-${this._current = theme}`;
 			    let elems = document.getElementsByClassName(this._name);
 			    for (let i = 0; i < elems.length; ++i)
 			    {
 			        elems[i].classList.remove(_curr);
-			        elems[i].classList.add(_new);
+			        if (theme != "") elems[i].classList.add(_new);
 			    }
 			}
 		});
