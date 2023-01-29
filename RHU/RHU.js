@@ -262,31 +262,47 @@ var RHU;
             }
         });
         /**  
+         * @func{public} Consume this macro and remove it from DOM (used if replace: false)
+         */
+        RHU._Macro.prototype.consume = function() 
+        {
+            if (this.parentNode) 
+            {
+                HTMLElement.prototype.replaceWith.call(this, ...this._macro._content);
+                this._macro._element = null;
+            }
+            else throw new Error("'Macro' header is not attached to anything.");
+        };
+        /**  
          * @func{public override} Override append to use slot
          * @param ...items{Object} items being appended
          */
-        RHU._Macro.prototype.append = function(...items) {
+        RHU._Macro.prototype.append = function(...items) 
+        {
             throw new Error("'Macro' cannot append items.");
         };
         /**  
          * @func{public override} Override prepend to use slot
          * @param ...items{Object} items being prepended
          */
-        RHU._Macro.prototype.prepend = function(...items) {
+        RHU._Macro.prototype.prepend = function(...items) 
+        {
             throw new Error("'Macro' cannot prepend items.");
         };
         /**  
          * @func{public override} Override appendChild to use slot
          * @param item{Object} item being appended
          */
-        RHU._Macro.prototype.appendChild = function(item) {
+        RHU._Macro.prototype.appendChild = function(item)
+        {
             throw new Error("'Macro' cannot append child.");
         };
         /**  
          * @func{public override} Override replaceChildren to use slot
          * @param ...items{Object} items to replace children with
          */
-        RHU._Macro.prototype.replaceChildren = function(...items) {
+        RHU._Macro.prototype.replaceChildren = function(...items) 
+        {
             throw new Error("'Macro' cannot replace children.");
         };
         // As per creating custom elements, define them 
@@ -380,7 +396,7 @@ var RHU;
             result._element = null;
 
             // Reference parent if options dictate so
-            if (result._options && !result._options.replace)
+            if (result._options && (!result._options.replace || !element.parentNode))
                 result._element = element;
 
             // Get elements from parser 
