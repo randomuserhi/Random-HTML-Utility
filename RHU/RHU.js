@@ -52,6 +52,12 @@ var RHU;
         };
         RHU.InsertDefaultStyles(document.head);
 
+        /**
+         * Element used for parsing other elements
+         */
+        RHU._gen = document.createElement("div");
+        document.head.appendChild(RHU._gen);
+
         // Parse templates and macros after window load to handle first pass issues where DOM hasn't been fully parsed.
         // Disable parsing templates until after window load event
         // https://github.com/WICG/webcomponents/issues/809#issuecomment-737669670
@@ -394,8 +400,16 @@ var RHU;
             // Set new macro
             element._macro = result;
 
+            // Attach to body to generate all dom children and calculate sizing etc...
+            let originalParent = element.parentNode;
+            if (document.body) document.body.appendChild(element);
+
             // Call constructor
             constructor.call(result);
+
+            // Detach from body to prevent HTML errors
+            if (originalParent) originalParent.appendChild(element);
+            else document.body.removeChild(element);
 
             // replace macro header if options dictate so
             if (result._options && result._options.replace)
@@ -688,9 +702,17 @@ var RHU;
             // Set new template
             element._template = result;
 
+            // Attach to body to generate all dom children and calculate sizing etc...
+            let originalParent = element.parentNode;
+            if (document.body) document.body.appendChild(element);
+
             // Call constructor
             constructor.call(result);
 
+            // Detach from body to prevent HTML errors
+            if (originalParent) originalParent.appendChild(element);
+            else document.body.removeChild(element);
+            
             // If no append targets were found, append one
             // NOTE(randomuserhi): called after constructor, to assure append target is at the end
             if (possibleTargets.length == 0 && result._options && result._options.defaultSlot)
@@ -935,14 +957,22 @@ var RHU;
 
 			// Append new dom
 			// NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
-			element._shadowRoot.append(...doc.head.children);
-			element._shadowRoot.append(...doc.body.children);
+			element._shadowRoot.append(...doc.head.childNodes);
+			element._shadowRoot.append(...doc.body.childNodes);
 
 			// Set new component
 			element._component = result;
 
-			// Call constructor
-			constructor.call(result);
+            // Attach to body to generate all dom children and calculate sizing etc...
+            let originalParent = element.parentNode;
+            if (document.body) document.body.appendChild(element);
+
+            // Call constructor
+            constructor.call(result);
+
+            // Detach from body to prevent HTML errors
+            if (originalParent) originalParent.appendChild(element);
+            else document.body.removeChild(element);
 
             // If no append targets were found, append one
             // NOTE(randomuserhi): called after constructor, to assure append target is at the end
@@ -1031,11 +1061,17 @@ var RHU;
 
                     // Append new dom
                     // NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
-                    this._shadowRoot.append(...doc.head.children);
-                    this._shadowRoot.append(...doc.body.children);
+                    this._shadowRoot.append(...doc.head.childNodes);
+                    this._shadowRoot.append(...doc.body.childNodes);
+
+                    // Attach to body to generate all dom children and calculate sizing etc...
+                    if (document.body) document.body.appendChild(this);
 
                     // Call constructor
                     object.call(this);
+
+                    // Detach from body to prevent HTML errors
+                    if (this.parentNode) this.parentNode.removeChild(this);
 
                     // If no append targets were found, append one
                     // NOTE(randomuserhi): called after constructor, to assure append target is at the end
