@@ -32,20 +32,28 @@ var RHU;
 		}
 
 		/**
-		 * @func{public static} TODO(randomuserhi): need to document
-		 * 
-		 * NOTE(randomuserhi): redfine is a very slow operation due to Object.setPrototypeOf, try
-		 *                     not to use this function too much.
+		 * TODO(randomuserhi): document this
 		 */
-		js.redefine = function (object, prototype) 
+		js.delete = function(object, preserve = null)
 		{
 			for (let key in object) 
 			{
-			    if (object.hasOwnProperty(key)) 
+				if (object.hasOwnProperty(key) && (!preserve || !preserve.hasOwnProperty(key)))
 			    {
 			        delete object[key];
 			    }
 			}
+		}
+
+		/**
+		 * @func{public static} TODO(randomuserhi): need to document
+		 * TODO(randomuserhi): document params
+		 * NOTE(randomuserhi): redfine is a very slow operation due to Object.setPrototypeOf, try
+		 *                     not to use this function too much.
+		 */
+		js.redefine = function (object, prototype, preserve = null) 
+		{
+			js.delete(object, preserve);
 			Object.setPrototypeOf(object, prototype)
 			return object;
 		}

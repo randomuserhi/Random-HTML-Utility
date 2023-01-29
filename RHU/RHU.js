@@ -456,10 +456,11 @@ var RHU;
             (function() {
                 
                 /**
-                 * TODO(randomuserhi): document parameters, _template, _slot
+                 * TODO(randomuserhi): document parameters, _redefine, _slot, observer
                  */
+                Object.assign(this, RHU._Component.properties);
 
-                this._template = null;
+                this._redefine = true;
                 this._slot = null;
 
                 // setup mutation observer to watch for attribute changes: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
@@ -471,7 +472,7 @@ var RHU;
                         if (mutation.type == "attributes")
                         {
                             if (!RHU._Template.observedAttributes.includes(mutation.attributeName))
-                            this._template?.attributeChangedCallback?.call(this._template, 
+                            this.onAttributeChange?.call(this._template, 
                                 mutation.attributeName, mutation.oldValue, this.getAttribute(mutation.attributeName)
                             );
                         }
@@ -489,26 +490,19 @@ var RHU;
             return construct;
         };
         /**
+         * NOTE(randomuserhi): Default properties, also used to denote what properties to preserve between
+         *                     element parses when type is changed (since we do not call constructor again,
+         *                     so we need to keep these properties which are set on first constructor call)
+         */
+        RHU._Template.properties = {
+            _redefine: false,
+            _slot: null,
+            observer: null
+        }
+        /**
          * Inherit from HTMLElement
          */
         RHU._Template.prototype = Object.create(HTMLElement.prototype);
-        /**  
-         * TODO(randomuserhi): document this
-         */
-        Object.defineProperty(RHU._Template.prototype, "_rhuInstance", {
-            get() 
-            {
-                return this._template;
-            }
-        })
-        /**  
-         * @func{public override} callback that is triggered when element is connected to something
-         *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
-         */
-        RHU._Template.prototype.connectedCallback = function()
-        {
-            this._template?.connectedCallback?.call(this._template);
-        };
         /**  
          * @func{public override} callback that is triggered when rhu-template type changes
          *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
@@ -527,6 +521,7 @@ var RHU;
          * @get{public} slot{RHU._Slot} get slot element of rhu-template
          */   
         Object.defineProperty(RHU._Template.prototype, "slot", {
+            enumerable: true,
             get() 
             {
                 return this._slot;
@@ -537,6 +532,7 @@ var RHU;
          * @set{public} type{string} set typename of rhu-template
          */   
         Object.defineProperty(RHU._Template.prototype, "type", {
+            enumerable: true,
             get() 
             {
                 return this.getAttribute("rhu-type");
@@ -544,16 +540,6 @@ var RHU;
             set(type)
             {
                 this.setAttribute("rhu-type", type);
-            }
-        });
-        /**
-         * @get{public} template{RHU.Template} get template object this template describes
-         */   
-        Object.defineProperty(RHU._Template.prototype, "template", {
-            get() 
-            {
-                if (this._template) return this._template;
-                throw new Error("Template has not been set a type or has not been created yet.");
             }
         });
         /**
@@ -665,9 +651,8 @@ var RHU;
         RHU.Template._parse = function(type, element)
         {
             // Get children
-            let old = element._template;
             let frag = new DocumentFragment();
-            if (old) frag.append(...element._slot.childNodes);
+            if (element._slot) frag.append(...element._slot.childNodes);
             else frag.append(...element.childNodes);
 
             // Purge old dom
@@ -677,26 +662,24 @@ var RHU;
             // such that elements and properties can be populated
             let constructor = RHU.Template._templates.get(type);
             if (!constructor) constructor = RHU.Template._default;
-            // redefine old object if its available to prevent destroying previous references to template,
-            // otherwise create prototype.
+            // reset prototype and extend
             // NOTE(randomuserhi): redefine is a slow operation, ideally components do not change type frequently causing
             //                     too many redefine calls.
-            let result = old ? RHU.js.redefine(element._template, constructor.prototype) 
-                             : Object.create(constructor.prototype);
+            if (element._redefine) RHU.js.redefine(element, RHU._Template.prototype, RHU._Template.properties);
+            element._redefine = true;
+            Object.assign(element, constructor.prototype);
 
             /**
              * initialize object
              *
-             * @property{private} _element{HTMLElement} Element containing component
              * @property{private} _shadow{HTMLElement} Shadow of element, contains DOM that makes up component
              */
-            result._element = element;
-            result._shadow = document.createElement("rhu-shadow"); // NOTE(randomuserhi): <rhu-shadow> acts like shadow dom for templates
+            element._shadow = document.createElement("rhu-shadow"); // NOTE(randomuserhi): <rhu-shadow> acts like shadow dom for templates
 
-            HTMLElement.prototype.appendChild.call(element, result._shadow);
+            HTMLElement.prototype.appendChild.call(element, element._shadow);
 
             // Get elements from parser 
-            let doc = RHU._domParser.parseFromString(result._source ? result._source : "", "text/html");
+            let doc = RHU._domParser.parseFromString(element._source ? element._source : "", "text/html");
 
             // Create properties
             let referencedElements = doc.querySelectorAll("*[rhu-id]");
@@ -704,8 +687,8 @@ var RHU;
             {
                 let identifier = el.getAttribute("rhu-id");
                 el.removeAttribute("rhu-id");
-                if (result.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                Object.defineProperty(result, identifier, {
+                if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                Object.defineProperty(element, identifier, {
                     configurable: true,
                     enumerable: true,
                     get() 
@@ -727,18 +710,15 @@ var RHU;
 
             // Append new dom
             // NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
-            result._shadow.append(...doc.head.childNodes);
-            result._shadow.append(...doc.body.childNodes);
-
-            // Set new template
-            element._template = result;
+            element._shadow.append(...doc.head.childNodes);
+            element._shadow.append(...doc.body.childNodes);
 
             // Attach to body to generate all dom children and calculate sizing etc...
             let originalParent = element.parentNode;
             if (document.body) document.body.appendChild(element);
 
             // Call constructor
-            constructor.call(result);
+            constructor.call(element);
 
             // Detach from body to prevent HTML errors
             if (originalParent) originalParent.appendChild(element);
@@ -746,7 +726,7 @@ var RHU;
 
             // If no append targets were found, append one
             // NOTE(randomuserhi): called after constructor, to assure append target is at the end
-            if (possibleTargets.length == 0 && result._options && result._options.defaultSlot)
+            if (possibleTargets.length == 0 && element._options && element._options.defaultSlot)
             {
                 HTMLElement.prototype.appendChild.call(element, element._slot);
             }
@@ -764,6 +744,7 @@ var RHU;
          */
         RHU.Template._default = function() {};
         RHU.Template._default.prototype = Object.create(RHU.Template.prototype);
+        RHU.Template._default.prototype._options = { defaultSlot: true };
 
 		/**
 		 * @property{public static} COMPONENT_SHADOW_MODE{string} determines the shadow mode for RHU.Component's 
@@ -782,8 +763,9 @@ var RHU;
                 /**
                  * TODO(randomuserhi): document parameters, _component, _shadowRoot
                  */
+                Object.assign(this, RHU._Component.properties);
 
-				this._component = null;
+				this._redefine = false;
 				this._shadowRoot = this.attachShadow({ mode: RHU.COMPONENT_SHADOW_MODE });
 
 				// setup mutation observer to watch for attribute changes: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
@@ -795,7 +777,7 @@ var RHU;
 						if (mutation.type == "attributes")
 						{
 							if (!RHU._Component.observedAttributes.includes(mutation.attributeName))
-					  		this._component?.attributeChangedCallback?.call(this._component, 
+					  		this.onAttributeChange?.call(this._component, 
 					  			mutation.attributeName, mutation.oldValue, this.getAttribute(mutation.attributeName)
 					  		);
 						}
@@ -812,27 +794,20 @@ var RHU;
 
 			return construct;
 		};
+        /**
+         * NOTE(randomuserhi): Default properties, also used to denote what properties to preserve between
+         *                     element parses when type is changed (since we do not call constructor again,
+         *                     so we need to keep these properties which are set on first constructor call)
+         */
+        RHU._Component.properties = {
+            _redefine: false,
+            _shadowRoot: null,
+            observer: null
+        }
 		/**
 		 * Inherit from HTMLElement
 		 */
 		RHU._Component.prototype = Object.create(HTMLElement.prototype);
-        /**  
-         * TODO(randomuserhi): document this
-         */
-        Object.defineProperty(RHU._Component.prototype, "_rhuInstance", {
-            get() 
-            {
-                return this._component;
-            }
-        })
-		/**  
-		 * @func{public override} callback that is triggered when element is connected to something
-		 *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
-		 */
-		RHU._Component.prototype.connectedCallback = function()
-		{
-			this._component?.connectedCallback?.call(this._component);
-		};
 		/**  
 		 * @func{public override} callback that is triggered when rhu-component type changes
 		 *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
@@ -854,16 +829,6 @@ var RHU;
 			set(type)
 			{
 				this.setAttribute("rhu-type", type);
-			}
-		});
-		/**
-		 * @get{public} component{RHU.Component} get component object this component describes
-		 */   
-		Object.defineProperty(RHU._Component.prototype, "component", {
-			get() 
-			{
-				if (this._component) return this._component;
-				throw new Error("Component has not been set a type or has not been created yet.");
 			}
 		});
 		/**
@@ -920,15 +885,6 @@ var RHU;
 			if (RHU.Component._templates.has(type)) console.warn(`Component template '${type}' already exists. Definition will be overwritten.`);
 			RHU.Component._templates.set(type, object);
 		};
-		/**
-		 * @get{public} element{HTMLElement} element of component.
-		 */
-		Object.defineProperty(RHU.Component.prototype, "element", {
-			get() 
-			{
-				return this._element;
-			}
-		});
         /**
          * @get{public} root{HTMLElement} root of component.
          */
@@ -946,31 +902,29 @@ var RHU;
 		RHU.Component._parse = function(type, element)
 		{
 			// If component exists, clear shadow root
-			let old = element._component;
-			if (old) element._shadowRoot.replaceChildren();
+			if (element._shadowRoot) element._shadowRoot.replaceChildren();
 
-			// Get constructor and create component, but do not call constructor yet
-			// such that elements and properties can be populated
-			let constructor = RHU.Component._templates.get(type);
-			if (!constructor) constructor = RHU.Component._default;
-			// redefine old object if its available to prevent destroying previous references to component,
-			// otherwise create prototype.
-			// NOTE(randomuserhi): redefine is a slow operation, ideally components do not change type frequently causing
-			//                     too many redefine calls.
-			let result = old ? RHU.js.redefine(element._component, constructor.prototype) 
-							 : Object.create(constructor.prototype);
+            // Get constructor and create template, but do not call constructor yet
+            // such that elements and properties can be populated
+            let constructor = RHU.Component._templates.get(type);
+            if (!constructor) constructor = RHU.Component._default;
+            // reset prototype and extend
+            // NOTE(randomuserhi): redefine is a slow operation, ideally components do not change type frequently causing
+            //                     too many redefine calls.
+            if (element._redefine) RHU.js.redefine(element, RHU._Component.prototype, RHU._Component.properties);
+            element._redefine = true;
+            Object.assign(element, constructor.prototype);
+            console.log(constructor.prototype);
 
             /**
              * initialize object
              *
-             * @property{private} _element{HTMLElement} Element containing component
              * @property{private} _shadow{HTMLElement} Root of element, contains DOM that makes up component
              */
-			result._element = element;
-            result._shadow = element._shadowRoot;
+            element._shadow = element._shadowRoot;
 
 			// Get elements from parser 
-			let doc = RHU._domParser.parseFromString(result._source ? result._source : "", "text/html");
+			let doc = RHU._domParser.parseFromString(element._source ? element._source : "", "text/html");
 
 			// Create properties
 			let referencedElements = doc.querySelectorAll("*[rhu-id]");
@@ -978,8 +932,8 @@ var RHU;
 			{
 				let identifier = el.getAttribute("rhu-id");
 				el.removeAttribute("rhu-id");
-				if (result.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-				Object.defineProperty(result, identifier, {
+				if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+				Object.defineProperty(element, identifier, {
 					configurable: true,
 					enumerable: true,
 					get() 
@@ -1001,15 +955,12 @@ var RHU;
 			element._shadowRoot.append(...doc.head.childNodes);
 			element._shadowRoot.append(...doc.body.childNodes);
 
-			// Set new component
-			element._component = result;
-
             // Attach to body to generate all dom children and calculate sizing etc...
             let originalParent = element.parentNode;
             if (document.body) document.body.appendChild(element);
 
             // Call constructor
-            constructor.call(result);
+            constructor.call(element);
 
             // Detach from body to prevent HTML errors
             if (originalParent) originalParent.appendChild(element);
@@ -1017,11 +968,11 @@ var RHU;
 
             // If no append targets were found, append one
             // NOTE(randomuserhi): called after constructor, to assure append target is at the end
-            if (possibleTargets.length == 0 && result._options && result._options.defaultSlot) 
+            if (possibleTargets.length == 0 && element._options && element._options.defaultSlot) 
             {
-                result._shadow = document.createElement("rhu-shadow");
-                result._shadow.append(...element._shadowRoot.childNodes);
-                element._shadowRoot.append(result._shadow);
+                element._shadow = document.createElement("rhu-shadow");
+                element._shadow.append(...element._shadowRoot.childNodes);
+                element._shadowRoot.append(element._shadow);
                 element._shadowRoot.appendChild(document.createElement("slot"));
             }
 
@@ -1038,6 +989,7 @@ var RHU;
 		 */
 		RHU.Component._default = function() {};
 		RHU.Component._default.prototype = Object.create(RHU.Component.prototype);
+        RHU.Component._default.prototype._options = { defaultSlot: true };
 
         /**
          * @func{public static} Creates a new custom element
