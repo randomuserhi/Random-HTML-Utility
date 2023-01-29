@@ -914,7 +914,6 @@ var RHU;
             if (element._redefine) RHU.js.redefine(element, RHU._Component.prototype, RHU._Component.properties);
             element._redefine = true;
             Object.assign(element, constructor.prototype);
-            console.log(constructor.prototype);
 
             /**
              * initialize object
