@@ -122,6 +122,16 @@ var RHU;
         customElements.define("rhu-shadow", RHU._Shadow);
 
         /**
+         * TODO(randomuserhi): document this function override, its used to determine what objects to grab
+         */
+        Object.defineProperty(Node.prototype, "_rhuInstance", {
+            get() 
+            {
+                return this;
+            }
+        })
+
+        /**
          * @class{RHU._Macro} Describes a custom HTML element
          */
         RHU._Macro = function()
@@ -166,6 +176,15 @@ var RHU;
          * Inherit from HTMLElement
          */
         RHU._Macro.prototype = Object.create(HTMLElement.prototype);
+        /**  
+         * TODO(randomuserhi): document this
+         */
+        Object.defineProperty(RHU._Macro.prototype, "_rhuInstance", {
+            get() 
+            {
+                return this._macro;
+            }
+        })
         /**  
          * @func{public override} callback that is triggered when element is connected to something
          *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
@@ -379,7 +398,7 @@ var RHU;
                     enumerable: true,
                     get() 
                     {
-                        return el;
+                        return el._rhuInstance;
                     }
                 })
             }
@@ -473,6 +492,15 @@ var RHU;
          * Inherit from HTMLElement
          */
         RHU._Template.prototype = Object.create(HTMLElement.prototype);
+        /**  
+         * TODO(randomuserhi): document this
+         */
+        Object.defineProperty(RHU._Template.prototype, "_rhuInstance", {
+            get() 
+            {
+                return this._template;
+            }
+        })
         /**  
          * @func{public override} callback that is triggered when element is connected to something
          *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
@@ -682,7 +710,7 @@ var RHU;
                     enumerable: true,
                     get() 
                     {
-                        return el;
+                        return el._rhuInstance;
                     }
                 })
             }
@@ -788,6 +816,15 @@ var RHU;
 		 * Inherit from HTMLElement
 		 */
 		RHU._Component.prototype = Object.create(HTMLElement.prototype);
+        /**  
+         * TODO(randomuserhi): document this
+         */
+        Object.defineProperty(RHU._Component.prototype, "_rhuInstance", {
+            get() 
+            {
+                return this._component;
+            }
+        })
 		/**  
 		 * @func{public override} callback that is triggered when element is connected to something
 		 *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
@@ -947,7 +984,7 @@ var RHU;
 					enumerable: true,
 					get() 
 					{
-						return el;
+						return el._rhuInstance;
 					}
 				})
 			}
@@ -1051,7 +1088,7 @@ var RHU;
                             enumerable: true,
                             get() 
                             {
-                                return el;
+                                return el._rhuInstance;
                             }
                         })
                     }
