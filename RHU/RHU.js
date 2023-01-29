@@ -968,6 +968,113 @@ var RHU;
 		RHU.Component._default = function() {};
 		RHU.Component._default.prototype = Object.create(RHU.Component.prototype);
 
+        /**
+         * @func{public static} Creates a new custom element
+         * @param type{string} type name of component
+         * @param object{Object} object type of component
+         * @param source{string} HTML of component
+         * @param options{Object} TODO(randomuserhi): document this object
+         * 
+         * NOTE(randomuserhi): Not sure if storing a document and cloning is faster than what I currently do which is just running 
+         *                     _domParser.parseFromString() on creation every time and moving the elements.
+         */
+        RHU.CustomElement = function(type, object, source, options = { mode: "closed", defaultSlot: true })
+        {
+            if (type == "") throw new SyntaxError("'type' cannot be blank.");
+            if (typeof type != "string") throw new TypeError("'type' must be a string");
+            if (typeof source != "string") throw new TypeError("'source' must be a string");
+
+            // Declare new element
+            /**
+             * TODO(randomuserhi): document class
+             */
+            let custom = function()
+            {
+                let construct = Reflect.construct(HTMLElement, [], custom);
+
+                (function() {
+                    
+                    /**
+                     * TODO(randomuserhi): document parameters, _shadowRoot, _shadow
+                     */
+                    this._shadowRoot = this.attachShadow({ mode: (options && options.mode) ? options.mode : "closed" });
+                    this._shadow = this._shadowRoot;
+                    
+                    // Generate shadow Dom
+
+                    // Get elements from parser 
+                    let doc = RHU._domParser.parseFromString(source, "text/html");
+
+                    // Create properties
+                    let referencedElements = doc.querySelectorAll("*[rhu-id]");
+                    for (let el of referencedElements)
+                    {
+                        let identifier = el.getAttribute("rhu-id");
+                        el.removeAttribute("rhu-id");
+                        if (this.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                        Object.defineProperty(this, identifier, {
+                            configurable: true,
+                            enumerable: true,
+                            get() 
+                            {
+                                return el;
+                            }
+                        })
+                    }
+
+                    // Find append targets
+                    // NOTE(randomuserhi): A new array is created cause the collection is a reference, so when we append
+                    //                     new dom the later check to possibleTargets.length == 0 won't be correct.
+                    //                     It may be better to just have a boolean check here instead and store the primitive
+                    //                     since creating a new array is expensive.
+                    let possibleTargets = [...doc.getElementsByTagName("slot")];
+
+                    // Append new dom
+                    // NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
+                    this._shadowRoot.append(...doc.head.children);
+                    this._shadowRoot.append(...doc.body.children);
+
+                    // Call constructor
+                    object.call(this);
+
+                    // If no append targets were found, append one
+                    // NOTE(randomuserhi): called after constructor, to assure append target is at the end
+                    if (possibleTargets.length == 0 && options && options.defaultSlot) 
+                    {
+                        this._shadow = document.createElement("rhu-shadow");
+                        this._shadow.append(...this._shadowRoot.childNodes);
+                        this._shadowRoot.append(this._shadow);
+                        this._shadowRoot.appendChild(document.createElement("slot"));
+                    }
+
+                    // Add default styles
+                    RHU.InsertDefaultStyles(this._shadowRoot);
+
+                }).call(construct);
+
+                return construct;
+            }
+            /**
+             * Inherit from HTMLElement
+             */
+            custom.prototype = Object.create(HTMLElement.prototype);
+            /**
+             * @get{public} root{HTMLElement} root of component.
+             */
+            Object.defineProperty(custom.prototype, "shadow", {
+                get() 
+                {
+                    return this._shadow;
+                }
+            });
+            // Extend prototype by object
+            Object.assign(custom.prototype, object.prototype);
+            custom.constructor = custom;
+
+            // As per creating custom elements, define them 
+            customElements.define(`rhu-${type}`, custom);
+        };
+
 	})();
 
 	/**
