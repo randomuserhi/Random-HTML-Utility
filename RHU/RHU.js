@@ -55,9 +55,9 @@ var RHU;
         // Parse templates and macros after window load to handle first pass issues where DOM hasn't been fully parsed.
         // Disable parsing templates until after window load event
         // https://github.com/WICG/webcomponents/issues/809#issuecomment-737669670
-        RHU._DELAYED_PARSE = false;
+        RHU._DELAYED_PARSE = true;
         window.addEventListener("load", () => {
-            RHU._DELAYED_PARSE = true;
+            RHU._DELAYED_PARSE = false;
             // NOTE(randomuserhi): A copy needs to be made as the collection changes as rhu-template
             //                     are created and removed so make a copy to prevent that altering the loop
             let elements = [...document.getElementsByTagName("rhu-template")];
@@ -78,6 +78,10 @@ var RHU;
             for (let el of elements)
             {
                 RHU.Component._parse(el.type, el);
+            }
+            for (let args of RHU.CustomElement._delayedCalls)
+            {
+                RHU.CustomElement(...args);
             }
         });
 
@@ -213,7 +217,7 @@ var RHU;
             // Check for first time parse (document hasn't fully loaded yet):
             // NOTE(randomuserhi): check for isConnected as macros inside of others may be parsed, its just root macros
             //                     that need to be delayed until post windows load event
-            if (!RHU._DELAYED_PARSE && !this.isConnected) return;
+            if (RHU._DELAYED_PARSE && !this.isConnected) return;
 
             // Trigger parse on type change if we have not been parsed yet
             if (oldValue != newValue) RHU.Macro._parse(newValue, this);
@@ -541,7 +545,7 @@ var RHU;
             // Check for first time parse (document hasn't fully loaded yet):
             // NOTE(randomuserhi): check for isConnected as templates inside of others may be parsed, its just root templates
             //                     that need to be delayed until post windows load event
-            if (!RHU._DELAYED_PARSE && !this.isConnected) return;
+            if (RHU._DELAYED_PARSE && !this.isConnected) return;
 
             // Trigger parse on type change
             if (oldValue != newValue) RHU.Template._parse(newValue, this);
@@ -826,7 +830,7 @@ var RHU;
             // Check for first time parse (document hasn't fully loaded yet):
             // NOTE(randomuserhi): check for isConnected as components inside of others may be parsed, its just root components
             //                     that need to be delayed until post windows load event
-            if (!RHU._DELAYED_PARSE && !this.isConnected) return;
+            if (RHU._DELAYED_PARSE && !this.isConnected) return;
 
 			// Trigger parse on type change
 			if (oldValue != newValue) RHU.Component._parse(newValue, this);
@@ -1011,6 +1015,12 @@ var RHU;
          */
         RHU.CustomElement = function(type, object, source, options = { mode: "closed", defaultSlot: false })
         {
+            if (RHU._DELAYED_PARSE) 
+            {
+                RHU.CustomElement._delayedCalls.push(arguments);
+                return;
+            }
+
             if (type == "") throw new SyntaxError("'type' cannot be blank.");
             if (typeof type != "string") throw new TypeError("'type' must be a string");
             if (typeof source != "string") throw new TypeError("'source' must be a string");
@@ -1024,7 +1034,7 @@ var RHU;
                 let construct = Reflect.construct(HTMLElement, [], custom);
 
                 (function() {
-                    
+
                     /**
                      * TODO(randomuserhi): document parameters, _shadowRoot, _shadow
                      */
@@ -1066,9 +1076,11 @@ var RHU;
                     this._shadowRoot.append(...doc.body.childNodes);
 
                     // Attach to body to expand nested elements (Kinda hacky solution)
+                    let originalParent = this.parentNode;
                     if (document.body) document.body.appendChild(this);
                     // Detach from body to prevent HTML errors
-                    if (this.parentNode) this.parentNode.removeChild(this);
+                    if (originalParent) originalParent.appendChild(this);
+                    else document.body.removeChild(this);
 
                     // Call constructor
                     object.call(this);
@@ -1110,6 +1122,7 @@ var RHU;
             // As per creating custom elements, define them 
             customElements.define(`rhu-${type}`, custom);
         };
+        RHU.CustomElement._delayedCalls = [];
 
 	})();
 
