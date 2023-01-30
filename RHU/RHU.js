@@ -72,6 +72,13 @@ var RHU;
             {
                 RHU.Macro._parse(el.type, el);
             }
+            // NOTE(randomuserhi): A copy needs to be made as the collection changes as rhu-components
+            //                     are created and removed so make a copy to prevent that altering the loop
+            elements = [...document.getElementsByTagName("rhu-component")];
+            for (let el of elements)
+            {
+                RHU.Component._parse(el.type, el);
+            }
         });
 
         /**
@@ -262,18 +269,6 @@ var RHU;
             }
         });
         /**  
-         * @func{public} Consume this macro and remove it from DOM (used if replace: false)
-         */
-        RHU._Macro.prototype.consume = function() 
-        {
-            if (this.parentNode) 
-            {
-                HTMLElement.prototype.replaceWith.call(this, ...this._macro._content);
-                this._macro._element = null;
-            }
-            else throw new Error("'Macro' header is not attached to anything.");
-        };
-        /**  
          * @func{public override} Override append to use slot
          * @param ...items{Object} items being appended
          */
@@ -311,8 +306,6 @@ var RHU;
         /**  
          * @func{public} Create a macro of type
          * @param type{string} type of macro being created
-         * NOTE(randomuserhi): Since a macro is a copy and paste, you have to attach the macro first before setting its type. 
-         *                     if you set its type before attaching it to document then the macro will act as if { replace: false }
          */
         HTMLDocument.prototype.createMacro = function(type, parent = null)
         {
@@ -329,7 +322,7 @@ var RHU;
          * @param source{string} HTML of macro
          * @param options{Object} TODO(randomuserhi): document this object
          */
-        RHU.Macro = function(type, object, source, options = { replace: true })
+        RHU.Macro = function(type, object, source, options = {})
         {
             /**
              * @property{private} _type{string} name of component
@@ -351,12 +344,13 @@ var RHU;
             RHU.Macro._templates.set(type, object);
         };
         /**
-         * @get{public} element{HTMLElement} element of template.
+         * @get{public} header{HTMLElement} element of macro.
          */
-        Object.defineProperty(RHU.Macro.prototype, "element", {
+        Object.defineProperty(RHU.Macro.prototype, "header", {
+            enumerable: true,
             get() 
             {
-                return this._element;
+                return this._header;
             }
         });
         /**
@@ -365,11 +359,13 @@ var RHU;
          *                     I am aware doing a copy is not performant
          */   
         Object.defineProperty(RHU.Macro.prototype, "content", {
+            enumerable: true,
             get() 
             {
                 return [...this._content];
             }
         });
+        
         /**  
          * @func{public static} Parse an element and generate its macro
          * @param type{string} type of macro being created
@@ -379,37 +375,28 @@ var RHU;
         {
             // Purge old dom
             HTMLElement.prototype.replaceChildren.call(element);
+            if (element._macro)
+                for (let content of element._macro._content)
+                    if (content.parentNode) content.parentNode.remove(content);
 
             // Get constructor and create template, but do not call constructor yet
             // such that elements and properties can be populated
             let constructor = RHU.Macro._templates.get(type);
             if (!constructor) constructor = RHU.Macro._default;
-            let result = Object.create(constructor.prototype);
-
-            /**
-             * initialize object
-             *
-             * @property{private} _element{HTMLElement} Element containing component
-             * @property{private} _content{Array[HTMLElement]} elements that make up the macro
-             */
-            result._content = [];
-            result._element = null;
-
-            // Reference parent if options dictate so
-            if (result._options && (!result._options.replace || !element.parentNode))
-                result._element = element;
+            let construct = Object.create(constructor.prototype);
 
             // Get elements from parser 
-            let doc = RHU._domParser.parseFromString(result._source ? result._source : "", "text/html");
+            let doc = RHU._domParser.parseFromString(construct._source ? construct._source : "", "text/html");
 
             // Create properties
             let referencedElements = doc.querySelectorAll("*[rhu-id]");
+            let properties = {};
             for (let el of referencedElements)
             {
                 let identifier = el.getAttribute("rhu-id");
                 el.removeAttribute("rhu-id");
-                if (result.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                Object.defineProperty(result, identifier, {
+                if (identifier in properties) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                Object.defineProperty(properties, identifier, {
                     configurable: true,
                     enumerable: true,
                     get() 
@@ -419,37 +406,63 @@ var RHU;
                 })
             }
 
-            // Set new macro
-            element._macro = result;
-
-            // Attach to body to generate all dom children and calculate sizing etc...
-            let originalParent = element.parentNode;
-            if (document.body) document.body.appendChild(element);
-
-            // Append new dom
-            // NOTE(randomuserhi): a shadow is used to be able to generate content of nested custom elements
-            //                     since custom elements only generate when appened to Document, so append shadow
-            //                     to document and then replace macro element
-            // NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
+            // Attach to body to expand nested elements (Kinda hacky solution)
             let shadow = document.createElement("rhu-shadow");
             shadow.append(...doc.head.childNodes);
             shadow.append(...doc.body.childNodes);
-            HTMLElement.prototype.append.call(element, shadow);
+            document.body.appendChild(shadow);
+
+            // Move items back to doc to perform queries
+            doc.body.appendChild(shadow);
+
+            // Get main node (First node, prioritizing first element), if no nodes are present then dont assign a main node.
+            // NOTE(randomuserhi): Since we are refering to nodes, text nodes may technically be used as the main
+            //                     node.
+            let result = construct;
+            if (shadow.childNodes.length > 0) 
+            {
+                result = shadow.children.length > 0 ? shadow.children[0] : shadow.childNodes[0];
+                // Assign getters and setters from original prototype:
+                Object.defineProperties(result, Object.getOwnPropertyDescriptors(RHU.Macro.prototype));
+                // Assign getters and setters from constructor (may contain user-defined gets and sets):
+                Object.defineProperties(result, Object.getOwnPropertyDescriptors(constructor.prototype));
+                Object.assign(result, constructor.prototype);
+            }
+            // Assign properties to result object
+            for (let identifier in properties)
+            {
+                if (identifier in result) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                Object.defineProperty(result, identifier, {
+                    configurable: true,
+                    enumerable: true,
+                    get() 
+                    {
+                        return properties[identifier];
+                    }
+                })
+            }
+
+            /**
+             * initialize object
+             *
+             * @property{private} _element{HTMLElement} Element containing component
+             * @property{private} _content{Array[HTMLElement]} elements that make up the macro
+             */
+            result._content = [];
+            result._header = element;
+
+            // Remove from doc to prevent HTML issues
             result._content.push(...shadow.childNodes);
+            HTMLElement.prototype.append.call(element, ...shadow.childNodes);
+
+            // Set new macro
+            element._macro = result;
 
             // Call constructor
             constructor.call(result);
 
-            // Detach from body to prevent HTML errors
-            if (originalParent) originalParent.appendChild(element);
-            else document.body.removeChild(element);
-
-            // replace macro header if options dictate so, if unable to do so (macro not attached)
-            // then act as if { replace: false }
-            if (result._options && result._options.replace && element.parentNode)
-                element.replaceWith(...result._content);
-            else
-                shadow.replaceWith(...result._content);
+            // replace macro header if possible
+            element.replaceWith(...result._content);
         };
         /**
          * @property{private static} _templates{Map[string -> RHU.Macro]} Maps a type name to a RHU.Macro 
@@ -562,6 +575,7 @@ var RHU;
          * @get{public static} observedAttributes{Array[string]} As per HTML Spec provide which attributes that are being watched
          */ 
         Object.defineProperty(RHU._Template, "observedAttributes", {
+            enumerable: true,
             get() 
             {
                 return ["rhu-type"];
@@ -620,7 +634,7 @@ var RHU;
          * @param source{string} HTML of component
          * @param options{Object} TODO(randomuserhi): document this object
          */
-        RHU.Template = function(type, object, source, options = { defaultSlot: true })
+        RHU.Template = function(type, object, source, options = { defaultSlot: false })
         {
             /**
              * @property{private} _type{string} name of component
@@ -641,24 +655,6 @@ var RHU;
             if (RHU.Template._templates.has(type)) console.warn(`Template template '${type}' already exists. Definition will be overwritten.`);
             RHU.Template._templates.set(type, object);
         };
-        /**
-         * @get{public} element{HTMLElement} element of template.
-         */
-        Object.defineProperty(RHU.Template.prototype, "element", {
-            get() 
-            {
-                return this._element;
-            }
-        });
-        /**
-         * @get{public} shadow{HTMLElement} shadow of component.
-         */
-        Object.defineProperty(RHU.Template.prototype, "shadow", {
-            get() 
-            {
-                return this._shadow;
-            }
-        });
         /**  
          * @func{public static} Parse an element and generate its template
          * @param type{string} type of template being created
@@ -683,21 +679,19 @@ var RHU;
             //                     too many redefine calls.
             if (element._redefine) RHU.js.redefine(element, RHU._Template.prototype, RHU._Template.properties);
             element._redefine = true;
+            // Assign getters and setters from original prototype:
+            Object.defineProperties(element, Object.getOwnPropertyDescriptors(RHU.Template.prototype));
+            // Assign getters and setters from constructor (may contain user-defined gets and sets):
+            Object.defineProperties(element, Object.getOwnPropertyDescriptors(constructor.prototype));
             Object.assign(element, constructor.prototype);
-
-            /**
-             * initialize object
-             *
-             * @property{private} _shadow{HTMLElement} Shadow of element, contains DOM that makes up component
-             */
-            element._shadow = document.createElement("rhu-shadow"); // NOTE(randomuserhi): <rhu-shadow> acts like shadow dom for templates
-
-            HTMLElement.prototype.appendChild.call(element, element._shadow);
 
             // Get elements from parser 
             let doc = RHU._domParser.parseFromString(element._source ? element._source : "", "text/html");
 
             // Create properties
+            // NOTE(randomuserhi): In the event proper macros are added, this property search should happen
+            //                     after append to document such that all children are generated so that it can
+            //                     locate un-consumed rhu-id's that were dynamically generated.
             let referencedElements = doc.querySelectorAll("*[rhu-id]");
             for (let el of referencedElements)
             {
@@ -713,7 +707,7 @@ var RHU;
                     }
                 })
             }
-
+ 
             // Find append targets
             // NOTE(randomuserhi): A new array is created cause the collection is a reference, so when we append
             //                     new dom the later check to possibleTargets.length == 0 won't be correct.
@@ -726,19 +720,18 @@ var RHU;
 
             // Append new dom
             // NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
-            element._shadow.append(...doc.head.childNodes);
-            element._shadow.append(...doc.body.childNodes);
+            HTMLElement.prototype.append.call(element, ...doc.head.childNodes);
+            HTMLElement.prototype.append.call(element, ...doc.body.childNodes);
 
-            // Attach to body to generate all dom children and calculate sizing etc...
+            // Attach to body to expand nested elements (Kinda hacky solution)
             let originalParent = element.parentNode;
             if (document.body) document.body.appendChild(element);
-
-            // Call constructor
-            constructor.call(element);
-
             // Detach from body to prevent HTML errors
             if (originalParent) originalParent.appendChild(element);
             else document.body.removeChild(element);
+
+            // Call constructor
+            constructor.call(element);
 
             // If no append targets were found, append one
             // NOTE(randomuserhi): called after constructor, to assure append target is at the end
@@ -760,7 +753,7 @@ var RHU;
          */
         RHU.Template._default = function() {};
         RHU.Template._default.prototype = Object.create(RHU.Template.prototype);
-        RHU.Template._default.prototype._options = { defaultSlot: true };
+        RHU.Template._default.prototype._options = { defaultSlot: false };
 
 		/**
 		 * @property{public static} COMPONENT_SHADOW_MODE{string} determines the shadow mode for RHU.Component's 
@@ -782,7 +775,7 @@ var RHU;
                 Object.assign(this, RHU._Component.properties);
 
 				this._redefine = false;
-				this._shadowRoot = this.attachShadow({ mode: RHU.COMPONENT_SHADOW_MODE });
+				this._shadow = this.attachShadow({ mode: RHU.COMPONENT_SHADOW_MODE });
 
 				// setup mutation observer to watch for attribute changes: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
 				// TODO(randomuserhi): allow to detect other changes
@@ -817,7 +810,7 @@ var RHU;
          */
         RHU._Component.properties = {
             _redefine: false,
-            _shadowRoot: null,
+            _shadow: null,
             observer: null
         }
 		/**
@@ -830,6 +823,11 @@ var RHU;
 		 */
 		RHU._Component.prototype.attributeChangedCallback = function(name, oldValue, newValue)
 		{
+            // Check for first time parse (document hasn't fully loaded yet):
+            // NOTE(randomuserhi): check for isConnected as components inside of others may be parsed, its just root components
+            //                     that need to be delayed until post windows load event
+            if (!RHU._DELAYED_PARSE && !this.isConnected) return;
+
 			// Trigger parse on type change
 			if (oldValue != newValue) RHU.Component._parse(newValue, this);
 		};
@@ -880,7 +878,7 @@ var RHU;
 		 * NOTE(randomuserhi): Not sure if storing a document and cloning is faster than what I currently do which is just running 
 		 *       	           _domParser.parseFromString() on creation every time and moving the elements.
 		 */
-		RHU.Component = function(type, object, source, options = { defaultSlot: true })
+		RHU.Component = function(type, object, source, options = { defaultSlot: false })
 		{
 			/**
 			 * @property{private} _type{string} name of component
@@ -905,6 +903,7 @@ var RHU;
          * @get{public} root{HTMLElement} root of component.
          */
         Object.defineProperty(RHU.Component.prototype, "shadow", {
+            enumerable: true,
             get() 
             {
                 return this._shadow;
@@ -918,7 +917,7 @@ var RHU;
 		RHU.Component._parse = function(type, element)
 		{
 			// If component exists, clear shadow root
-			if (element._shadowRoot) element._shadowRoot.replaceChildren();
+			if (element._shadow) element._shadow.replaceChildren();
 
             // Get constructor and create template, but do not call constructor yet
             // such that elements and properties can be populated
@@ -929,19 +928,19 @@ var RHU;
             //                     too many redefine calls.
             if (element._redefine) RHU.js.redefine(element, RHU._Component.prototype, RHU._Component.properties);
             element._redefine = true;
+            // Assign getters and setters from original prototype:
+            Object.defineProperties(element, Object.getOwnPropertyDescriptors(RHU.Component.prototype));
+            // Assign getters and setters from constructor (may contain user-defined gets and sets):
+            Object.defineProperties(element, Object.getOwnPropertyDescriptors(constructor.prototype));
             Object.assign(element, constructor.prototype);
-
-            /**
-             * initialize object
-             *
-             * @property{private} _shadow{HTMLElement} Root of element, contains DOM that makes up component
-             */
-            element._shadow = element._shadowRoot;
 
 			// Get elements from parser 
 			let doc = RHU._domParser.parseFromString(element._source ? element._source : "", "text/html");
 
 			// Create properties
+            // NOTE(randomuserhi): In the event proper macros are added, this property search should happen
+            //                     after append to document such that all children are generated so that it can
+            //                     locate un-consumed rhu-id's that were dynamically generated.
 			let referencedElements = doc.querySelectorAll("*[rhu-id]");
 			for (let el of referencedElements)
 			{
@@ -967,32 +966,26 @@ var RHU;
 
 			// Append new dom
 			// NOTE(randomuserhi): head and body both need to be appended to adjust for <style> and <script> tags that are inserted at head
-			element._shadowRoot.append(...doc.head.childNodes);
-			element._shadowRoot.append(...doc.body.childNodes);
+			element._shadow.append(...doc.head.childNodes);
+			element._shadow.append(...doc.body.childNodes);
 
-            // Attach to body to generate all dom children and calculate sizing etc...
+            // Attach to body to expand nested elements (Kinda hacky solution)
             let originalParent = element.parentNode;
             if (document.body) document.body.appendChild(element);
-
-            // Call constructor
-            constructor.call(element);
-
             // Detach from body to prevent HTML errors
             if (originalParent) originalParent.appendChild(element);
             else document.body.removeChild(element);
 
+            // Call constructor
+            constructor.call(element);
+
             // If no append targets were found, append one
             // NOTE(randomuserhi): called after constructor, to assure append target is at the end
-            if (possibleTargets.length == 0 && element._options && element._options.defaultSlot) 
-            {
-                element._shadow = document.createElement("rhu-shadow");
-                element._shadow.append(...element._shadowRoot.childNodes);
-                element._shadowRoot.append(element._shadow);
-                element._shadowRoot.appendChild(document.createElement("slot"));
-            }
+            if (possibleTargets.length == 0 && element._options && element._options.defaultSlot)
+                element._shadow.appendChild(document.createElement("slot"));
 
             // Add default styles
-            RHU.InsertDefaultStyles(element._shadowRoot);
+            RHU.InsertDefaultStyles(element._shadow);
 		};
 		/**
 		 * @property{private static} _templates{Map[string -> RHU.Component]} Maps a type name to a RHU.Component 
@@ -1004,7 +997,7 @@ var RHU;
 		 */
 		RHU.Component._default = function() {};
 		RHU.Component._default.prototype = Object.create(RHU.Component.prototype);
-        RHU.Component._default.prototype._options = { defaultSlot: true };
+        RHU.Component._default.prototype._options = { defaultSlot: false };
 
         /**
          * @func{public static} Creates a new custom element
@@ -1016,7 +1009,7 @@ var RHU;
          * NOTE(randomuserhi): Not sure if storing a document and cloning is faster than what I currently do which is just running 
          *                     _domParser.parseFromString() on creation every time and moving the elements.
          */
-        RHU.CustomElement = function(type, object, source, options = { mode: "closed", defaultSlot: true })
+        RHU.CustomElement = function(type, object, source, options = { mode: "closed", defaultSlot: false })
         {
             if (type == "") throw new SyntaxError("'type' cannot be blank.");
             if (typeof type != "string") throw new TypeError("'type' must be a string");
@@ -1072,14 +1065,13 @@ var RHU;
                     this._shadowRoot.append(...doc.head.childNodes);
                     this._shadowRoot.append(...doc.body.childNodes);
 
-                    // Attach to body to generate all dom children and calculate sizing etc...
+                    // Attach to body to expand nested elements (Kinda hacky solution)
                     if (document.body) document.body.appendChild(this);
+                    // Detach from body to prevent HTML errors
+                    if (this.parentNode) this.parentNode.removeChild(this);
 
                     // Call constructor
                     object.call(this);
-
-                    // Detach from body to prevent HTML errors
-                    if (this.parentNode) this.parentNode.removeChild(this);
 
                     // If no append targets were found, append one
                     // NOTE(randomuserhi): called after constructor, to assure append target is at the end
