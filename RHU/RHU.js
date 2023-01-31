@@ -56,30 +56,25 @@ var RHU;
         // Disable parsing templates until after window load event
         // https://github.com/WICG/webcomponents/issues/809#issuecomment-737669670
         RHU._DELAYED_PARSE = true;
+        RHU._DELAYED_ELEMENTS = [];
+        // TODO(randomuserhi): document this => stores elements that have yet to be parsed due to being set prior to window load
+        RHU._delayedEl = function(element, type) 
+        {
+            this.element = element;
+            this.type = type;
+        }
+        RHU._delayedEl.prototype.apply = function()
+        {
+            if (!this.element._constructed)
+            {
+                this.element.type = this.type;
+                this.element.attributeChangedCallback("rhu-type", "", this.type);
+            }
+        }
         window.addEventListener("load", () => {
             RHU._DELAYED_PARSE = false;
-            // NOTE(randomuserhi): A copy needs to be made as the collection changes as rhu-template
-            //                     are created and removed so make a copy to prevent that altering the loop
-            let elements = [...document.getElementsByTagName("rhu-template")];
-            for (let el of elements)
-            {
-                RHU.Template._parse(el.type, el);
-            }
-            // NOTE(randomuserhi): A copy needs to be made as the collection changes as rhu-macros
-            //                     are created and removed so make a copy to prevent that altering the loop
-            elements = [...document.getElementsByTagName("rhu-macro")];
-            for (let el of elements)
-            {
-                RHU.Macro._parse(el.type, el);
-            }
-            // NOTE(randomuserhi): A copy needs to be made as the collection changes as rhu-components
-            //                     are created and removed so make a copy to prevent that altering the loop
-            elements = [...document.getElementsByTagName("rhu-component")];
-            for (let el of elements)
-            {
-                RHU.Component._parse(el.type, el);
-            }
-            for (let args of RHU.CustomElement._delayedCalls)
+            for (let el of RHU._DELAYED_ELEMENTS) el.apply();
+            for (let args of RHU.CustomElement._DELAYED_CUSTOM_ELEMENTS)
             {
                 RHU.CustomElement(...args);
             }
@@ -155,18 +150,21 @@ var RHU;
                  * TODO(randomuserhi): document parameters, _macro
                  */
 
+                this._constructed = false;
                 this._macro = null;
 
                 // setup mutation observer to watch for attribute changes: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
                 // TODO(randomuserhi): allow to detect other changes
                 const callback = (mutationList, observer) => 
                 {
+                    if (!this._constructed) return;
+
                     for (const mutation of mutationList) 
                     {
                         if (mutation.type == "attributes")
                         {
                             if (!RHU._Macro.observedAttributes.includes(mutation.attributeName))
-                            this._macro?.attributeChangedCallback?.call(this._macro, 
+                            this._macro?.onAttributeChange?.call(this._macro, 
                                 mutation.attributeName, mutation.oldValue, this.getAttribute(mutation.attributeName)
                             );
                         }
@@ -175,6 +173,7 @@ var RHU;
                 this.observer = new MutationObserver(callback);
                 this.observer.observe(this, {
                     attributes: true,
+                    attributeOldValue: true,
                     childList: false,
                     subtree: false
                 });
@@ -195,18 +194,33 @@ var RHU;
             {
                 return this._macro;
             }
-        })
+        });
+        /**  
+         * TODO(randomuserhi): document this
+         */
+        Object.defineProperty(RHU._Macro.prototype, "constructed", {
+            get() 
+            {
+                return this._constructed;
+            }
+        });
+        /**  
+         * @func{public} Consume macro if it was generated prior to document body.
+         */
+        RHU._Macro.prototype.consume = function()
+        {
+            if (this._macro)
+            {
+                HTMLElement.prototype.replaceWith.call(this, ...this._macro._content);
+            }
+        };
         /**  
          * @func{public override} callback that is triggered when element is connected to something
          *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
          */
         RHU._Macro.prototype.connectedCallback = function()
         {
-            if (this._macro)
-            {
-                if (this._macro._options && !this._macro._options.replace)
-                    this._macro.connectedCallback?.call(this._macro);
-            }
+            this.consume();
         };
         /**  
          * @func{public override} callback that is triggered when rhu-template type changes
@@ -217,7 +231,11 @@ var RHU;
             // Check for first time parse (document hasn't fully loaded yet):
             // NOTE(randomuserhi): check for isConnected as macros inside of others may be parsed, its just root macros
             //                     that need to be delayed until post windows load event
-            if (RHU._DELAYED_PARSE && !this.isConnected) return;
+            if (RHU._DELAYED_PARSE && !this.isConnected)
+            {
+                RHU._DELAYED_ELEMENTS.push(new RHU._delayedEl(this, newValue));
+                return;
+            }
 
             // Trigger parse on type change if we have not been parsed yet
             if (oldValue != newValue) RHU.Macro._parse(newValue, this);
@@ -467,6 +485,10 @@ var RHU;
 
             // replace macro header if possible
             element.replaceWith(...result._content);
+
+            // Set macro as constructed
+            element._constructed = true;
+            result._constructed = true;
         };
         /**
          * @property{private static} _templates{Map[string -> RHU.Macro]} Maps a type name to a RHU.Macro 
@@ -493,6 +515,7 @@ var RHU;
                  */
                 Object.assign(this, RHU._Component.properties);
 
+                this._constructed = false;
                 this._redefine = true;
                 this._slot = null;
 
@@ -500,6 +523,8 @@ var RHU;
                 // TODO(randomuserhi): allow to detect other changes
                 const callback = (mutationList, observer) => 
                 {
+                    if (!this._constructed) return;
+
                     for (const mutation of mutationList) 
                     {
                         if (mutation.type == "attributes")
@@ -514,6 +539,7 @@ var RHU;
                 this.observer = new MutationObserver(callback);
                 this.observer.observe(this, {
                     attributes: true,
+                    attributeOldValue: true,
                     childList: false,
                     subtree: false
                 });
@@ -530,12 +556,22 @@ var RHU;
         RHU._Template.properties = {
             _redefine: false,
             _slot: null,
+            _constructed: false,
             observer: null
         }
         /**
          * Inherit from HTMLElement
          */
         RHU._Template.prototype = Object.create(HTMLElement.prototype);
+        /**  
+         * TODO(randomuserhi): document this
+         */
+        Object.defineProperty(RHU._Template.prototype, "constructed", {
+            get() 
+            {
+                return this._constructed;
+            }
+        });
         /**  
          * @func{public override} callback that is triggered when rhu-template type changes
          *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
@@ -545,7 +581,11 @@ var RHU;
             // Check for first time parse (document hasn't fully loaded yet):
             // NOTE(randomuserhi): check for isConnected as templates inside of others may be parsed, its just root templates
             //                     that need to be delayed until post windows load event
-            if (RHU._DELAYED_PARSE && !this.isConnected) return;
+            if (RHU._DELAYED_PARSE && !this.isConnected)
+            {
+                RHU._DELAYED_ELEMENTS.push(new RHU._delayedEl(this, newValue));
+                return;
+            }
 
             // Trigger parse on type change
             if (oldValue != newValue) RHU.Template._parse(newValue, this);
@@ -666,6 +706,9 @@ var RHU;
          */
         RHU.Template._parse = function(type, element)
         {
+            // Set element to not be constructed
+            element._constructed = false;
+
             // Get children
             let frag = new DocumentFragment();
             if (element._slot) frag.append(...element._slot.childNodes);
@@ -746,6 +789,9 @@ var RHU;
 
             // Append children
             element._slot.append(...frag.childNodes);
+
+            // Set element as constructed
+            element._constructed = true;
         };
         /**
          * @property{private static} _templates{Map[string -> RHU.Template]} Maps a type name to a RHU.Template 
@@ -779,12 +825,15 @@ var RHU;
                 Object.assign(this, RHU._Component.properties);
 
 				this._redefine = false;
+                this._constructed = false;
 				this._shadow = this.attachShadow({ mode: RHU.COMPONENT_SHADOW_MODE });
 
 				// setup mutation observer to watch for attribute changes: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
 				// TODO(randomuserhi): allow to detect other changes
 				const callback = (mutationList, observer) => 
 				{
+                    if (!this._constructed) return;
+
 					for (const mutation of mutationList) 
 					{
 						if (mutation.type == "attributes")
@@ -814,6 +863,7 @@ var RHU;
          */
         RHU._Component.properties = {
             _redefine: false,
+            _constructed: false,
             _shadow: null,
             observer: null
         }
@@ -830,11 +880,24 @@ var RHU;
             // Check for first time parse (document hasn't fully loaded yet):
             // NOTE(randomuserhi): check for isConnected as components inside of others may be parsed, its just root components
             //                     that need to be delayed until post windows load event
-            if (RHU._DELAYED_PARSE && !this.isConnected) return;
+            if (RHU._DELAYED_PARSE && !this.isConnected)
+            {
+                RHU._DELAYED_ELEMENTS.push(new RHU._delayedEl(this, newValue));
+                return;
+            }
 
 			// Trigger parse on type change
 			if (oldValue != newValue) RHU.Component._parse(newValue, this);
 		};
+        /**  
+         * TODO(randomuserhi): document this
+         */
+        Object.defineProperty(RHU._Component.prototype, "constructed", {
+            get() 
+            {
+                return this._constructed;
+            }
+        });
 		/**
 		 * @get{public} type{string} get typename of rhu-component
 		 * @set{public} type{string} set typename of rhu-component
@@ -920,6 +983,9 @@ var RHU;
 		 */
 		RHU.Component._parse = function(type, element)
 		{
+            // Set element to not be constructed
+            element._constructed = false;
+
 			// If component exists, clear shadow root
 			if (element._shadow) element._shadow.replaceChildren();
 
@@ -990,6 +1056,9 @@ var RHU;
 
             // Add default styles
             RHU.InsertDefaultStyles(element._shadow);
+
+            // Set element as constructed
+            element._constructed = true;
 		};
 		/**
 		 * @property{private static} _templates{Map[string -> RHU.Component]} Maps a type name to a RHU.Component 
@@ -1017,7 +1086,7 @@ var RHU;
         {
             if (RHU._DELAYED_PARSE) 
             {
-                RHU.CustomElement._delayedCalls.push(arguments);
+                RHU.CustomElement._DELAYED_CUSTOM_ELEMENTS.push(arguments);
                 return;
             }
 
@@ -1122,7 +1191,7 @@ var RHU;
             // As per creating custom elements, define them 
             customElements.define(`rhu-${type}`, custom);
         };
-        RHU.CustomElement._delayedCalls = [];
+        RHU.CustomElement._DELAYED_CUSTOM_ELEMENTS = [];
 
 	})();
 
