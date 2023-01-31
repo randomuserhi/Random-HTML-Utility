@@ -377,6 +377,23 @@ var RHU;
             RHU.Macro._templates.set(type, object);
         };
         /**
+         * NOTE(randomuserhi): Not sure how much sense it makes to register items into macro content
+         *                     This is nice for when you have dynamic macro content thats in macro root, so
+         *                     the only way to append the entire macro is to use .content, but should you
+         *                     really be appending to macro root? you can't even reference it unless
+         *                     you go roundabout via macro header (.header) or through .parentNode.
+         *                     
+         *                     For now, commented out cause this doesn't make much sense.
+         */
+        /*RHU.Macro.prototype.registerContent = function(item) 
+        {
+            this._content.push(item);
+        }
+        RHU.Macro.prototype.unregisterContent = function(item) 
+        {
+            this._content = this._content.filter(el => el !== item);
+        }*/
+        /**
          * @get{public} header{HTMLElement} element of macro.
          */
         Object.defineProperty(RHU.Macro.prototype, "header", {
