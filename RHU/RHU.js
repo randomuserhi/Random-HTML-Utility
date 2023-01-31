@@ -58,6 +58,7 @@ var RHU;
         RHU._DELAYED_PARSE = true;
         RHU._DELAYED_ELEMENTS = [];
         // TODO(randomuserhi): document this => stores elements that have yet to be parsed due to being set prior to window load
+        // TODO(randomuserhi): rename to something like _delayedParse
         RHU._delayedEl = function(element, type) 
         {
             this.element = element;
@@ -135,7 +136,17 @@ var RHU;
             {
                 return this;
             }
-        })
+        });
+
+        /**
+         * TODO(randomuserhi): document this function override, its used to determine what objects to grab
+         */
+        Object.defineProperty(Node.prototype, "content", {
+            get() 
+            {
+                return [this];
+            }
+        });
 
         /**
          * @class{RHU._Macro} Describes a custom HTML element
@@ -147,7 +158,7 @@ var RHU;
             (function() {
                 
                 /**
-                 * TODO(randomuserhi): document parameters, _macro
+                 * TODO(randomuserhi): document parameters, _constructed, _macro
                  */
 
                 this._constructed = false;
@@ -417,7 +428,7 @@ var RHU;
             {
                 let identifier = el.getAttribute("rhu-id");
                 el.removeAttribute("rhu-id");
-                if (identifier in properties) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                if (properties.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
                 Object.defineProperty(properties, identifier, {
                     configurable: true,
                     enumerable: true,
@@ -453,7 +464,9 @@ var RHU;
             // Assign properties to result object
             for (let identifier in properties)
             {
-                if (identifier in result) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                if (construct._options && construct._options.strict)
+                    if (identifier in result) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                else if (result.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
                 Object.defineProperty(result, identifier, {
                     configurable: true,
                     enumerable: true,
@@ -744,7 +757,9 @@ var RHU;
             {
                 let identifier = el.getAttribute("rhu-id");
                 el.removeAttribute("rhu-id");
-                if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                if (element._options && element._options.strict)
+                    if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                else if (element.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
                 Object.defineProperty(element, identifier, {
                     configurable: true,
                     enumerable: true,
@@ -1019,7 +1034,9 @@ var RHU;
 			{
 				let identifier = el.getAttribute("rhu-id");
 				el.removeAttribute("rhu-id");
-				if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+				if (element._options && element._options.strict)
+                    if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                else if (element.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
 				Object.defineProperty(element, identifier, {
 					configurable: true,
 					enumerable: true,
@@ -1124,7 +1141,9 @@ var RHU;
                     {
                         let identifier = el.getAttribute("rhu-id");
                         el.removeAttribute("rhu-id");
-                        if (this.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                        if (options && options.strict)
+                            if (identifier in this) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                        else if (this.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
                         Object.defineProperty(this, identifier, {
                             configurable: true,
                             enumerable: true,
