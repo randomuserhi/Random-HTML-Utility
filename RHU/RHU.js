@@ -760,6 +760,9 @@ var RHU;
             //                     new dom the later check to possibleTargets.length == 0 won't be correct.
             //                     It may be better to just have a boolean check here instead and store the primitive
             //                     since creating a new array is expensive.
+            // NOTE(randomuserhi): This must be performed before generating nested dom by attaching to body
+            //                     such that it doesnt pull nested rhu-slot's from other templates as possible
+            //                     targets.
             let possibleTargets = [...doc.getElementsByTagName("rhu-slot")];
             // Obtain slot, if there isn't a provided slot then create a new one
             element._slot = possibleTargets[0];
