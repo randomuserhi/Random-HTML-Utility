@@ -43,6 +43,10 @@ var RHU;
 			        delete object[key];
 			    }
 			}
+			for (let symbol in Object.getOwnPropertySymbols(b))
+			{
+				delete object[symbol];
+			}
 		}
 
 		/**

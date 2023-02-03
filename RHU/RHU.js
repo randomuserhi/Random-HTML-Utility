@@ -398,6 +398,7 @@ var RHU;
          */
         Object.defineProperty(RHU.Macro.prototype, "header", {
             enumerable: true,
+            configurable: true,
             get() 
             {
                 return this._header;
@@ -410,6 +411,7 @@ var RHU;
          */   
         Object.defineProperty(RHU.Macro.prototype, "content", {
             enumerable: true,
+            configurable: true,
             get() 
             {
                 return [...this._content];
@@ -482,8 +484,16 @@ var RHU;
             for (let identifier in properties)
             {
                 if (construct._options && construct._options.strict)
-                    if (identifier in result) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                else if (result.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                {
+                    if (construct._options.strict == "all")
+                    {
+                        if (identifier in result) throw new SyntaxError(`Identifier '${identifier}' cannot override internal property.`);
+                    }
+                    else if (construct._options.strict == "partial")
+                    {
+                        if (result.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' cannot override macro property.`);
+                    }
+                }
                 Object.defineProperty(result, identifier, {
                     configurable: true,
                     enumerable: true,
@@ -491,7 +501,7 @@ var RHU;
                     {
                         return properties[identifier];
                     }
-                })
+                });
             }
 
             /**
@@ -511,6 +521,7 @@ var RHU;
             element._macro = result;
 
             // Call constructor
+            console.log(`innerHTML: ${result.innerHTML}`);
             constructor.call(result);
 
             // replace macro header if possible
@@ -770,13 +781,24 @@ var RHU;
             //                     after append to document such that all children are generated so that it can
             //                     locate un-consumed rhu-id's that were dynamically generated.
             let referencedElements = doc.querySelectorAll("*[rhu-id]");
+            let properties = {}
             for (let el of referencedElements)
             {
                 let identifier = el.getAttribute("rhu-id");
                 el.removeAttribute("rhu-id");
                 if (element._options && element._options.strict)
-                    if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                else if (element.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                {
+                    if (construct._options.strict == "all")
+                    {
+                        if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' cannot override internal property.`);
+                    }
+                    else if (construct._options.strict == "partial")
+                    {
+                        if (element.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' cannot override macro property.`);
+                    }
+                }
+                else if (properties.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier'${identifier}' already exists.`);
+                properties[identifier] = null;
                 Object.defineProperty(element, identifier, {
                     configurable: true,
                     enumerable: true,
@@ -1047,13 +1069,23 @@ var RHU;
             //                     after append to document such that all children are generated so that it can
             //                     locate un-consumed rhu-id's that were dynamically generated.
 			let referencedElements = doc.querySelectorAll("*[rhu-id]");
+            let properties = {};
 			for (let el of referencedElements)
 			{
 				let identifier = el.getAttribute("rhu-id");
 				el.removeAttribute("rhu-id");
 				if (element._options && element._options.strict)
-                    if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                else if (element.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                {
+                    if (construct._options.strict == "all")
+                    {
+                        if (identifier in element) throw new SyntaxError(`Identifier '${identifier}' cannot override internal property.`);
+                    }
+                    else if (construct._options.strict == "partial")
+                    {
+                        if (element.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' cannot override macro property.`);
+                    }
+                }
+                else if (properties.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier'${identifier}' already exists.`);
 				Object.defineProperty(element, identifier, {
 					configurable: true,
 					enumerable: true,
@@ -1159,8 +1191,17 @@ var RHU;
                         let identifier = el.getAttribute("rhu-id");
                         el.removeAttribute("rhu-id");
                         if (options && options.strict)
-                            if (identifier in this) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                        else if (this.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                        {
+                            if (construct._options.strict == "all")
+                            {
+                                if (identifier in this) throw new SyntaxError(`Identifier '${identifier}' cannot override internal property.`);
+                            }
+                            else if (construct._options.strict == "partial")
+                            {
+                                if (this.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' cannot override macro property.`);
+                            }
+                        }
+                        else if (properties.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier'${identifier}' already exists.`);
                         Object.defineProperty(this, identifier, {
                             configurable: true,
                             enumerable: true,
