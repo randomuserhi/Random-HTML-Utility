@@ -1,0 +1,19 @@
+<html>
+	<head>
+		<script src="RHU/RHU.js"></script>
+	</head>
+	<script type="text/javascript">
+		let example = function()
+		{
+			this.content = "example!";
+		}
+		example.prototype = new RHU.Macro(
+			"example", example,
+			`
+			<div rhu-id="content"></div>
+			`);
+	</script>
+	<body>
+		<rhu-macro rhy-type="example"></rhu-macro>
+	</body>
+</html>
