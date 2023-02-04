@@ -7,6 +7,8 @@
 
 /**
  * @namespace RHU
+ *
+ * TODO(randomuserhi): Documentation!
  */
 (function (_RHU, RHU) 
 {
@@ -86,6 +88,9 @@
         return properties;
     };
 
+    // TODO(randomuserhi): To make life easier for `RHU_STRICT_MODE`, I can check the prefix of p for a _ and make it not enumerable for `definePublicProperty` and `definePublicAccessor`
+    //                     but this does mean that the function name isn't fully descriptive, maybe make it an option for { makePrivateNonEnumerable: true }
+
     let defineProperty = function(obj, p, o, options = {})
     {
         let opt = {
@@ -96,13 +101,32 @@
         for (let key in opt) if (exists(options[key])) opt[key] = options[key];
 
         if (opt.replace || !properties(obj, { hasOwn: true }).has(p))
-        { 
+        {
+            delete obj[p]; // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'
             Object.defineProperty(obj, p, o);
             return true;
         }
         if (opt.warn) console.warn(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
         if (opt.err) console.error(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
         return false;
+    };
+
+    let definePublicProperty = function(obj, p, o, options = {})
+    {
+        let opt = {
+            writable: true,
+            enumerable: true
+        };
+        defineProperty(obj, p, Object.assign(opt, o), options);
+    };
+
+    let definePublicAccessor = function(obj, p, o, options = {})
+    {
+        let opt = {
+            configurable: true,
+            enumerable: true
+        };
+        defineProperty(obj, p, Object.assign(opt, o), options);
     };
 
     let defineProperties = function(obj, p, options = {})
@@ -116,44 +140,236 @@
         }
     };
 
-    let hasValue = function(obj, value)
+    let definePublicProperties = function(obj, p, options = {})
     {
-        for (let prop of properties(obj).keys())
+        let opt = function()
         {
-            if (value === obj[prop]) return true;
-        }
-        return false;
-    };
-
-    /**
-     * NOTE(randomuserhi): `exceptions = window`, prevents objects such as HTMLElement from becoming frozen.
-     *                     Because it uses `window` if public variables (declared by `var` or `window[]`) reference 
-     *                     RHU objects, this will stop them from locking. This is a useful feature, if people want 
-     *                     to keep certain RHU objects mutable.
-     * NOTE(randomuserhi): warning produced is nothing to worry about: 
-     *                     https://stackoverflow.com/questions/36060329/window-webkitstorageinfo-is-deprecated-warning-while-iterating-window-object
-     */
-    let useStrict = function(obj, exceptions = window)
-    {
-        Object.freeze(obj);
-        for (let prop of properties(obj).keys())
+            this.writable = true;
+            this.enumerable = true;
+        };
+        for (let key in p)
         {
-            let o = obj[prop];
-            if (o && !hasValue(exceptions, o)) Object.freeze(o, exceptions);
+            if (p.hasOwnProperty(key))
+            {
+                let o = Object.assign(new opt(), p[key]);
+                defineProperty(obj, key, o, options);
+            }
         }
     };
 
-    defineProperty(_RHU, "useStrict", { value: () => { useStrict(_RHU); } });
-    defineProperty(_RHU, "defineProperty", { writable: true, value: defineProperty });
-    defineProperty(_RHU, "defineProperties", { writable: true, value: defineProperties });
-    defineProperty(_RHU, "properties", { writable: true, value: properties });
-    defineProperty(_RHU, "exists", { writable: true, value: exists });
+    let definePublicAccessors = function(obj, p, options = {})
+    {
+        let opt = function()
+        {
+            this.configurable = true;
+            this.enumerable = true;
+        };
+        for (let key in p)
+        {
+            if (p.hasOwnProperty(key))
+            {
+                let o = Object.assign(new opt(), p[key]);
+                defineProperty(obj, key, o, options);
+            }
+        }
+    };
 
-    defineProperty(RHU, "useStrict", { get() { return _RHU.useStrict; } });
-    defineProperty(RHU, "defineProperty", { get() { return _RHU.defineProperty; }, set(value) { _RHU.defineProperty = value; } });
-    defineProperty(RHU, "defineProperties", { get() { return _RHU.defineProperties; }, set(value) { _RHU.defineProperties = value; } });
-    defineProperty(RHU, "properties", { get() { return _RHU.properties; }, set(value) { _RHU.properties = value; } });
-    defineProperty(RHU, "exists", { get() { return _RHU.exists; }, set(value) { _RHU.exists = value; } });
+    let assign = function(target, source)
+    {
+        if (target === source) return;
+        defineProperties(target, Object.getOwnPropertyDescriptors(source));
+    };
+
+    if (window.hasOwnProperty("RHU_STRICT_MODE"))
+    {
+        defineProperties(_RHU, {
+            defineProperty: {
+                enumerable: true,
+                value: defineProperty 
+            },
+            definePublicProperty: {
+                enumerable: true,
+                value: definePublicProperty
+            },
+            definePublicAccessor: {
+                enumerable: true,
+                value: definePublicAccessor
+            },
+            defineProperties: {
+                enumerable: true,
+                value: defineProperties
+            },
+            definePublicProperties: {
+                enumerable: true,
+                value: definePublicProperties
+            },
+            definePublicAccessors: {
+                enumerable: true,
+                value: definePublicAccessors
+            },
+
+            assign: {
+                enumerable: true,
+                value: assign
+            },
+
+            properties: {
+                enumerable: true,
+                value: properties
+            },
+
+            exists: {
+                enumerable: true,
+                value: exists
+            }
+        });
+
+        defineProperties(RHU, {
+            defineProperty: { 
+                enumerable: true,
+                get() { return _RHU.defineProperty; }, 
+                set(value) { _RHU.defineProperty = value; } 
+            },
+            definePublicProperty: { 
+                enumerable: true,
+                get() { return _RHU.definePublicProperty; }, 
+                set(value) { _RHU.definePublicProperty = value; }
+            },
+            definePublicAccessor: {
+                enumerable: true,
+                get() { return _RHU.definePublicAccessor; }, 
+                set(value) { _RHU.definePublicAccessor = value; }
+            },
+            defineProperties: {
+                enumerable: true,
+                get() { return _RHU.defineProperties; }, 
+                set(value) { _RHU.defineProperties = value; }
+            },
+            definePublicProperties: {
+                enumerable: true,
+                get() { return _RHU.definePublicProperties; }, 
+                set(value) { _RHU.definePublicProperties = value; }
+            },
+            definePublicAccessors: {
+                enumerable: true,
+                get() { return _RHU.definePublicAccessors; }, 
+                set(value) { _RHU.definePublicAccessors = value; }
+            },
+
+            assign: {
+                enumerable: true,
+                get() { return _RHU.assign },
+                set(value) { _RHU.assign = value }
+            },
+
+            properties: {
+                enumerable: true,
+                get() { return _RHU.properties; }, 
+                set(value) { _RHU.properties = value; }
+            },
+
+            exists : {
+                enumerable: true,
+                get() { return _RHU.exists; }, 
+                set(value) { _RHU.exists = value; }
+            }
+        });
+    }
+    else
+    {
+        definePublicProperties(_RHU, {
+            defineProperty: {
+                enumerable: true,
+                value: defineProperty 
+            },
+            definePublicProperty: {
+                enumerable: true,
+                value: definePublicProperty
+            },
+            definePublicAccessor: {
+                enumerable: true,
+                value: definePublicAccessor
+            },
+            defineProperties: {
+                enumerable: true,
+                value: defineProperties
+            },
+            definePublicProperties: {
+                enumerable: true,
+                value: definePublicProperties
+            },
+            definePublicAccessors: {
+                enumerable: true,
+                value: definePublicAccessors
+            },
+
+            assign: {
+                enumerable: true,
+                value: assign
+            },
+
+            properties: {
+                enumerable: true,
+                value: properties
+            },
+
+            exists: {
+                enumerable: true,
+                value: exists
+            }
+        });
+
+        definePublicAccessors(RHU, {
+            defineProperty: { 
+                enumerable: true,
+                get() { return _RHU.defineProperty; }, 
+                set(value) { _RHU.defineProperty = value; } 
+            },
+            definePublicProperty: { 
+                enumerable: true,
+                get() { return _RHU.definePublicProperty; }, 
+                set(value) { _RHU.definePublicProperty = value; }
+            },
+            definePublicAccessor: {
+                enumerable: true,
+                get() { return _RHU.definePublicAccessor; }, 
+                set(value) { _RHU.definePublicAccessor = value; }
+            },
+            defineProperties: {
+                enumerable: true,
+                get() { return _RHU.defineProperties; }, 
+                set(value) { _RHU.defineProperties = value; }
+            },
+            definePublicProperties: {
+                enumerable: true,
+                get() { return _RHU.definePublicProperties; }, 
+                set(value) { _RHU.definePublicProperties = value; }
+            },
+            definePublicAccessors: {
+                enumerable: true,
+                get() { return _RHU.definePublicAccessors; }, 
+                set(value) { _RHU.definePublicAccessors = value; }
+            },
+
+            assign: {
+                enumerable: true,
+                get() { return _RHU.assign },
+                set(value) { _RHU.assign = value }
+            },
+
+            properties: {
+                enumerable: true,
+                get() { return _RHU.properties; }, 
+                set(value) { _RHU.properties = value; }
+            },
+
+            exists : {
+                enumerable: true,
+                get() { return _RHU.exists; }, 
+                set(value) { _RHU.exists = value; }
+            }
+        });
+    }
 
 })((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
    (window["RHU"] || (window["RHU"] = {})));
@@ -180,11 +396,13 @@
     }
     insertDefaultStyles(document.head);
 
-    _RHU.defineProperty(_RHU, "domParser", { writable: true, value: domParser });
-    _RHU.defineProperty(_RHU, "insertDefaultStyles", { writable: true, value: insertDefaultStyles });
+    // TODO(randomuserhi): fix these property definitions:
 
-    _RHU.defineProperty(RHU, "domParser", { get() { return _RHU.domParser; }, set(value) { return _RHU.domParser; } });
-    _RHU.defineProperty(RHU, "insertDefaultStyles", { get() { return _RHU.insertDefaultStyles; }, set(value) { return _RHU.insertDefaultStyles; } });
+    _RHU.definePublicProperty(_RHU, "domParser", { value: domParser });
+    _RHU.definePublicProperty(_RHU, "insertDefaultStyles", { value: insertDefaultStyles });
+
+    _RHU.definePublicAccessor(RHU, "domParser", { get() { return _RHU.domParser; }, set(value) { return _RHU.domParser; } });
+    _RHU.definePublicAccessor(RHU, "insertDefaultStyles", { get() { return _RHU.insertDefaultStyles; }, set(value) { return _RHU.insertDefaultStyles; } });
 
     /**
      * @class{_Slot} Describes a custom HTML element
