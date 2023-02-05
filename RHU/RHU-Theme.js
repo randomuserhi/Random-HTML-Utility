@@ -11,34 +11,33 @@
  */
 (function (_RHU, RHU) 
 {
-
-	_RHU.definePublicAccessors(_RHU,{
-		/**
-		 * @get darkmode{Boolean}	True if device preferences is dark theme, otherwise false
-		 */
-		darkmode: {
-			enumerable: false,
-			get()
-			{
-				return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-			}
-		}
-	});
-
-	/**
-	 * NOTE(randomuserhi): Define public interface
-	 */
-	_RHU.definePublicAccessors(RHU, {
-		darkmode: { 
-            get() { return _RHU.darkmode; }
-        }
-	});
-
 	/**
 	 * @namespace _RHU._Theme (Symbol.for("RHU")), RHU.Theme
 	 */
 	(function (_Theme, Theme) 
 	{
+
+		_RHU.definePublicAccessors(_Theme,{
+			/**
+			 * @get darkmode{Boolean}	True if device preferences is dark theme, otherwise false
+			 */
+			darkmode: {
+				enumerable: false,
+				get()
+				{
+					return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+				}
+			}
+		});
+
+		/**
+		 * NOTE(randomuserhi): Define public interface
+		 */
+		_RHU.definePublicAccessors(Theme, {
+			darkmode: { 
+	            get() { return _RHU.darkmode; }
+	        }
+		});
 
 		/**
 	     * Define local symbols used for Themes, these are completely
