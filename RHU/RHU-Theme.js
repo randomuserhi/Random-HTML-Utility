@@ -35,7 +35,7 @@
 		 */
 		_RHU.definePublicAccessors(Theme, {
 			darkmode: { 
-	            get() { return _RHU.darkmode; }
+	            get() { return _Theme.darkmode; }
 	        }
 		});
 
