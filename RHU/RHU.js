@@ -12,6 +12,11 @@
  */
 (function (_RHU, RHU) 
 {
+    /**
+     * NOTE(randomuserhi): Because a lot of these functions refer to each other via their local name vs RHU or _RHU,
+     *                     they will function properly even when RHU.function is reassigned. They will not function properly
+     *                     if RHU.function.property is changed since the function object is still referenced.
+     */
 
     let exists = function(obj)
     {
@@ -20,6 +25,8 @@
 
     let properties = function(obj, options = {}, operation = null)
     {
+        if (!exists(obj)) throw TypeError("Cannot get properties of 'null' or 'undefined'.");
+
         let opt = {
             enumerable: undefined,
             configurable: undefined,
@@ -45,13 +52,13 @@
                 let descriptor = descriptors[p];
                 let valid = true;
                 
-                if (opt.enumerable && descriptor.enumerable != opt.enumerable) valid = false;
-                if (opt.configurable && descriptor.configurable != opt.configurable) valid = false;
-                if (opt.writable && descriptor.writable != opt.writable) valid = false;
-                if (opt.get == false && descriptor.get) valid = false;
-                else if (opt.get == true && !descriptor.get) valid = false;
-                if (opt.set == false && descriptor.set) valid = false;
-                else if (opt.set == true && !descriptor.set) valid = false;
+                if (opt.enumerable && descriptor.enumerable !== opt.enumerable) valid = false;
+                if (opt.configurable && descriptor.configurable !== opt.configurable) valid = false;
+                if (opt.writable && descriptor.writable !== opt.writable) valid = false;
+                if (opt.get === false && descriptor.get) valid = false;
+                else if (opt.get === true && !descriptor.get) valid = false;
+                if (opt.set === false && descriptor.set) valid = false;
+                else if (opt.set === true && !descriptor.set) valid = false;
 
                 if (valid) 
                 {
@@ -72,13 +79,13 @@
         {
             let descriptors = Object.getOwnPropertyDescriptors(curr);
             
-            if (!opt.symbols || opt.symbols == true)
+            if (!exists(opt.symbols) || opt.symbols === false)
             {
                 let props = Object.getOwnPropertyNames(curr);
                 iterate(props, descriptors);
             }
             
-            if (!opt.symbols || opt.symbols == true)
+            if (!exists(opt.symbols) || opt.symbols === true)
             {
                 let props = Object.getOwnPropertySymbols(curr);
                 iterate(props, descriptors);
@@ -102,7 +109,8 @@
 
         if (opt.replace || !properties(obj, { hasOwn: true }).has(p))
         {
-            delete obj[p]; // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'
+            delete obj[p]; // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'.
+                           //                     Also will not cause issues with inherited properties as `delete` only removes own properties.    
             Object.defineProperty(obj, p, o);
             return true;
         }
@@ -131,7 +139,7 @@
 
     let defineProperties = function(obj, p, options = {})
     {
-        for (let key in p)
+        for (let key of properties(p, { hasOwn: true }).keys())
         {
             if (p.hasOwnProperty(key))
             {
@@ -144,10 +152,11 @@
     {
         let opt = function()
         {
+            this.configurable = true;
             this.writable = true;
             this.enumerable = true;
         };
-        for (let key in p)
+        for (let key of properties(p, { hasOwn: true }).keys())
         {
             if (p.hasOwnProperty(key))
             {
@@ -164,7 +173,7 @@
             this.configurable = true;
             this.enumerable = true;
         };
-        for (let key in p)
+        for (let key of properties(p, { hasOwn: true }).keys())
         {
             if (p.hasOwnProperty(key))
             {
@@ -174,202 +183,205 @@
         }
     };
 
-    let assign = function(target, source)
+    let assign = function(target, source, options = { replace: true })
     {
-        if (target === source) return;
-        defineProperties(target, Object.getOwnPropertyDescriptors(source));
+        if (target === source) return target;
+        defineProperties(target, Object.getOwnPropertyDescriptors(source), options);
+        return target;
     };
 
-    if (window.hasOwnProperty("RHU_STRICT_MODE"))
+    let deleteProperties = function(object, preserve = null)
     {
-        defineProperties(_RHU, {
-            defineProperty: {
-                enumerable: true,
-                value: defineProperty 
-            },
-            definePublicProperty: {
-                enumerable: true,
-                value: definePublicProperty
-            },
-            definePublicAccessor: {
-                enumerable: true,
-                value: definePublicAccessor
-            },
-            defineProperties: {
-                enumerable: true,
-                value: defineProperties
-            },
-            definePublicProperties: {
-                enumerable: true,
-                value: definePublicProperties
-            },
-            definePublicAccessors: {
-                enumerable: true,
-                value: definePublicAccessors
-            },
+        if (object === preserve) return;
 
-            assign: {
-                enumerable: true,
-                value: assign
-            },
-
-            properties: {
-                enumerable: true,
-                value: properties
-            },
-
-            exists: {
-                enumerable: true,
-                value: exists
+        /**
+         * Since preserve uses hasOwnProperty, inherited properties of preserve are not preserved:
+         * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties
+         *
+         * Since traversing and deleting a prototype can effect other objects, we do not recursively delete
+         * through the prototype.
+         *
+         * TODO(randomuserhi): Option to skip properties that are non-configurable (aka cannot be deleted).
+         *                     Right now we just throw an error.
+         */
+        for (let key of properties(object, { hasOwn: true }).keys()) 
+        {
+            if (!exists(preserve) || !properties(preserve, { hasOwn: true }).has(key))
+            {
+                delete object[key];
             }
-        });
+        }
+    };
 
-        defineProperties(RHU, {
-            defineProperty: { 
-                enumerable: true,
-                get() { return _RHU.defineProperty; }, 
-                set(value) { _RHU.defineProperty = value; } 
-            },
-            definePublicProperty: { 
-                enumerable: true,
-                get() { return _RHU.definePublicProperty; }, 
-                set(value) { _RHU.definePublicProperty = value; }
-            },
-            definePublicAccessor: {
-                enumerable: true,
-                get() { return _RHU.definePublicAccessor; }, 
-                set(value) { _RHU.definePublicAccessor = value; }
-            },
-            defineProperties: {
-                enumerable: true,
-                get() { return _RHU.defineProperties; }, 
-                set(value) { _RHU.defineProperties = value; }
-            },
-            definePublicProperties: {
-                enumerable: true,
-                get() { return _RHU.definePublicProperties; }, 
-                set(value) { _RHU.definePublicProperties = value; }
-            },
-            definePublicAccessors: {
-                enumerable: true,
-                get() { return _RHU.definePublicAccessors; }, 
-                set(value) { _RHU.definePublicAccessors = value; }
-            },
-
-            assign: {
-                enumerable: true,
-                get() { return _RHU.assign },
-                set(value) { _RHU.assign = value }
-            },
-
-            properties: {
-                enumerable: true,
-                get() { return _RHU.properties; }, 
-                set(value) { _RHU.properties = value; }
-            },
-
-            exists : {
-                enumerable: true,
-                get() { return _RHU.exists; }, 
-                set(value) { _RHU.exists = value; }
-            }
-        });
-    }
-    else
+    let clone = function(object, prototype = null)
     {
-        definePublicProperties(_RHU, {
-            defineProperty: {
-                enumerable: true,
-                value: defineProperty 
-            },
-            definePublicProperty: {
-                enumerable: true,
-                value: definePublicProperty
-            },
-            definePublicAccessor: {
-                enumerable: true,
-                value: definePublicAccessor
-            },
-            defineProperties: {
-                enumerable: true,
-                value: defineProperties
-            },
-            definePublicProperties: {
-                enumerable: true,
-                value: definePublicProperties
-            },
-            definePublicAccessors: {
-                enumerable: true,
-                value: definePublicAccessors
-            },
+        /** 
+         * NOTE(randomuserhi): Performs a shallow clone => references inside the cloned object will be the same
+         *                     as original.
+         */
+        if (exists(prototype)) return assign(Object.create(prototype), object);
+        else return assign(Object.create(Object.getPrototypeOf(object)), object);
+    };
 
-            assign: {
-                enumerable: true,
-                value: assign
-            },
+    let redefine = function (object, prototype, preserve = null) 
+    {
+        /**
+         * NOTE(randomuserhi): redefines an objects type (prototype), removing old values, but does not 
+         *                     call the new types constructor.
+         */
+        deleteProperties(object, preserve);
+        Object.setPrototypeOf(object, prototype);
+        return object;
+    };
 
-            properties: {
-                enumerable: true,
-                value: properties
-            },
-
-            exists: {
-                enumerable: true,
-                value: exists
-            }
-        });
-
-        definePublicAccessors(RHU, {
-            defineProperty: { 
-                enumerable: true,
-                get() { return _RHU.defineProperty; }, 
-                set(value) { _RHU.defineProperty = value; } 
-            },
-            definePublicProperty: { 
-                enumerable: true,
-                get() { return _RHU.definePublicProperty; }, 
-                set(value) { _RHU.definePublicProperty = value; }
-            },
-            definePublicAccessor: {
-                enumerable: true,
-                get() { return _RHU.definePublicAccessor; }, 
-                set(value) { _RHU.definePublicAccessor = value; }
-            },
-            defineProperties: {
-                enumerable: true,
-                get() { return _RHU.defineProperties; }, 
-                set(value) { _RHU.defineProperties = value; }
-            },
-            definePublicProperties: {
-                enumerable: true,
-                get() { return _RHU.definePublicProperties; }, 
-                set(value) { _RHU.definePublicProperties = value; }
-            },
-            definePublicAccessors: {
-                enumerable: true,
-                get() { return _RHU.definePublicAccessors; }, 
-                set(value) { _RHU.definePublicAccessors = value; }
-            },
-
-            assign: {
-                enumerable: true,
-                get() { return _RHU.assign },
-                set(value) { _RHU.assign = value }
-            },
-
-            properties: {
-                enumerable: true,
-                get() { return _RHU.properties; }, 
-                set(value) { _RHU.properties = value; }
-            },
-
-            exists : {
-                enumerable: true,
-                get() { return _RHU.exists; }, 
-                set(value) { _RHU.exists = value; }
-            }
-        });
+    let isConstructor = function (func) 
+    {
+        /**
+         * https://stackoverflow.com/questions/40922531/how-to-check-if-a-javascript-function-is-a-constructor
+         *
+         * NOTE(randomuserhi): Will fail for construtable functions that error on new.target != null, such as
+         *                     Symbol, in which it will return false despite new Symbol() throwing error.
+         */
+        try 
+        {
+            Reflect.construct(String, [], func);
+        } 
+        catch (e) 
+        {
+            return false;
+        }
+        return true;
     }
+
+    let inherit = function(child, base)
+    {
+        if (!isConstructor(child) || !isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`); 
+
+        /**
+         * NOTE(randomuserhi): Doesn't support inheritting objects, only function constructors.
+         */
+        Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
+        Object.setPrototypeOf(child, base); // Inherit static properties
+    }
+
+    // ------------------------------------------------------------------------------------------------------
+
+    defineProperties(_RHU, {
+        isConstructor: {
+            value: isConstructor
+        }
+    })
+
+    definePublicProperties(_RHU, {
+        defineProperty: {
+            enumerable: false,
+            value: defineProperty 
+        },
+        definePublicProperty: {
+            enumerable: false,
+            value: definePublicProperty
+        },
+        definePublicAccessor: {
+            enumerable: false,
+            value: definePublicAccessor
+        },
+        defineProperties: {
+            enumerable: false,
+            value: defineProperties
+        },
+        definePublicProperties: {
+            enumerable: false,
+            value: definePublicProperties
+        },
+        definePublicAccessors: {
+            enumerable: false,
+            value: definePublicAccessors
+        },
+
+        delete: {
+            enumerable: false,
+            value: deleteProperties
+        },
+
+        assign: {
+            enumerable: false,
+            value: assign
+        },
+
+        clone: {
+            enumerable: false,
+            value: clone
+        },
+
+        redefine: {
+            enumerable: false,
+            value: redefine
+        },
+
+        properties: {
+            enumerable: false,
+            value: properties
+        },
+
+        exists: {
+            enumerable: false,
+            value: exists
+        },
+
+        inherit: {
+            enumerable: false,
+            value: inherit
+        }
+    });
+
+    definePublicAccessors(RHU, {
+        defineProperty: { 
+            get() { return _RHU.defineProperty; }
+        },
+        definePublicProperty: { 
+            get() { return _RHU.definePublicProperty; }
+        },
+        definePublicAccessor: {
+            get() { return _RHU.definePublicAccessor; }
+        },
+        defineProperties: {
+            get() { return _RHU.defineProperties; }
+        },
+        definePublicProperties: {
+            get() { return _RHU.definePublicProperties; }
+        },
+        definePublicAccessors: {
+            get() { return _RHU.definePublicAccessors; }
+        },
+
+        delete: {
+            get() { return _RHU.delete; }
+        },
+
+        assign: {
+            get() { return _RHU.assign; }
+        },
+
+        clone: {
+            get() { return _RHU.clone; }
+        },
+
+        redefine: {
+            get() { return _RHU.redefine; }
+        },
+
+        properties: {
+            get() { return _RHU.properties; }
+        },
+
+        exists : {
+            get() { return _RHU.exists; }
+        },
+
+        inherit : {
+            get() { return _RHU.inherit; }
+        }
+    });
 
 })((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
    (window["RHU"] || (window["RHU"] = {})));
@@ -391,18 +403,36 @@
     let insertDefaultStyles = function(element) 
     {
         let style = document.createElement("style");
-        style.innerHTML = `rhu-slot,rhu-shadow,rhu-macro { display: contents; }`;
+        style.innerHTML = `rhu-slot,rhu-shadow,rhu-macro { display: contents; } rhu-querycontainer { display: none; }`;
         element.prepend(style);
     }
     insertDefaultStyles(document.head);
 
-    // TODO(randomuserhi): fix these property definitions:
+    // ------------------------------------------------------------------------------------------------------
 
-    _RHU.definePublicProperty(_RHU, "domParser", { value: domParser });
-    _RHU.definePublicProperty(_RHU, "insertDefaultStyles", { value: insertDefaultStyles });
+    _RHU.definePublicProperties(_RHU, {
+        domParser: { 
+            enumerable: false,
+            value: domParser
+        },
 
-    _RHU.definePublicAccessor(RHU, "domParser", { get() { return _RHU.domParser; }, set(value) { return _RHU.domParser; } });
-    _RHU.definePublicAccessor(RHU, "insertDefaultStyles", { get() { return _RHU.insertDefaultStyles; }, set(value) { return _RHU.insertDefaultStyles; } });
+        insertDefaultStyles: {
+            enumerable: false,
+            value: insertDefaultStyles
+        }
+    });
+
+    _RHU.definePublicAccessors(RHU, {
+        domParser: { 
+            get() { return _RHU.domParser; }
+        },
+
+        insertDefaultStyles: {
+            get() { return _RHU.insertDefaultStyles; }
+        }
+    });
+
+    // ------------------------------------------------------------------------------------------------------
 
     /**
      * @class{_Slot} Describes a custom HTML element
@@ -447,23 +477,55 @@
     customElements.define("rhu-shadow", _Shadow);
 
     /**
-     * TODO(randomuserhi): document this function override, its used to determine what objects to grab
+     * @class{_QueryContainer} Describes a custom HTML element
+     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing
      */
-    Object.defineProperty(Node.prototype, "rhuInstance", {
-        get() 
-        {
-            return this;
+    let _QueryContainer = function()
+    {
+        let construct = Reflect.construct(HTMLElement, [], _QueryContainer);
+
+        (function() {
+
+        }).call(construct);
+
+        return construct;
+    };
+    /**
+     * Inherit from HTMLElement
+     */
+    _QueryContainer.prototype = Object.create(HTMLElement.prototype);
+    // As per creating custom elements, define them 
+    customElements.define("rhu-querycontainer", _QueryContainer);
+
+    // ------------------------------------------------------------------------------------------------------
+
+    /**
+     * TODO(randomuserhi): document how symbols are used to represent special properties used by RHU
+     */
+    let _symbols = {};
+    _RHU.defineProperties(_symbols, {
+        _instance: {
+            value: Symbol("rhu instance")
         }
     });
 
-    /**
-     * TODO(randomuserhi): document this function => used for macros to get content that a node consists of,
-     *                     in the case of macros, a macro can consist of multiple nodes
-     */
-    Object.defineProperty(Node.prototype, "content", {
-        get() 
-        {
-            return [this];
+    _RHU.defineProperties(_RHU, {
+        _globalSymbols: {
+            value: _symbols
+        }
+    })
+
+    _RHU.defineProperties(Node.prototype, {
+        /**
+         * TODO(randomuserhi): document this function override, its used to determine what objects to grab
+         */
+        [_symbols._instance]: {
+            get() { return this; }
+        },
+        instance: {
+            configurable: true,
+            enumerable: true,
+            get() { return this[_symbols._instance]; }
         }
     });
 

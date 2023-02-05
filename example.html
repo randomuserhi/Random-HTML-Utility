@@ -1,19 +1,58 @@
+<!DOCTYPE html>
 <html>
 	<head>
 		<script src="RHU/RHU.js"></script>
+		<script type="text/javascript">
+			window.addEventListener("load-rhu-customelement", () => {
+				let example = function()
+				{
+					console.log("example constructor");
+					this.content.innerHTML = "bruh";
+				}
+				new RHU.Macro(example, 
+					"example",
+					`
+					<div rhu-id="content">
+					</div>
+					`);
+
+				let test = function()
+				{
+					console.log("test constructor");
+					this.content.innerHTML = "test";
+				}
+				new RHU.Macro(test, 
+					"test",
+					`
+					<div rhu-id="content">
+					</div>
+					`);
+
+				let exampleNested = function()
+				{
+					console.log("exampleNested constructor");
+					this.content.innerHTML = "example Nested!";
+					document.getElementById("target").prepend(this.macro);
+					this.shadow.append(this.macro);
+					this.macro.type = "test"
+				}
+				RHU.CustomElement(exampleNested, 
+					"examplenested",
+					`
+					<div rhu-id="content"></div>
+					<rhu-macro rhu-id="macro" rhu-type="example">
+					</rhu-macro>
+					`);
+			});
+		</script>
+		<script src="RHU/RHU-Macro.js" defer></script>
+		<script src="RHU/RHU-Template.js" defer></script>
+		<script src="RHU/RHU-Component.js" defer></script>
+		<script src="RHU/RHU-CustomElement.js" defer></script>
 	</head>
-	<script type="text/javascript">
-		let example = function()
-		{
-			this.content = "example!";
-		}
-		example.prototype = new RHU.Macro(
-			"example", example,
-			`
-			<div rhu-id="content"></div>
-			`);
-	</script>
 	<body>
-		<rhu-macro rhy-type="example"></rhu-macro>
+		<div>BRUH</div>
+		<rhu-examplenested id="component0"></rhu-examplenested>
+		<div id="target">WELL SHIT!</div>
 	</body>
 </html>
