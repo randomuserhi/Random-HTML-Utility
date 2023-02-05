@@ -1,42 +1,22 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<script src="RHU/RHU.js"></script>
-		<script type="text/javascript">
-			window.addEventListener("load-rhu-template", () => {
-				let example = function()
-				{
-					console.log("example constructor");
-				}
-				new RHU.Template(example, 
-					"example",
-					`
-					<div rhu-id="content">
-						START
-						<rhu-slot></rhu-slot>
-						END
-					</div>
-					`);
-
-				let exampleNested = function()
-				{
-					console.log("exampleNested constructor");
-					this.content.innerHTML = "example Nested!";
-				}
-				new RHU.Template(exampleNested, 
-					"exampleNested",
-					`
-					<rhu-template id="template1" rhu-type="example">
-						<div rhu-id="content"></div>
-					</rhu-template>
-					`);
-			});
-		</script>
-		<script src="RHU/RHU-Macro.js" defer></script>
-		<script src="RHU/RHU-Template.js" defer></script>
-	</head>
-	<body>
-		<rhu-template id="template0" rhu-type="exampleNested"></rhu-template>
-		<div id="target"></div>
-	</body>
+    <head>
+        <script src="RHU/RHU.js"></script>
+        <script src="RHU/RHU-Component.js" defer></script>
+    </head>
+    <body>
+        <script type="text/javascript">
+            window.addEventListener("load-rhu-component", () => {
+                let example = function()
+                {
+                }
+                new RHU.Component(
+                    example,
+                    "example",
+            		`<div>My First Component!</div>`,
+                    {});
+            });
+        </script>
+        <rhu-component rhu-type="example"></rhu-component>
+    </body>
 </html>

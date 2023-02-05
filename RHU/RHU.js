@@ -18,6 +18,19 @@
      *                     if RHU.function.property is changed since the function object is still referenced.
      */
 
+    /**  
+     * @func                                    Gets a specific DOM element from web page by its ID
+     * @param id{string}                        ID of element
+     * @param clearID{boolean:optional(true)}   If false, will not remove the ID attribute from html element, otherwise will clear ID attribute
+     * @return{HTMLElement}                     Element grabbed by its id
+     */
+    let getElementById = function(id, clearID = true)
+    {
+        let el = document.getElementById(id);
+        if (clearID) el.removeAttribute("id");
+        return el;
+    };
+
     /**
      * @func                    Checks whether an object exists.
      * @param   obj{Object}     Object to check.
@@ -383,6 +396,11 @@
     })
 
     definePublicProperties(_RHU, {
+        getElementById: {
+            enumerable: false,
+            value: getElementById
+        },
+
         defineProperty: {
             enumerable: false,
             value: defineProperty 
@@ -445,6 +463,11 @@
     });
 
     definePublicAccessors(RHU, {
+        getElementById: {
+            enumerable: false,
+            value: getElementById
+        },
+        
         defineProperty: { 
             get() { return _RHU.defineProperty; }
         },

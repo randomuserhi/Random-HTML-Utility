@@ -78,7 +78,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
     HTMLDocument.prototype.createComponent = function(type)
     {
         let element = this.createElement("rhu-component");
-        element.type = type;
+        // NOTE(randomuserhi): Since `_internalLoad` is called after `load-rhu-template` callback,
+        //                     `type` accessor hasn't been declared yet, so we use setAttribute.
+        element.setAttribute("rhu-type", type);
         return element;
     };
 
@@ -352,6 +354,10 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
 
     let _onDocumentLoad = function()
     {
+        // NOTE(randomuserhi): We must call load event first so user-defined types are set first before we load
+        //                     custom element otherwise custom element will parse with undefined templates (since
+        //                     they just have not been loaded yet).
+
         window.dispatchEvent(new Event("load-rhu-component"));
         
         _internalLoad();

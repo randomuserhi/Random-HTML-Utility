@@ -6,10 +6,13 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
  *
  * TODO(randomuserhi): Figure out a way to have macros in rhu-querycontainer share tree structure of how they are added to DOM
  *
+ * TODO(randomuserhi): Create a "query: false" option that makes macro header not append to querycontainer
+ *
  * NOTE(randomuserhi): Not sure if this API is better, or if I should make macros not use the <rhu-macro> header at all and adopt
  *                     a child node as the header much like the deprecated version. It would certainly make the logic a lot nicer
  *                     and you don't have to deal with a querycontainer, but the current API has the benefit of no loose hanging
  *                     reference to macro header. Easier moving of the header etc...
+ *                     - Maybe I can support both with a "header: false" option which removes the macro header
  *
  * TODO(randomuserhi): Figure out how I'm gonna handle mutation observers and callbacks, since parsing involves a lot of moving
  *                     DOM elements around, mutation observer will trigger for all of them so you will get unnecessary callbacks.
@@ -102,7 +105,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
     HTMLDocument.prototype.createMacro = function(type)
     {
         let element = this.createElement("rhu-macro");
-        element.type = type;
+        // NOTE(randomuserhi): Since `_internalLoad` is called after `load-rhu-template` callback,
+        //                     `type` accessor hasn't been declared yet, so we use setAttribute.
+        element.setAttribute("rhu-type", type);
         return element;
     };
 
@@ -558,6 +563,10 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
 
     let _onDocumentLoad = function()
     {
+        // NOTE(randomuserhi): We must call load event first so user-defined types are set first before we load
+        //                     custom element otherwise custom element will parse with undefined templates (since
+        //                     they just have not been loaded yet).
+
         window.dispatchEvent(new Event("load-rhu-macro"));
         
         _internalLoad();

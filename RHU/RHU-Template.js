@@ -75,7 +75,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
     HTMLDocument.prototype.createTemplate = function(type)
     {
         let element = this.createElement("rhu-template");
-        element.type = type;
+        // NOTE(randomuserhi): Since `_internalLoad` is called after `load-rhu-template` callback,
+        //                     `type` accessor hasn't been declared yet, so we use setAttribute.
+        element.setAttribute("rhu-type", type);
         return element;
     };
 
@@ -428,6 +430,10 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
 
     let _onDocumentLoad = function()
     {
+        // NOTE(randomuserhi): We must call load event first so user-defined types are set first before we load
+        //                     custom element otherwise custom element will parse with undefined templates (since
+        //                     they just have not been loaded yet).
+        
         window.dispatchEvent(new Event("load-rhu-template"));
         
         _internalLoad();
