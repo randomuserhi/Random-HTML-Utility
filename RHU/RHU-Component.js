@@ -1,17 +1,27 @@
 if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be loaded with either 'defer' keyword or at the end of <body></body>.");
 
 /**
- * @namespace RHU
+ * @namespace _RHU (Symbol.for("RHU")), RHU
+ * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  *
  * TODO(randomuserhi): Figure out how I'm gonna handle mutation observers and callbacks, since parsing involves a lot of moving
  *                     DOM elements around, mutation observer will trigger for all of them so you will get unnecessary callbacks.
  */
 (function (_RHU, RHU) 
 {
-
+    /**
+     * NOTE(randomuserhi): Grab references to functions, purely to shorten names for easier time.
+     */
+    
     let exists = _RHU.exists;
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Declare Symbols and initial conditions for Macros
+     */
+
+    /**
+     * Attempt to grab `document.body` element and store in `_body`, throw error if it fails.
+     */
 
     let _body = (function()
     {
@@ -19,12 +29,24 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         throw new Error(`Unable to get document.body. Try loading this script with 'defer' keyword or at the end of <body></body>.`);
     })();
 
+    /**
+     * @func Called on document load and will trigger parsing for <rhu-component>
+     */
     let _internalLoad = function()
     {
+        // Register element to begin parsing
         customElements.define("rhu-component", _Component);
     }
 
+    /**
+     * Grab a reference to global symbols
+     */
     let _globalSymbols = _RHU._globalSymbols;
+
+    /**
+     * Define local symbols used for macros, these are completely
+     * hidden from view as they are defined in local scope
+     */
     let _symbols = {};
     _RHU.defineProperties(_symbols, {
         _type: {
@@ -44,8 +66,15 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         }
     });
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Set HTMLElement and Node overrides or extended functionality
+     */
 
+    /**
+     * @func                Create a component of type.
+     * @param type{String}  Type of component.
+     * @return{HTMLElement} Macro element.
+     */
     HTMLDocument.prototype.createComponent = function(type)
     {
         let element = this.createElement("rhu-component");
@@ -53,18 +82,30 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         return element;
     };
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Define custom element <rhu-component> logic
+     */
 
+    /**
+     * @func Constructor for <rhu-component> element
+     */
     let _construct = function()
     {
+        /**
+         * @property{symbol} _constructed{Boolean}  If true, node has finished parsing and is constructed
+         * @property{symbol} _shadow{Node}          ShadowDom of element
+         */
+
         this[_symbols._constructed] = false;
         // TODO(randomuserhi): Add a way to let people declare closed or opened shadow prior to importing component
         //                     module
-        if (!exists(this[_symbols._shadow])) 
+        // NOTE(randomuserhi): Elements cannot contain more than one shadow, so if it is defined, skip
+        if (!exists(this[_symbols._shadow]))
             this[_symbols._shadow] = this.attachShadow({ mode: "closed" });
     }
 
     /**
+     * @func Destructor for <rhu-component> element
      * NOTE(randomuserhi): Acts like a traditional destructor, needs to cleanup things like mutationObservers etc...
      */
     let _deconstruct = function()
@@ -101,6 +142,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         Object.setPrototypeOf(this, Object.create(_Component.prototype));
     }
 
+    /**
+     * @class{_Component} Custom element for <rhu-component>
+     */
     let _Component = function()
     {
         let el = Reflect.construct(HTMLElement, [], _Component);
@@ -110,8 +154,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         return el;
     }
     /**  
-     * @func{public override} callback that is triggered when rhu-component type changes
-     *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
+     * @func{override} callback that is triggered when rhu-component type changes
+     *                 https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
      */
     _Component.prototype.attributeChangedCallback = function(name, oldValue, newValue)
     {
@@ -120,8 +164,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
     };
     _RHU.definePublicAccessors(_Component, {
         /**
-         * @get{public static} observedAttributes{Array[string]} As per HTML Spec provide which 
-         *                     attributes that are being watched
+         * @get{static} observedAttributes{Array[String]} As per HTML Spec provide which 
+         *              attributes that are being watched
          */ 
         observedAttributes: {
             get() 
@@ -131,6 +175,10 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         },
     });
     _RHU.definePublicAccessors(_Component.prototype, {
+        /**
+         * @get type{String} Get type of component
+         * @set type{String} Set type of component
+         */ 
         type: {
             get() 
             {
@@ -144,21 +192,23 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
     });
     _RHU.inherit(_Component, HTMLElement);
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Component definition
+     */
 
     /**
-     * @class{RHU.Component} Describes a RHU component
-     * @param object{Object} object type of component
-     * @param type{string} type name of component
-     * @param source{string} HTML of component
-     * @param options{Object} TODO(randomuserhi): document this object
+     * @class{RHU.Component}        Describes a RHU component
+     * @param object{Object}    Object definition for component
+     * @param type{string}      type name of component
+     * @param source{string}    HTML source of component
+     * @param options{Object}   TODO(randomuserhi): document this object
      */
     let Component = function(object, type, source, options = {})
     {
         /**
-         * @property{private} _type{string} name of component
-         * @property{private} _source{string} HTML source of component
-         * @property{private} _options{Object} TODO(randomuserhi): document this object
+         * @property{symbol} _type{String}      name of component
+         * @property{symbol} _source{String}    HTML source of component
+         * @property{symbol} _options{Object}   TODO(randomuserhi): document this object
          */
 
         if (new.target === undefined) throw new TypeError("Constructor Component requires 'new'.");
@@ -186,13 +236,21 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         _templates.set(type, object);
     };
 
+    // Store a default definition to use when component type cannot be found.
     let _default = function() {};
     _default.prototype = Object.create(Component.prototype);
 
     let _templates = new Map();
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Parsing logic
+     */
 
+    /**
+     * @func                        Parse a given component
+     * @param type{String}          Type of component.
+     * @param element{HTMLElement}  Component element <rhu-component>
+     */
     let _parse = function(type, element)
     {
         element[_symbols._constructed] = false;
@@ -271,7 +329,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         element[_symbols._constructed] = true;
     }
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Create interface for Component
+     */
 
     _RHU.definePublicProperties(_RHU, {
         Component: {
@@ -286,7 +346,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         }
     });
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Create and trigger onload event
+     */
 
     let _onDocumentLoad = function()
     {
@@ -296,8 +358,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
     }
     if (document.readyState === "loading") 
         document.addEventListener("DOMContentLoaded", _onDocumentLoad);
+    // Document may have loaded already since the script is declared as defer, in this case just call onload
     else 
         _onDocumentLoad();
     
-})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
-   (window["RHU"] || (window["RHU"] = {})));
+})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
+   (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library

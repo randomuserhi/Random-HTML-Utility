@@ -1,39 +1,67 @@
 if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded with either 'defer' keyword or at the end of <body></body>.");
 
 /**
- * @namespace RHU
+ * @namespace _RHU (Symbol.for("RHU")), RHU
+ * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  *
  * TODO(randomuserhi): Figure out a way to have macros in rhu-querycontainer share tree structure of how they are added to DOM
  *
  * NOTE(randomuserhi): Not sure if this API is better, or if I should make macros not use the <rhu-macro> header at all and adopt
- *                     a child node as the header much like the deprecated version. It would certainly make the logic a lot nicer,
- *                     but this has other benefits with moving macros around without .content etc...
+ *                     a child node as the header much like the deprecated version. It would certainly make the logic a lot nicer
+ *                     and you don't have to deal with a querycontainer, but the current API has the benefit of no loose hanging
+ *                     reference to macro header. Easier moving of the header etc...
  *
  * TODO(randomuserhi): Figure out how I'm gonna handle mutation observers and callbacks, since parsing involves a lot of moving
  *                     DOM elements around, mutation observer will trigger for all of them so you will get unnecessary callbacks.
  */
 (function (_RHU, RHU) 
 {
+    /**
+     * NOTE(randomuserhi): Grab references to functions, purely to shorten names for easier time.
+     */
+
     let exists = _RHU.exists;
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Declare Symbols and initial conditions for Macros
+     */
 
+    /**
+     * Attempt to grab `document.body` element and store in `_body`, throw error if it fails.
+     */
     let _body = (function()
     {
         if (exists(document.body)) return document.body;
         throw new Error(`Unable to get document.body. Try loading this script with 'defer' keyword or at the end of <body></body>.`);
     })();
 
+    /**
+     * Create queryContainer that will hold <rhu-macro> headers.
+     * This allows for them to still be queried in the DOM via `document.getElementById` and `document.querySelector`
+     */
     let _queryContainer = document.createElement("rhu-querycontainer");
+    
+    /**
+     * @func Called on document load and will trigger parsing for <rhu-macro>
+     */
     let _internalLoad = function()
     {
-        //Append query container to DOM
+        // Append query container to DOM
         _body.append(_queryContainer);
         
+        // Register element to begin parsing
         customElements.define("rhu-macro", _Macro);
     }
 
+    /**
+     * Grab a reference to global symbols
+     */
     let _globalSymbols = _RHU._globalSymbols;
+    
+    /**
+     * Define local symbols used for macros, these are completely
+     * hidden from view as they are defined in local scope
+     */
     let _symbols = {};
     _RHU.defineProperties(_symbols, {
         _type: {
@@ -62,8 +90,15 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         }
     });
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Set HTMLElement and Node overrides or extended functionality
+     */
 
+    /**
+     * @func                Create a macro of type.
+     * @param type{String}  Type of macro.
+     * @return{HTMLElement} Macro element.
+     */
     HTMLDocument.prototype.createMacro = function(type)
     {
         let element = this.createElement("rhu-macro");
@@ -71,7 +106,12 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         return element;
     };
 
-    let Node_removeChild = Node.prototype.removeChild;
+    /**
+     * @func                Override removeChild functionality to handle <rhu-macro> headers that are stored in queryContainer
+     * @param node{Node}    Node to remove.
+     * @return{Node}        Node removed.
+     */
+    let Node_removeChild = Node.prototype.removeChild; // NOTE(randomuserhi): Store a reference to original function to use.
     Node.prototype.removeChild = function(node) 
     {
         if (!exists(this[_symbols._owned])) this[_symbols._owned] = new WeakMap();
@@ -84,13 +124,26 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         return Node_removeChild.call(this, node);        
     }
 
+    // NOTE(randomuserhi): Store a reference to base accessors for parentElement and parentNode to use.
     let Node_parentElement = Object.getOwnPropertyDescriptor(Node.prototype, "parentElement").get;
     let Node_parentNode = Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get;
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Define custom element <rhu-macro> logic
+     */
 
+    /**
+     * @func Constructor for <rhu-macro> element
+     */
     let _construct = function()
     {
+        /**
+         * @property{symbol} _content{Array[Node]}          List of nodes that compose this macro
+         * @property{symbol} _constructed{Boolean}          If true, node has finished parsing and is constructed
+         * @property{symbol} _parentNode{Node}              parentNode of macro, not the parentNode of <rhu-macro> header.
+         * @property{symbol} _parentElement{HTMLElement}    parentElement of macro, not the parentElement of <rhu-macro> header.
+         */
+
         this[_symbols._content] = [];
         this[_symbols._constructed] = false;
         this[_symbols._parentNode] = null;
@@ -98,6 +151,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
     }
 
     /**
+     * @func Destructor for <rhu-macro> element
      * NOTE(randomuserhi): Acts like a traditional destructor, needs to cleanup things like mutationObservers etc...
      */
     let _deconstruct = function()
@@ -134,6 +188,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         Object.setPrototypeOf(this, Object.create(_Macro.prototype));
     }
 
+    /**
+     * @class{_Macro} Custom element for <rhu-macro>
+     */
     let _Macro = function()
     {
         let el = Reflect.construct(HTMLElement, [], _Macro);
@@ -142,49 +199,71 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
 
         return el;
     }
+    /**
+     * @func Handle connected callback to consume macro header and set parent properties appropriately.
+     */
     _Macro.prototype.connectedCallback = function()
     {
+        // Get parent node and element
         let parentNode = Node_parentNode.call(this);
         let parentElement = Node_parentElement.call(this);
+
+        // Check that macro is constructed, is attached to a parent, and has not been moved to queryContainer
         if (exists(parentNode) && parentNode !== _queryContainer && this[_symbols._constructed] === true)
         {
+            // Set constructed to false as we resume construction
             this[_symbols._constructed] = false;
             
+            // Replace macro header (<rhu-macro>) with its content
             HTMLElement.prototype.replaceWith.call(this, ...this[_symbols._content]);
+            
+            // Set nodes
             this[_symbols._parentNode] = parentNode;
             this[_symbols._parentElement] = parentElement;
             if (parentNode.getRootNode() === document)
-                _queryContainer.append(this); // Append macro to query container for queries if its not part of shadow dom
+                _queryContainer.append(this); // Append macro to query container for document queries if its not part of shadow dom
 
+            // Let the parent know that it has a macro under its ownership
             if (!exists(parentNode[_symbols._owned])) parentNode[_symbols._owned] = new WeakMap();
             parentNode[_symbols._owned].set(this);
 
+            // Exit construction state.
             this[_symbols._constructed] = true;
         }
     }
     _Macro.prototype.disconnectedCallback = function() // Element.prototype.remove
     {
+        // Check that macro is constructed
         if (this[_symbols._constructed] === true)
         {
+            // Check if parent exists
             let parentNode = this[_symbols._parentNode];
             if (exists(parentNode))
             {
+                // If so, then remove macro from its ownership.
                 if (!exists(parentNode[_symbols._owned])) parentNode[_symbols._owned] = new WeakMap();
                 parentNode[_symbols._owned].delete(this);
             }
+
+            // Update parent properties
             this[_symbols._parentNode] = Node_parentNode.call(this);
             this[_symbols._parentElement] = Node_parentElement.call(this);
+
+            // If we were not re-attached to a new parent, remove macro from DOM
             if (!exists(this[_symbols._parentNode])) this.remove();
         }
     }
+    /**
+     *@func Override default remove behaviour to remove macro content.
+     */
     _Macro.prototype.remove = function()
     {
         HTMLElement.prototype.append.call(this, ...this[_symbols._content]);
         Element.prototype.remove.call(this);
     }
     /**  
-     * @func{public override} callback that is triggered when rhu-macro type changes
-     *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
+     * @func{override} callback that is triggered when rhu-macro type changes
+     *                 https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
      */
     _Macro.prototype.attributeChangedCallback = function(name, oldValue, newValue)
     {
@@ -193,8 +272,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
     };
     _RHU.definePublicAccessors(_Macro, {
         /**
-         * @get{public static} observedAttributes{Array[string]} As per HTML Spec provide which 
-         *                     attributes that are being watched
+         * @get{static} observedAttributes{Array[String]} As per HTML Spec provide which 
+         *              attributes that are being watched
          */ 
         observedAttributes: {
             get() 
@@ -204,6 +283,10 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         },
     });
     _RHU.definePublicAccessors(_Macro.prototype, {
+        /**
+         * @get type{String} Get type of macro
+         * @set type{String} Set type of macro
+         */ 
         type: {
             get() 
             {
@@ -214,12 +297,18 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
                 this.setAttribute("rhu-type", type);
             }
         },
+        /**
+         * @get parentNode{Node} Get parent node of macro, not macro head (<rhu-macro>)
+         */ 
         parentNode: {
             get() 
             {
                 return this[_symbols._parentNode];
             }
         },
+        /**
+         * @get parentElement{Element} Get parent element of macro, not macro head (<rhu-macro>)
+         */ 
         parentElement: {
             get() 
             {
@@ -228,7 +317,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         },
 
         /**
-         * @get{public} childNodes{-} Macro elements dont have childNodes
+         * @get childNodes{-} Macro elements dont have childNodes
          */   
         childNodes: {
             get() 
@@ -237,7 +326,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
             }
         },
         /**
-         * @get{public} children{-} Macro elements dont have children
+         * @get children{-} Macro elements dont have children
          */
         children: {
             get() 
@@ -247,54 +336,52 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         }
     });
     /**  
-     * @func{public override} Override append to use slot
-     * @param ...items{Object} items being appended
+     * @func Macro elements cant be appended to
      */
-    _Macro.prototype.append = function(...items) 
+    _Macro.prototype.append = function() 
     {
         throw new Error("'Macro' cannot append items.");
     };
     /**  
-     * @func{public override} Override prepend to use slot
-     * @param ...items{Object} items being prepended
+     * @func Macro elements cant be prepended to
      */
-    _Macro.prototype.prepend = function(...items) 
+    _Macro.prototype.prepend = function() 
     {
         throw new Error("'Macro' cannot prepend items.");
     };
     /**  
-     * @func{public override} Override appendChild to use slot
-     * @param item{Object} item being appended
+     * @func Macro elements cant be appended to
      */
-    _Macro.prototype.appendChild = function(item)
+    _Macro.prototype.appendChild = function()
     {
         throw new Error("'Macro' cannot append child.");
     };
     /**  
-     * @func{public override} Override replaceChildren to use slot
-     * @param ...items{Object} items to replace children with
+     * @func Macro elements cant be appended to
      */
-    _Macro.prototype.replaceChildren = function(...items) 
+    _Macro.prototype.replaceChildren = function() 
     {
         throw new Error("'Macro' cannot replace children.");
     };
     _RHU.inherit(_Macro, HTMLElement);
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Macro definition
+     */
 
     /**
-     * @class{RHU.Macro} Describes a RHU macro
-     * @param object{Object} object type of macro
-     * @param type{string} type name of macro
-     * @param source{string} HTML of macro
-     * @param options{Object} TODO(randomuserhi): document this object
+     * @class{RHU.Macro}        Describes a RHU macro
+     * @param object{Object}    Object definition for macro
+     * @param type{string}      type name of macro
+     * @param source{string}    HTML source of macro
+     * @param options{Object}   TODO(randomuserhi): document this object
      */
     let Macro = function(object, type, source, options = {})
     {
         /**
-         * @property{private} _type{string} name of component
-         * @property{private} _source{string} HTML source of component
-         * @property{private} _options{Object} TODO(randomuserhi): document this object
+         * @property{symbol} _type{String}      name of macro
+         * @property{symbol} _source{String}    HTML source of macro
+         * @property{symbol} _options{Object}   TODO(randomuserhi): document this object
          */
 
         if (new.target === undefined) throw new TypeError("Constructor Macro requires 'new'.");
@@ -322,13 +409,21 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         _templates.set(type, object);
     };
 
+    // Store a default definition to use when macro type cannot be found.
     let _default = function() {};
     _default.prototype = Object.create(Macro.prototype);
 
     let _templates = new Map();
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Parsing logic
+     */
 
+    /**
+     * @func                        Parse a given macro
+     * @param type{String}          Type of macro.
+     * @param element{HTMLElement}  Macro element <rhu-macro>
+     */
     let _parse = function(type, element)
     {
         element[_symbols._constructed] = false;
@@ -337,7 +432,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         HTMLElement.prototype.replaceChildren.call(element);
         let content = element[_symbols._content];
         
-        // mark old location
+        // mark old location to re-insert content to
         let insertion = document.createElement("rhu-shadow");
         if (exists(content[0])) content[0].parentNode.insertBefore(insertion, content[0]);
         else if (exists(element.parentNode)) 
@@ -436,7 +531,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         insertion.replaceWith(element);
     }
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Create interface for Macro
+     */
 
     _RHU.definePublicProperties(_RHU, {
         Macro: {
@@ -451,7 +548,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         }
     });
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Create and trigger onload event
+     */
 
     let _onDocumentLoad = function()
     {
@@ -461,8 +560,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
     }
     if (document.readyState === "loading") 
         document.addEventListener("DOMContentLoaded", _onDocumentLoad);
+    // Document may have loaded already since the script is declared as defer, in this case just call onload
     else 
         _onDocumentLoad();
     
-})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
-   (window["RHU"] || (window["RHU"] = {})));
+})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
+   (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library

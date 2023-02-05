@@ -1,30 +1,51 @@
 if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loaded with either 'defer' keyword or at the end of <body></body>.");
 
 /**
- * @namespace RHU
+ * @namespace _RHU (Symbol.for("RHU")), RHU
+ * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  *
  * TODO(randomuserhi): Figure out how I'm gonna handle mutation observers and callbacks, since parsing involves a lot of moving
  *                     DOM elements around, mutation observer will trigger for all of them so you will get unnecessary callbacks.
  */
 (function (_RHU, RHU) 
 {
+    /**
+     * NOTE(randomuserhi): Grab references to functions, purely to shorten names for easier time.
+     */
 
 	let exists = _RHU.exists;
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Declare Symbols and initial conditions for Macros
+     */
 
+    /**
+     * Attempt to grab `document.body` element and store in `_body`, throw error if it fails.
+     */
     let _body = (function()
     {
         if (exists(document.body)) return document.body;
         throw new Error(`Unable to get document.body. Try loading this script with 'defer' keyword or at the end of <body></body>.`);
     })();
 
+    /**
+     * @func Called on document load and will trigger parsing for <rhu-template>
+     */
     let _internalLoad = function()
     {
+        // Register element to begin parsing   
         customElements.define("rhu-template", _Template);
     }
 
+    /**
+     * Grab a reference to global symbols
+     */
     let _globalSymbols = _RHU._globalSymbols;
+
+    /**
+     * Define local symbols used for macros, these are completely
+     * hidden from view as they are defined in local scope
+     */
     let _symbols = {};
     _RHU.defineProperties(_symbols, {
         _type: {
@@ -46,6 +67,11 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
 
     // ------------------------------------------------------------------------------------------------------
 
+    /**
+     * @func                Create a template of type.
+     * @param type{String}  Type of template.
+     * @return{HTMLElement} Template element.
+     */
     HTMLDocument.prototype.createTemplate = function(type)
     {
         let element = this.createElement("rhu-template");
@@ -53,17 +79,29 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         return element;
     };
 
+    // NOTE(randomuserhi): Store a reference to base accessors for childNodes to use.
     let Node_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get;
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Define custom element <rhu-component> logic
+     */
 
+    /**
+     * @func Constructor for <rhu-template> element
+     */
     let _construct = function()
     {
+        /**
+         * @property{symbol} _slot{Boolean}     Slot that will contain template children
+         * @property{symbol} _constructed{Node} If true, node has finished parsing and is constructed
+         */
+
         this[_symbols._slot] = null;
         this[_symbols._constructed] = false;
     }
 
     /**
+     * @func Destructor for <rhu-template> element
      * NOTE(randomuserhi): Acts like a traditional destructor, needs to cleanup things like mutationObservers etc...
      */
     let _deconstruct = function()
@@ -100,6 +138,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         Object.setPrototypeOf(this, Object.create(_Template.prototype));
     }
 
+    /**
+     * @class{_Template} Custom element for <rhu-template>
+     */
     let _Template = function()
     {
         let el = Reflect.construct(HTMLElement, [], _Template);
@@ -109,8 +150,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         return el;
     }
     /**  
-     * @func{public override} callback that is triggered when rhu-template type changes
-     *                        https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
+     * @func{override} callback that is triggered when rhu-template type changes
+     *                 https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
      */
     _Template.prototype.attributeChangedCallback = function(name, oldValue, newValue)
     {
@@ -119,8 +160,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
     };
     _RHU.definePublicAccessors(_Template, {
         /**
-         * @get{public static} observedAttributes{Array[string]} As per HTML Spec provide which 
-         *                     attributes that are being watched
+         * @get{static} observedAttributes{Array[string]} As per HTML Spec provide which 
+         *              attributes that are being watched
          */ 
         observedAttributes: {
             get() 
@@ -130,6 +171,10 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         },
     });
     _RHU.definePublicAccessors(_Template.prototype, {
+        /**
+         * @get type{String} Get type of template
+         * @set type{String} Set type of template
+         */ 
         type: {
             get() 
             {
@@ -142,7 +187,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         },
 
         /**
-         * @get{public} childNodes{-} Template elements dont have childNodes
+         * @get children{HTMLCollection} Get child nodes of template
          */   
         childNodes: {
             get() 
@@ -153,8 +198,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
             }
         },
         /**
-         * @get{public} children{-} Template elements dont have children
-         */
+         * @get children{HTMLCollection} Get children of template
+         */ 
         children: {
             get() 
             {
@@ -165,8 +210,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         }
     });
     /**  
-     * @func{public override} Override append to use slot
-     * @param ...items{Object} items being appended
+     * @function                Override append to use slot
+     * @param ...items{Object}  items to append
      */
     _Template.prototype.append = function(...items) 
     {
@@ -175,8 +220,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         else throw new Error(`Cannot call 'append' on template without a slot.`);
     };
     /**  
-     * @func{public override} Override prepend to use slot
-     * @param ...items{Object} items being prepended
+     * @function            Override prepend to use slot
+     * @param item{Object}  item to prepend
      */
     _Template.prototype.prepend = function(...items) 
     {
@@ -185,8 +230,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         else throw new Error(`Cannot call 'prepend' on template without a slot.`);
     };
     /**  
-     * @func{public override} Override appendChild to use slot
-     * @param item{Object} item being appended
+     * @function            Override appendChild to use slot
+     * @param item{Object}  item to append
      */
     _Template.prototype.appendChild = function(item)
     {
@@ -195,8 +240,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         else throw new Error(`Cannot call 'appendChild' on template without a slot.`);
     };
     /**  
-     * @func{public override} Override replaceChildren to use slot
-     * @param ...items{Object} items to replace children with
+     * @function                Override replaceChildren to use slot
+     * @param ...items{Object}  items to replace children with
      */
     _Template.prototype.replaceChildren = function(...items) 
     {
@@ -209,18 +254,18 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
     // ------------------------------------------------------------------------------------------------------
 
     /**
-     * @class{RHU.Template} Describes a RHU template
-     * @param object{Object} object type of template
-     * @param type{string} type name of template
-     * @param source{string} HTML of template
-     * @param options{Object} TODO(randomuserhi): document this object
+     * @class{RHU.Template}        Describes a RHU template
+     * @param object{Object}    Object definition for template
+     * @param type{string}      type name of template
+     * @param source{string}    HTML source of template
+     * @param options{Object}   TODO(randomuserhi): document this object
      */
     let Template = function(object, type, source, options = {})
     {
         /**
-         * @property{private} _type{string} name of component
-         * @property{private} _source{string} HTML source of component
-         * @property{private} _options{Object} TODO(randomuserhi): document this object
+         * @property{symbol} _type{String}      name of template
+         * @property{symbol} _source{String}    HTML source of template
+         * @property{symbol} _options{Object}   TODO(randomuserhi): document this object
          */
 
         if (new.target === undefined) throw new TypeError("Constructor Template requires 'new'.");
@@ -248,13 +293,21 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         _templates.set(type, object);
     };
 
+    // Store a default definition to use when template type cannot be found.
     let _default = function() {};
     _default.prototype = Object.create(Template.prototype);
 
     let _templates = new Map();
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Parsing logic
+     */
 
+    /**
+     * @func                        Parse a given template
+     * @param type{String}          Type of template.
+     * @param element{HTMLElement}  Template element <rhu-template>
+     */
     let _parse = function(type, element)
     {
         element[_symbols._constructed] = false;
@@ -352,7 +405,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         element[_symbols._constructed] = true;
     }
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Create interface for Template
+     */
 
     _RHU.definePublicProperties(_RHU, {
         Template: {
@@ -367,7 +422,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
         }
     });
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Create and trigger onload event
+     */
 
     let _onDocumentLoad = function()
     {
@@ -377,8 +434,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Template.js' should be loa
     }
     if (document.readyState === "loading") 
         document.addEventListener("DOMContentLoaded", _onDocumentLoad);
+    // Document may have loaded already since the script is declared as defer, in this case just call onload
     else 
         _onDocumentLoad();
 	
-})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
-   (window["RHU"] || (window["RHU"] = {})));
+})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
+   (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library

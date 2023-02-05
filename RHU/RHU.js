@@ -6,9 +6,9 @@
 "use strict";
 
 /**
- * @namespace RHU
- *
- * TODO(randomuserhi): Documentation!
+ * @namespace _RHU (Symbol.for("RHU")), RHU
+ * 
+ * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  */
 (function (_RHU, RHU) 
 {
@@ -18,11 +18,30 @@
      *                     if RHU.function.property is changed since the function object is still referenced.
      */
 
+    /**
+     * @func                    Checks whether an object exists.
+     * @param   obj{Object}     Object to check.
+     * @return  {Boolean}       True if the object is not null or undefined, otherwise false.
+     */
     let exists = function(obj)
     {
         return obj !== null && obj !== undefined;
     };
 
+    /**
+     * @func                                        Get the properties for a given object.
+     * @param   obj{Object}                         Object to get properties of.
+     * @param   options{Object:optional(null)}      Options for the query:
+     *                                              - enumerable    :  true/false/undefined => gets enumerable properties
+     *                                              - configurable  :  true/false/undefined => gets configurable properties
+     *                                              - symbols       :  true/false/undefined => gets symbols
+     *                                              - hasOwn        :  true/false/undefined => gets properties that object owns
+     *                                              - writable      :  true/false/undefined => gets writeable properties
+     *                                              - get           :  true/false/undefined => gets get accessors
+     *                                              - set           :  true/false/undefined => gets set accessors
+     * @param   operation{Object}                   Function to call on each property queried.
+     * @return  {Map[String => _]}                  True if the object is not null or undefined, otherwise false.
+     */
     let properties = function(obj, options = {}, operation = null)
     {
         if (!exists(obj)) throw TypeError("Cannot get properties of 'null' or 'undefined'.");
@@ -30,7 +49,6 @@
         let opt = {
             enumerable: undefined,
             configurable: undefined,
-            properties: undefined,
             symbols: undefined,
             hasOwn: undefined,
             writable: undefined,
@@ -63,7 +81,7 @@
                 if (valid) 
                 {
                     if (!exists(properties.get(p)) && exists(operation))
-                        operation(obj, p);
+                        operation(curr, p);
                     properties.set(p);
                 }
             }
@@ -95,9 +113,17 @@
         return properties;
     };
 
-    // TODO(randomuserhi): To make life easier for `RHU_STRICT_MODE`, I can check the prefix of p for a _ and make it not enumerable for `definePublicProperty` and `definePublicAccessor`
-    //                     but this does mean that the function name isn't fully descriptive, maybe make it an option for { makePrivateNonEnumerable: true }
-
+    /**
+     * @func                                    Defines a property with descriptor on target object
+     * @param   obj{Object}                     Object to assign property to.
+     * @param   p{String}                       Name of property.
+     * @param   o{Object}                       Property descriptor (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty)
+     * @param   options{Object:optional({})}    Options for the descriptor:
+     *                                          - replace  :  true/false => If true, replace property if it is already defined.
+     *                                          - warn     :  true/false => If unable to define property, log a warning.
+     *                                          - err      :  true/false => If unable to define a property, throw an error.
+     * @return  {Boolean}                       True if property was successfully defined, otherwise false.
+     */
     let defineProperty = function(obj, p, o, options = {})
     {
         let opt = {
@@ -119,24 +145,55 @@
         return false;
     };
 
+    /**
+     * @func                                    Defines a property with descriptor on target object with { writable: true, enumerable: true } by default.
+     * @param   obj{Object}                     Object to assign property to.
+     * @param   p{String}                       Name of property.
+     * @param   o{Object}                       Property descriptor (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty)
+     * @param   options{Object:optional({})}    Options for the descriptor:
+     *                                          - replace  :  true/false => If true, replace property if it is already defined.
+     *                                          - warn     :  true/false => If unable to define property, log a warning.
+     *                                          - err      :  true/false => If unable to define a property, throw an error.
+     * @return  {Boolean}                       True if property was successfully defined, otherwise false.
+     */
     let definePublicProperty = function(obj, p, o, options = {})
     {
         let opt = {
             writable: true,
             enumerable: true
         };
-        defineProperty(obj, p, Object.assign(opt, o), options);
+        return defineProperty(obj, p, Object.assign(opt, o), options);
     };
 
+    /**
+     * @func                                    Defines a property with descriptor on target object with { configurable: true, enumerable: true } by default.
+     * @param   obj{Object}                     Object to assign property to.
+     * @param   p{String}                       Name of property.
+     * @param   o{Object}                       Property descriptor (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty)
+     * @param   options{Object:optional({})}    Options for the descriptor:
+     *                                          - replace  :  true/false => If true, replace property if it is already defined.
+     *                                          - warn     :  true/false => If unable to define property, log a warning.
+     *                                          - err      :  true/false => If unable to define a property, throw an error.
+     * @return  {Boolean}                       True if property was successfully defined, otherwise false.
+     */
     let definePublicAccessor = function(obj, p, o, options = {})
     {
         let opt = {
             configurable: true,
             enumerable: true
         };
-        defineProperty(obj, p, Object.assign(opt, o), options);
+        return defineProperty(obj, p, Object.assign(opt, o), options);
     };
 
+    /**
+     * @func                                    Defines multiple properties with descriptors on target object.
+     * @param   obj{Object}                     Object to assign property to.
+     * @param   p{String}                       Property descriptors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperties
+     * @param   options{Object:optional({})}    Options for the descriptor:
+     *                                          - replace  :  true/false => If true, replace property if it is already defined.
+     *                                          - warn     :  true/false => If unable to define property, log a warning.
+     *                                          - err      :  true/false => If unable to define a property, throw an error.
+     */
     let defineProperties = function(obj, p, options = {})
     {
         for (let key of properties(p, { hasOwn: true }).keys())
@@ -148,6 +205,15 @@
         }
     };
 
+    /**
+     * @func                                    Defines multiple properties with descriptors on target object with { writable: true, enumerable: true } by default.
+     * @param   obj{Object}                     Object to assign property to.
+     * @param   p{String}                       Property descriptors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperties
+     * @param   options{Object:optional({})}    Options for the descriptor:
+     *                                          - replace  :  true/false => If true, replace property if it is already defined.
+     *                                          - warn     :  true/false => If unable to define property, log a warning.
+     *                                          - err      :  true/false => If unable to define a property, throw an error.
+     */
     let definePublicProperties = function(obj, p, options = {})
     {
         let opt = function()
@@ -166,6 +232,15 @@
         }
     };
 
+    /**
+     * @func                                    Defines multiple properties with descriptors on target object with { configurable: true, enumerable: true } by default.
+     * @param   obj{Object}                     Object to assign property to.
+     * @param   p{String}                       Property descriptors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperties
+     * @param   options{Object:optional({})}    Options for the descriptor:
+     *                                          - replace  :  true/false => If true, replace property if it is already defined.
+     *                                          - warn     :  true/false => If unable to define property, log a warning.
+     *                                          - err      :  true/false => If unable to define a property, throw an error.
+     */
     let definePublicAccessors = function(obj, p, options = {})
     {
         let opt = function()
@@ -183,6 +258,16 @@
         }
     };
 
+    /**
+     * @func                                                   Assigns a source object's properties to a target
+     * @param   target{Object}                                 Object to assign properties to.
+     * @param   source{String}                                 Source object to get properties from.
+     * @param   options{Object:optional({ replace: true })}    Options for the assignment:
+     *                                                         - replace  :  true/false => If true, replace property if it is already defined.
+     *                                                         - warn     :  true/false => If unable to define property, log a warning.
+     *                                                         - err      :  true/false => If unable to define a property, throw an error.
+     * @return  {Object}                                       target after assignment
+     */
     let assign = function(target, source, options = { replace: true })
     {
         if (target === source) return target;
@@ -190,6 +275,11 @@
         return target;
     };
 
+    /**
+     * @func                                        Deletes all owned properties from an object.
+     * @param   object{Object}                      Object to delete properties from.
+     * @param   preserve{Object:optional(null)}     Object containing properties to not delete.
+     */
     let deleteProperties = function(object, preserve = null)
     {
         if (object === preserve) return;
@@ -204,15 +294,18 @@
          * TODO(randomuserhi): Option to skip properties that are non-configurable (aka cannot be deleted).
          *                     Right now we just throw an error.
          */
-        for (let key of properties(object, { hasOwn: true }).keys()) 
-        {
-            if (!exists(preserve) || !properties(preserve, { hasOwn: true }).has(key))
-            {
-                delete object[key];
-            }
-        }
+        properties(object, { hasOwn: true }, (obj, prop) => {
+            if (!exists(preserve) || !properties(preserve, { hasOwn: true }).has(prop))
+                delete obj[prop];
+        });
     };
 
+    /**
+     * @func                                        Perform a shallow copy of an object.
+     * @param   object{Object}                      Object to copy
+     * @param   prototype{Object:optional(null)}    Prototype of cloned object.
+     * @return  {Object}                            Cloned object.
+     */
     let clone = function(object, prototype = null)
     {
         /** 
@@ -223,6 +316,13 @@
         else return assign(Object.create(Object.getPrototypeOf(object)), object);
     };
 
+    /**
+     * @func                                        Delete target objects owned properties and set prototype.
+     * @param   object{Object}                      Object to redefine.
+     * @param   prototype{Object}                   Prototype to switch to.
+     * @param   preserve{Object:optional(null)}     Properties to not delete whilst redefining.
+     * @return  {Object}                            Redefined object.
+     */
     let redefine = function (object, prototype, preserve = null) 
     {
         /**
@@ -234,14 +334,17 @@
         return object;
     };
 
+    /**
+     * @func                    Checks if an object can be used as a constructor.
+     * @param   object{Object}  Object to check.
+     * @return  {Boolean}       True if object can be used as constructor, otherwise false.
+     *
+     * https://stackoverflow.com/a/46759625/9642458
+     * NOTE(randomuserhi): Will fail for construtable functions that error on new.target != null, such as
+     *                     Symbol, in which it will return false despite new Symbol() throwing error.
+     */
     let isConstructor = function (func) 
     {
-        /**
-         * https://stackoverflow.com/questions/40922531/how-to-check-if-a-javascript-function-is-a-constructor
-         *
-         * NOTE(randomuserhi): Will fail for construtable functions that error on new.target != null, such as
-         *                     Symbol, in which it will return false despite new Symbol() throwing error.
-         */
         try 
         {
             Reflect.construct(String, [], func);
@@ -253,18 +356,25 @@
         return true;
     }
 
+    /**
+     * @func                    Makes a child class inherit from a base class.
+     * @param   child{Object}   Child class.
+     * @param   base{Object}    Base class.
+     * 
+     * NOTE(randomuserhi): Doesn't support inheritting objects, only function constructors.
+     */
     let inherit = function(child, base)
     {
         if (!isConstructor(child) || !isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`); 
 
-        /**
-         * NOTE(randomuserhi): Doesn't support inheritting objects, only function constructors.
-         */
         Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
         Object.setPrototypeOf(child, base); // Inherit static properties
     }
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Define accessors between local functions (completely hidden), 
+     *                     _RHU (private access) and RHU (public access)
+     */
 
     defineProperties(_RHU, {
         isConstructor: {
@@ -387,18 +497,20 @@
    (window["RHU"] || (window["RHU"] = {})));
 
 /**
- * @namespace RHU
+ * @namespace _RHU (Symbol.for("RHU")), RHU
+ * 
+ * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  */
 (function (_RHU, RHU) 
 {
     /**
-     * @property{public static readonly} domParser{DOMParser} Stores an instance of a DOMParser for parsing 
+     * @property domParser{DOMParser} Stores an instance of a DOMParser for parsing.
      */
     let domParser = new DOMParser();
 
     /**
-     * @func{public static} Append RHU default styles to an element
-     * @param element{HTMLElement} element to append style to
+     * @func                        Append RHU default styles to an element.
+     * @param element{HTMLElement}  Element to append style to.
      */
     let insertDefaultStyles = function(element) 
     {
@@ -406,9 +518,13 @@
         style.innerHTML = `rhu-slot,rhu-shadow,rhu-macro { display: contents; } rhu-querycontainer { display: none; }`;
         element.prepend(style);
     }
+    // Insert default style to head.
     insertDefaultStyles(document.head);
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Define accessors between local functions (completely hidden), 
+     *                     _RHU (private access) and RHU (public access)
+     */
 
     _RHU.definePublicProperties(_RHU, {
         domParser: { 
@@ -432,11 +548,14 @@
         }
     });
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Declare some default custom elements. Since these have no functionality at the moment,
+     *                     they are redundant.
+     */
 
     /**
-     * @class{_Slot} Describes a custom HTML element
-     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing
+     * @class{_Slot} Describes a custom HTML element.
+     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing.
      */
     let _Slot = function()
     {
@@ -448,16 +567,12 @@
 
         return construct;
     };
-    /**
-     * Inherit from HTMLElement
-     */
     _Slot.prototype = Object.create(HTMLElement.prototype);
-    // As per creating custom elements, define them 
     customElements.define("rhu-slot", _Slot);
 
     /**
-     * @class{_Shadow} Describes a custom HTML element
-     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing
+     * @class{_Shadow} Describes a custom HTML element.
+     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing.
      */
     let _Shadow = function()
     {
@@ -469,16 +584,12 @@
 
         return construct;
     };
-    /**
-     * Inherit from HTMLElement
-     */
     _Shadow.prototype = Object.create(HTMLElement.prototype);
-    // As per creating custom elements, define them 
     customElements.define("rhu-shadow", _Shadow);
 
     /**
-     * @class{_QueryContainer} Describes a custom HTML element
-     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing
+     * @class{_QueryContainer} Describes a custom HTML element.
+     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing.
      */
     let _QueryContainer = function()
     {
@@ -490,35 +601,47 @@
 
         return construct;
     };
-    /**
-     * Inherit from HTMLElement
-     */
     _QueryContainer.prototype = Object.create(HTMLElement.prototype);
-    // As per creating custom elements, define them 
     customElements.define("rhu-querycontainer", _QueryContainer);
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Declare some global symbols for access to specific private properties.
+     *                     Symbols are used as they are completely abstracted away from the user, and act
+     *                     as a form of name mangling to prevent name-collision.
+     */
 
     /**
-     * TODO(randomuserhi): document how symbols are used to represent special properties used by RHU
+     * Local property `_symbols` to store symbols
      */
     let _symbols = {};
     _RHU.defineProperties(_symbols, {
+        /**
+         * @symbol{_instance} Used when determining what object to grab from an element when processing it.
+         */
         _instance: {
             value: Symbol("rhu instance")
         }
     });
 
+    /**
+     * Hook local property `_symbols` to _RHU
+     */
     _RHU.defineProperties(_RHU, {
+        /**
+         * @symbol{_globalSymbols} Stores global symbols to be accessed by other scripts.
+         */
         _globalSymbols: {
             value: _symbols
         }
     })
 
+    /**
+     * Add a new instance property to Node.prototype so when accessing any DOM Node,
+     * the instance can be grabbed.
+     *
+     * NOTE(randomuserhi): This is an overridable accessor.
+     */
     _RHU.defineProperties(Node.prototype, {
-        /**
-         * TODO(randomuserhi): document this function override, its used to determine what objects to grab
-         */
         [_symbols._instance]: {
             get() { return this; }
         },
@@ -529,5 +652,5 @@
         }
     });
 
-})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
-   (window["RHU"] || (window["RHU"] = {})));
+})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
+   (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library

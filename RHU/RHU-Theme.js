@@ -6,12 +6,16 @@
 "use strict";
 
 /**
- * @namespace RHU
+ * @namespace _RHU (Symbol.for("RHU")), RHU
+ * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  */
 (function (_RHU, RHU) 
 {
 
 	_RHU.definePublicAccessors(_RHU,{
+		/**
+		 * @get darkmode{Boolean}	True if device preferences is dark theme, otherwise false
+		 */
 		darkmode: {
 			enumerable: false,
 			get()
@@ -21,6 +25,9 @@
 		}
 	});
 
+	/**
+	 * NOTE(randomuserhi): Define public interface
+	 */
 	_RHU.definePublicAccessors(RHU, {
 		darkmode: { 
             get() { return _RHU.darkmode; }
@@ -28,11 +35,15 @@
 	});
 
 	/**
-	 * @namespace RHU.Theme
+	 * @namespace _RHU._Theme (Symbol.for("RHU")), RHU.Theme
 	 */
 	(function (_Theme, Theme) 
 	{
 
+		/**
+	     * Define local symbols used for Themes, these are completely
+	     * hidden from view as they are defined in local scope
+	     */
 		let _symbols = {};
 		_RHU.defineProperties(_symbols, {
 	        _name: {
@@ -53,22 +64,22 @@
 	    });
 
 		/**
-		 * @class{RHU.Theme.Group} Describes a theme group
-		 * @param name{string} Name of theme group
+		 * @class{Theme.Group} 	Describes a theme group
+		 * @param name{string} 	Name of theme group
 		 *
-		 * REFACTOR: Create each theme in a seperate style block such that recompiling doesn't have to regen all style sheets when only 1 theme changes.
-		 *           Only difficulty is ensuring style order such that the overrides work properly.
-		 *           This is important since _RHU.clone() operation is expensive due to javascript prototype optimisation.
+		 * TODO(randomuserhi): Refactor => Create each theme in a seperate style block such that recompiling doesn't have to regen all style sheets when only 1 theme changes.
+		 *           					   Only difficulty is ensuring style order such that the overrides work properly.
+		 *           					   This is important since _RHU.clone() operation is expensive due to javascript prototype optimisation.
 		 */
 		let Group = function(name)
 		{
 			/**
-			 * @property{private} _name{string} Name of theme group
-			 * @property{private} _current{string} Name of current active theme in group
-			 * @property{private} _style{HTMLElement} Style block that contains the css for this theme group
-			 * @property{private} _themes{Map[string -> Object]} Determines what rule set to apply based on active theme
-			 * @property{private} _mediaQueries{Map[string -> Object]} Maps a media query to a ruleset
-			 * @property{public} ruleSet{Object} Default ruleset that applies when theme is not chosen
+			 * @property{symbol} _name{string} 							Name of theme group
+			 * @property{symbol} _current{string} 						Name of current active theme in group
+			 * @property{symbol} _style{HTMLElement} 					Style block that contains the css for this theme group
+			 * @property{symbol} _themes{Map[string -> Object]} 		Determines what rule set to apply based on active theme
+			 * @property{symbol} _mediaQueries{Map[string -> Object]} 	Maps a media query to a ruleset
+			 * @property{public} ruleSet{Object} 						Default ruleset that applies when theme is not chosen
 			 */
 
 			if(new.target === undefined) throw new TypeError("Constructor Group requires 'new'.");
@@ -83,22 +94,22 @@
 		};
 		_RHU.definePublicAccessors(Group.prototype, {
 			/**
-			 * @get{public} themes{string} Get the themes this theme group has
+			 * @get themes{string} Get the themes this theme group has
 			 */
 			themes: {
 				get() { return this[_symbols._themes]; }
 			},
 
 			/**
-			 * @get{public} mediaQueries{string} Get the mediaQueries this theme group has
+			 * @get mediaQueries{string} Get the mediaQueries this theme group has
 			 */
 			mediaQueries: {
 				get() { return this[_symbols._mediaQueries]; }
 			},
 
 			/**
-			 * @get{public} active{string} Get the name of currently active theme
-			 * @set{public} active{string} Set the name of currently active theme
+			 * @get active{string} Get the name of currently active theme
+			 * @set active{string} Set the name of currently active theme
 			 */
 			active: {
 				get() { return this[_symbols._current]; },
@@ -118,14 +129,14 @@
 			},
 
 			/**
-			 * @get{public} style{HTMLElement} style element that this theme uses. Will return null if style has not been compiled yet.   
+			 * @get style{HTMLElement} style element that this theme uses. Will return null if style has not been compiled yet.   
 			 */
 			style: {
 				get() { return this[_symbols._style]; }
 			},
 
 			/**
-			 * @get{public} name{string} Get name of theme.   
+			 * @get name{string} Get name of theme.   
 			 */
 			name: {
 				get() { return this[_symbols._name]; }
@@ -133,15 +144,20 @@
 		});
 
 		/**  
-		 * @func{public} Generates CSS of this theme group
-		 * @param all{boolean:optional(true)} If true, will generate code for all themes, otherwise will just generate code for default theme
-		 * @param minified{boolean:optional(true)} If true, will generate minified css code, otherwise will pretty-print it
-		 * @return{string} CSS code
+		 * @func 									Generates CSS of this theme group
+		 * @param all{Boolean:optional(true)} 		If true, will generate code for all themes, otherwise will just generate code for default theme
+		 * @param minified{Boolean:optional(true)} 	If true, will generate minified css code, otherwise will pretty-print it
+		 * @return{String} 							CSS code
 		 *
 		 * BUG:: When minified is false, there should be indentation in the CSS. Currently there are no indentations.
 		 */
 		Group.prototype.compile = function(all = true, minified = true) 
 		{
+			/**
+			 * NOTE(randomuserhi): clone is used to convert ruleset into a ruleset object to get access
+			 *                     to compile function.
+			 */
+
 			let code = "";
 
 			let name = `${this.name}`;
@@ -187,7 +203,7 @@
 			return code;
 		}
 		/**  
-		 * @func{public} Attaches the theme group to document
+		 * @func Attaches the theme group to document
 		 */
 		Group.prototype.attach = function() 
 		{
@@ -198,7 +214,7 @@
 			document.head.appendChild(style);
 		}
 		/**  
-		 * @func{public} Removes theme group from document
+		 * @func Removes theme group from document
 		 */
 		Group.prototype.detach = function() 
 		{
@@ -211,8 +227,8 @@
 		}
 
 		/**
-		 * @class{RHU.Theme.Group.RuleSet} Describes the CSS rules for a theme
-		 * 
+		 * @class{Theme.RuleSet} Describes the CSS rules for a theme
+		 *		 
 		 * Object parameters represent the CSS variable and the value represents the css value:
 		 * 
 		 * {
@@ -232,9 +248,9 @@
 			if(new.target === undefined) throw new TypeError("Constructor RuleSet requires 'new'.");
 		}
 		/**  
-		 * @func{public} Generates CSS of this ruleset
-		 * @param minified{boolean:optional(true)} If true, will generate minified css code, otherwise will pretty-print it
-		 * @return{string} CSS code
+		 * @func 									Generates CSS of this ruleset
+		 * @param minified{Boolean:optional(true)} 	If true, will generate minified css code, otherwise will pretty-print it
+		 * @return{String} 							CSS code
 		 */
 		RuleSet.prototype.compile = function(minified = true)
 		{
@@ -251,7 +267,9 @@
 			return code;
 		}
 
-		// ------------------------------------------------------------------------------------------------------
+		/** ------------------------------------------------------------------------------------------------------
+	     * NOTE(randomuserhi): Create interface for Theme
+	     */
 
 		_RHU.definePublicProperties(_Theme, {
 	        Group: { 
@@ -279,5 +297,5 @@
 	})((_RHU.Theme || (_RHU.Theme = {})),
 	(RHU.Theme || (RHU.Theme = {})));
 
-})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
-(window["RHU"] || (window["RHU"] = {})));
+})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
+   (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library
