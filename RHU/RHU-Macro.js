@@ -224,6 +224,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
                 _queryContainer.append(this); // Append macro to query container for document queries if its not part of shadow dom
 
             // Let the parent know that it has a macro under its ownership
+            // NOTE(randomuserhi): A weak map is used such that if macro is discarded without removing from map,
+            //                     it can still be garbage collected and removed automatically
             if (!exists(parentNode[_symbols._owned])) parentNode[_symbols._owned] = new WeakMap();
             parentNode[_symbols._owned].set(this);
 
@@ -240,7 +242,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
             let parentNode = this[_symbols._parentNode];
             if (exists(parentNode))
             {
-                // If so, then remove macro from its ownership.
+                // If so, then remove macro from its ownership
+                // NOTE(randomuserhi): A weak map is used such that if macro is discarded without removing from map,
+                //                     it can still be garbage collected and removed automatically.
                 if (!exists(parentNode[_symbols._owned])) parentNode[_symbols._owned] = new WeakMap();
                 parentNode[_symbols._owned].delete(this);
             }
