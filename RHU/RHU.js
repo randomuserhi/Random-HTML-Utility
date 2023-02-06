@@ -93,7 +93,7 @@
 
                 if (valid) 
                 {
-                    if (!exists(properties.get(p)) && exists(operation))
+                    if (!properties.has(p) && exists(operation))
                         operation(curr, p);
                     properties.set(p);
                 }
