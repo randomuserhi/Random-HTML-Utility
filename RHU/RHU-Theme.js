@@ -294,7 +294,7 @@
 
 
 	})((_RHU.Theme || (_RHU.Theme = {})),
-	(RHU.Theme || (RHU.Theme = {})));
+	   (RHU.Theme || (RHU.Theme = {})));
 
 })((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
    (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library
