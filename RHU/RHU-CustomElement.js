@@ -110,7 +110,7 @@ if (!document.currentScript.defer) console.warn("'RHU-CustomElement.js' should b
                 {
                     let identifier = el.getAttribute("rhu-id");
                     el.removeAttribute("rhu-id");
-                    if (properties.hasOwnProperty(identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                    if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
                     if (options.strict && identifier in this) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
                     _RHU.definePublicAccessor(properties, identifier, {
                         get() 
