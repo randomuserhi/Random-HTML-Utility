@@ -49,7 +49,7 @@
 			{
 				return (async function(...payload)
 				{
-					options.body = opt.parser(...payload);
+					opt.fetch.body = opt.parser(...payload);
 					const response = await fetch(opt.url, opt.fetch)
 					return await opt.callback(response);
 				});
@@ -58,7 +58,7 @@
 			{
 				return (async function(payload)
 				{
-					options.body = payload;
+					opt.fetch.body = payload;
 					const response = await fetch(opt.url, opt.fetch)
 					return await opt.callback(response);
 				});
