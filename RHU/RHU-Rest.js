@@ -24,7 +24,16 @@
 		 *								- callback 	: 	{Function}	=>	Callback on fetch completion, takes fetch API response
 		 *																as parameter.
 		 *								- parser	: 	{Function}	=>	Function to parse input parameters into a structure
-		 *                                                              that fetch API body can take.
+		 *                                                              that fetch API body can take. It should return a payload
+		 *                                                              object:
+		 *																	@param 	urlParams	An object containing url parameters
+		 *																						as key value pairs.
+		 *                                                              	@param 	body		An object being sent as the body of
+		 *																						the fetch request.
+		 *																	{
+		 *																		urlParams: {}
+		 *																		body: undefined
+		 * 																	}
 		 */
 		let _fetch = function(options)
 		{
@@ -40,6 +49,11 @@
 			if (!exists(opt.fetch)) throw new SyntaxError("No fetch options were provided.");
 			if (!exists(opt.callback)) throw new SyntaxError("No callback was provided.");
 
+			let parsedPayload = { 
+				urlParams: {},
+				body: undefined
+			};
+
 			/** 
 			 * NOTE(randomuserhi): parser check is handled outside the function such that
 			 *                     the generated function object does not need to do a redundant
@@ -47,10 +61,16 @@
 			 */
 			if (exists(opt.parser))
 			{
-				return (async function(...payload)
+				return (async function(...params)
 				{
-					opt.fetch.body = opt.parser(...payload);
-					const response = await fetch(opt.url, opt.fetch)
+					let payload = opt.parser(...params);
+					
+					for (let key in parsedPayload) if (exists(payload[key])) parsedPayload[key] = payload[key];
+
+					opt.fetch.body = parsedPayload.body;
+					let url = new URL(opt.url);
+					for (let key in parsedPayload.urlParams) url.searchParams.append(key, parsedPayload.urlParams[key]);
+					const response = await fetch(url, opt.fetch);
 					return await opt.callback(response);
 				});
 			}
@@ -58,8 +78,12 @@
 			{
 				return (async function(payload)
 				{
-					opt.fetch.body = payload;
-					const response = await fetch(opt.url, opt.fetch)
+			        for (let key in parsedPayload) if (exists(payload[key])) parsedPayload[key] = payload[key];
+
+					opt.fetch.body = parsedPayload.body;
+					let url = new URL(opt.url);
+					for (let key in parsedPayload.urlParams) url.searchParams.append(key, parsedPayload.urlParams[key]);
+					const response = await fetch(url, opt.fetch);
 					return await opt.callback(response);
 				});
 			}
@@ -74,7 +98,16 @@
 		 *								- callback 	: 	{Function}	=>	Callback on fetch completion, takes fetch API response
 		 *																as parameter.
 		 *								- parser	: 	{Function}	=>	Function to parse input parameters into a structure
-		 *                                                              that fetch API body can take. (Pre JSON.stringify call)
+		 *                                                              that fetch API body can take. It should return a payload
+		 *                                                              object:
+		 *																	@param 	urlParams	An object containing url parameters
+		 *																						as key value pairs.
+		 *                                                              	@param 	body		An object being sent as the body of
+		 *																						the fetch request.
+		 *																	{
+		 *																		urlParams: {}
+		 *																		body: undefined
+		 * 																	}
 		 */
 		let _JSONfetch = function(options)
 		{
@@ -101,14 +134,18 @@
 			if (exists(opt.parser)) 
 			{
 				let parser = opt.parser;
-				opt.parser = function(...payload) {
-					return JSON.stringify(parser(...payload));
+				opt.parser = function(...params) {
+					let payload = parser(...params)
+
+					if (exists(payload.body)) payload.body = JSON.stringify(payload.body);
+					return payload;
 				}
 			}
 			else
 			{
 				opt.parser = function(payload) {
-					return JSON.stringify(payload);
+					if (exists(payload.body)) payload.body = JSON.stringify(payload.body);
+					return payload;
 				}
 			}
 			
