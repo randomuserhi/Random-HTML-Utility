@@ -16,6 +16,16 @@
 		 * TODO(randomuserhi): Support CacheAPI for performance
 		 */
 
+		/**
+		 * @func 						Creates a Promise generator for a fetch request
+		 * @param	options{Object}		Options for generating the promise:
+		 *								- url		:  	{string} 	=>	URL to request.
+		 *								- fetch 	: 	{Request}	=>	Request object for fetch API.
+		 *								- callback 	: 	{Function}	=>	Callback on fetch completion, takes fetch API response
+		 *																as parameter.
+		 *								- parser	: 	{Function}	=>	Function to parse input parameters into a structure
+		 *                                                              that fetch API body can take.
+		 */
 		let _fetch = function(options)
 		{
 			let opt = {
@@ -55,6 +65,17 @@
 			}
 		}
 
+		/**
+		 * @func 						Creates a Promise generator for a fetch request and automatically calls JSON.stringify
+		 *                              on payload.
+		 * @param	options{Object}		Options for generating the promise:
+		 *								- url		:  	{string} 	=>	URL to request.
+		 *								- fetch 	: 	{Request}	=>	Request object for fetch API.
+		 *								- callback 	: 	{Function}	=>	Callback on fetch completion, takes fetch API response
+		 *																as parameter.
+		 *								- parser	: 	{Function}	=>	Function to parse input parameters into a structure
+		 *                                                              that fetch API body can take. (Pre JSON.stringify call)
+		 */
 		let _JSONfetch = function(options)
 		{
 			let opt = {
@@ -93,6 +114,10 @@
 			
 			return _fetch(opt);
 		}
+
+		/** ------------------------------------------------------------------------------------------------------
+	     * NOTE(randomuserhi): Create interface for Rest API
+	     */
 
 		_RHU.definePublicProperties(_Rest, {
 	        fetch: {
