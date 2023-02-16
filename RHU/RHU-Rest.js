@@ -26,10 +26,10 @@
 		 *								- parser	: 	{Function}	=>	Function to parse input parameters into a structure
 		 *                                                              that fetch API body can take. It should return a payload
 		 *                                                              object:
-		 *																	@param 	urlParams	An object containing url parameters
-		 *																						as key value pairs.
-		 *                                                              	@param 	body		An object being sent as the body of
-		 *																						the fetch request.
+		 *																	@property 	urlParams	An object containing url parameters
+		 *																							as key value pairs.
+		 *                                                              	@property 	body		An object being sent as the body of
+		 *																							the fetch request.
 		 *																	{
 		 *																		urlParams: {}
 		 *																		body: undefined
@@ -100,10 +100,10 @@
 		 *								- parser	: 	{Function}	=>	Function to parse input parameters into a structure
 		 *                                                              that fetch API body can take. It should return a payload
 		 *                                                              object:
-		 *																	@param 	urlParams	An object containing url parameters
-		 *																						as key value pairs.
-		 *                                                              	@param 	body		An object being sent as the body of
-		 *																						the fetch request.
+		 *																	@property 	urlParams	An object containing url parameters
+		 *																							as key value pairs.
+		 *                                                              	@property 	body		An object being sent as the body of
+		 *																							the fetch request.
 		 *																	{
 		 *																		urlParams: {}
 		 *																		body: undefined
@@ -177,7 +177,7 @@
 	    });
 
 	})((_RHU.Rest || (_RHU.Rest = {})),
-	(RHU.Rest || (RHU.Rest = {})));
+	   (RHU.Rest || (RHU.Rest = {})));
 
 })((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
    (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library

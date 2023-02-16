@@ -13,57 +13,88 @@
 		let exists = _RHU.exists;
 
 		// NOTE(randomuserhi): readyStates of websockets from https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/readyState
-		let CONNECTING = 0;
-		let OPEN = 1;
-		let CLOSING = 2;
-		let CLOSED = 3;
+		//                     Technically redundant due to WebSocket.CONNECTING etc...
+		let CONNECTING = WebSocket.CONNECTING;
+		let OPEN = WebSocket.OPEN;
+		let CLOSING = WebSocket.CLOSING;
+		let CLOSED = WebSocket.CLOSED;
 		
-		// TODO(randomuserhi): Document this
-		// TODO(randomuserhi): Utilize symbols and getters / setters to protect key features
-		// TODO(randomuserhi): Improve the API cause calling `RHU.WebSockets.wsClient.prototype.send.call` on front end 
-		//                     is really stupid and unintuitive. Should really be inheritance based similar to 
-		//                     RHU.Component etc...
-		let wsClient = function(url, protocols = [], events = null)
+		// TODO(randomuserhi): Documentation
+
+		let ws = function(url, protocols = [])
 		{
-			this.close = undefined;
-			this.error = undefined;
-			this.message = undefined;
-			this.open = function(e) { console.log(`WebSocket connected using protocol '${this.ws.protocol}'.`); };
-			if (exists(events)) for (let key in this) if (exists(events[key])) this[key] = events[key];
+			let construct = Reflect.construct(WebSocket, [url, protocols], ws);
 
-			this.ws = new WebSocket(url, protocols);
-
-			this.queue = [];
-
-			this.addEventListener = this.ws.addEventListener;
-			this.removeEventListener = this.ws.removeEventListener;
-
-			if (exists(this.close)) this.ws.addEventListener("close", (e) => { this.close(e); });
-			if (exists(this.error)) this.ws.addEventListener("error", (e) => this.error(e));
-			if (exists(this.message)) this.ws.addEventListener("message", (e) => this.message(e));
-			if (exists(this.open)) 
-				this.ws.addEventListener("open", (e) => {
-					this.open(e);
-
-					// Send messages in queue
-					for (let msg of this.queue) wsClient.prototype.send.call(this, msg);
-				});
-		};
-		wsClient.prototype.send = function(data) 
-		{
-			if (this.ws.readyState === RHU.WebSockets.OPEN)
-				this.ws.send(data);
-			else
+			(function()
 			{
+				this.queue = [];
+
+				this.addEventListener("open", (e) => {
+					// Send messages in queue, NOTE(randomuserhi): A simple for loop can be used, but this
+					//                                             just shows shift() function exists :)
+					while (this.queue.length) 
+						WebSocket.prototype.send.call(this, this.queue.shift());
+				});
+
+			}).call(construct);
+
+			return construct;
+		}
+		ws.prototype.send = function(data)
+		{
+			if (this.readyState === RHU.WebSockets.OPEN)
+				WebSocket.prototype.send.call(this, data);
+			else
 				this.queue.push(data);
-			}
-		};
+		}
+		RHU.inherit(ws, WebSocket);
+
+		let wsClient = function(webSocket, constructor)
+		{
+			// NOTE(randomuserhi): Technically not needed, but I think using new keyword makes the syntax nicer.
+			if (new.target === undefined) throw new TypeError("Constructor Component requires 'new'.");
+			
+			if (WebSocket !== webSocket && !Object.isPrototypeOf.call(WebSocket, webSocket)) 
+				throw new TypeError("WebSocket must be inherited from or of type 'WebSocket'.");
+
+			let construct = function(...args)
+			{
+				let parsedParams = {
+					url: undefined,
+					protocols: []
+				};
+				let params = constructor.call(this, ...args);
+				if (exists(params)) for (let key in parsedParams) if (exists(params[key])) parsedParams[key] = params[key];
+				this.ws = new webSocket(parsedParams.url, parsedParams.protocols);
+			
+				this.ws.addEventListener("close", (e) => { if (exists(this.onclose)) this.onclose(e) });
+				this.ws.addEventListener("error", (e) => { if (exists(this.onerror)) this.onerror(e) });
+				this.ws.addEventListener("message", (e) => { if (exists(this.onmessage)) this.onmessage(e) });
+				this.ws.addEventListener("onopen", (e) => { if (exists(this.onopen)) this.onopen(e) });
+			};
+			construct.prototype.addEventListener = (...args) => this.ws.addEventListener(...args);
+			construct.prototype.removeEventListener = (...args) => this.ws.addEventListener(...args);
+			construct.prototype.send = function(data)
+			{
+				this.ws.send(data);
+			};
+			construct.prototype.close = function(...args)
+			{
+				this.ws.close(...args);
+			};
+
+			return construct;
+		}
 
 		/** ------------------------------------------------------------------------------------------------------
 	     * NOTE(randomuserhi): Create interface for WebSockets API
 	     */
 
 		_RHU.definePublicProperties(_WebSockets, {
+			ws: {
+				enumerable: false,
+				value: ws
+			},
 	        wsClient: {
 	            enumerable: false,
 	            value: wsClient
@@ -91,6 +122,9 @@
 	    });
 
 	    _RHU.definePublicAccessors(WebSockets, {
+	    	ws: {
+				get() { return _WebSockets.ws; }
+			},
 	        wsClient: {
 	            get() { return _WebSockets.wsClient; }
 	        },
