@@ -211,7 +211,7 @@
     {
         for (let key of properties(p, { hasOwn: true }).keys())
         {
-            if (Object.prototype.hasOwnProperty.call(p, key))
+            if (Object.hasOwnProperty.call(p, key))
             {
                 defineProperty(obj, key, p[key], options);
             }
@@ -237,7 +237,7 @@
         };
         for (let key of properties(p, { hasOwn: true }).keys())
         {
-            if (Object.prototype.hasOwnProperty.call(p, key))
+            if (Object.hasOwnProperty.call(p, key))
             {
                 let o = Object.assign(new opt(), p[key]);
                 defineProperty(obj, key, o, options);
@@ -263,7 +263,7 @@
         };
         for (let key of properties(p, { hasOwn: true }).keys())
         {
-            if (Object.prototype.hasOwnProperty.call(p, key))
+            if (Object.hasOwnProperty.call(p, key))
             {
                 let o = Object.assign(new opt(), p[key]);
                 defineProperty(obj, key, o, options);
