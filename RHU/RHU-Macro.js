@@ -498,7 +498,6 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
 
         // Append parent based on stack
         if (stack.length > 0) element[_symbols._parentMacro] = stack[stack.length - 1];
-        console.log(stack);
 
         // Update construction stack
         stack.push(element);
