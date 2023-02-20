@@ -100,6 +100,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         _parentMacro: {
             value: Symbol("macro parentMacro")
         },
+        _childMacros: {
+            value: Symbol("macro childMacros")
+        },
         _owned: {
             value: Symbol("owned macros")
         }
@@ -158,6 +161,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
          * @property{symbol} _content{Array[Node]}              List of nodes that compose this macro
          * @property{symbol} _constructed{Boolean}              If true, node has finished parsing and is constructed
          * @property{symbol} _parentMacro{HTMLElement}          parent macro if this macro is part of a nested macro
+         * @property{symbol} _childMacros{Array[HTMLElement]}   child macros if this macro is the parent of a nested macro
          * @property{symbol} _parentNode{Node}                  parentNode of macro, not the parentNode of <rhu-macro> header.
          * @property{symbol} _parentElement{HTMLElement}        parentElement of macro, not the parentElement of <rhu-macro> header.
          */
@@ -165,6 +169,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         this[_symbols._content] = [];
         this[_symbols._constructed] = false;
         this[_symbols._parentMacro] = null;
+        this[_symbols._childMacros] = [];
         this[_symbols._parentNode] = null;
         this[_symbols._parentElement] = null;
     }
@@ -241,10 +246,14 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
             this[_symbols._parentElement] = parentElement;
             if (parentNode.getRootNode() === document)
             {
+                let parentMacro = this[_symbols._parentMacro];
+
                 // Append macro to query container for document queries if its not part of shadow dom
                 // and it is not owned by another macro
-                if (!exists(this[_symbols._parentMacro])) _queryContainer.append(this); 
-                else HTMLElement.prototype.append.call(this[_symbols._parentMacro], this);
+                if (exists(parentMacro) && _queryContainer.contains(parentMacro)) HTMLElement.prototype.append.call(this[_symbols._parentMacro], this);
+                else _queryContainer.append(this);
+
+                HTMLElement.prototype.append.call(this, ...this[_symbols._childMacros])
             }
 
             // Let the parent know that it has a macro under its ownership
@@ -497,7 +506,12 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         _construct.call(element);
 
         // Append parent based on stack
-        if (stack.length > 0) element[_symbols._parentMacro] = stack[stack.length - 1];
+        if (stack.length > 0) 
+        {
+            let parent = stack[stack.length - 1];
+            element[_symbols._parentMacro] = parent;
+            parent[_symbols._childMacros].push(element);
+        }
 
         // Update construction stack
         stack.push(element);
