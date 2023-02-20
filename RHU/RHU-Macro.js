@@ -16,6 +16,15 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
  *
  * TODO(randomuserhi): Figure out how I'm gonna handle mutation observers and callbacks, since parsing involves a lot of moving
  *                     DOM elements around, mutation observer will trigger for all of them so you will get unnecessary callbacks.
+ *
+ * TODO(randomuserhi): Find out a mechanism for handling nested Macro cases such as:
+ *                     <rhu-macro>
+ *                         <div>
+ *                             <rhu-macro></rhu-macro>
+ *                         </div>
+ *                     </rhu-macro>
+ *                     On removal of parent macro, child macro will not be cleared correctly
+ *                     depending on formation (e.g if child macro is moved elsewhere (mutated macro contents essentially))
  */
 (function (_RHU, RHU) 
 {
@@ -88,6 +97,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         _parentElement: {
             value: Symbol("macro parentElement")
         },
+        _parentMacro: {
+            value: Symbol("macro parentMacro")
+        },
         _owned: {
             value: Symbol("owned macros")
         }
@@ -143,14 +155,16 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
     let _construct = function()
     {
         /**
-         * @property{symbol} _content{Array[Node]}          List of nodes that compose this macro
-         * @property{symbol} _constructed{Boolean}          If true, node has finished parsing and is constructed
-         * @property{symbol} _parentNode{Node}              parentNode of macro, not the parentNode of <rhu-macro> header.
-         * @property{symbol} _parentElement{HTMLElement}    parentElement of macro, not the parentElement of <rhu-macro> header.
+         * @property{symbol} _content{Array[Node]}              List of nodes that compose this macro
+         * @property{symbol} _constructed{Boolean}              If true, node has finished parsing and is constructed
+         * @property{symbol} _parentMacro{HTMLElement}          parent macro if this macro is part of a nested macro
+         * @property{symbol} _parentNode{Node}                  parentNode of macro, not the parentNode of <rhu-macro> header.
+         * @property{symbol} _parentElement{HTMLElement}        parentElement of macro, not the parentElement of <rhu-macro> header.
          */
 
         this[_symbols._content] = [];
         this[_symbols._constructed] = false;
+        this[_symbols._parentMacro] = null;
         this[_symbols._parentNode] = null;
         this[_symbols._parentElement] = null;
     }
@@ -214,7 +228,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         let parentElement = Node_parentElement.call(this);
 
         // Check that macro is constructed, is attached to a parent, and has not been moved to queryContainer
-        if (exists(parentNode) && parentNode !== _queryContainer && this[_symbols._constructed] === true)
+        if (exists(parentNode) && !_queryContainer.contains(parentNode) && this[_symbols._constructed] === true)
         {
             // Set constructed to false as we resume construction
             this[_symbols._constructed] = false;
@@ -226,7 +240,12 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
             this[_symbols._parentNode] = parentNode;
             this[_symbols._parentElement] = parentElement;
             if (parentNode.getRootNode() === document)
-                _queryContainer.append(this); // Append macro to query container for document queries if its not part of shadow dom
+            {
+                // Append macro to query container for document queries if its not part of shadow dom
+                // and it is not owned by another macro
+                if (!exists(this[_symbols._parentMacro])) _queryContainer.append(this); 
+                else HTMLElement.prototype.append.call(this[_symbols._parentMacro], this);
+            }
 
             // Let the parent know that it has a macro under its ownership
             // NOTE(randomuserhi): A weak map is used such that if macro is discarded without removing from map,
@@ -429,6 +448,10 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
      */
 
     /**
+     * TODO(randomuserhi): Document this
+     */
+    let stack = [];
+    /**
      * @func                        Parse a given macro
      * @param type{String}          Type of macro.
      * @param element{HTMLElement}  Macro element <rhu-macro>
@@ -442,6 +465,8 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         let content = element[_symbols._content];
         
         // mark old location to re-insert content to
+        // TODO(randomuserhi): If macro is blank, use the macro itself as the insertion point...
+        //                     so dom shows <rhu-macro></rhu-macro>
         let insertion = document.createElement("rhu-shadow");
         if (exists(content[0])) content[0].parentNode.insertBefore(insertion, content[0]);
         else if (exists(element.parentNode)) 
@@ -470,6 +495,13 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         _deconstruct.call(element)
         // Re-construct element (call constructor)
         _construct.call(element);
+
+        // Append parent based on stack
+        if (stack.length > 0) element[_symbols._parentMacro] = stack[stack.length - 1];
+        console.log(stack);
+
+        // Update construction stack
+        stack.push(element);
 
         // Get constructor for type and type definition
         let constructor = _templates.get(type);
@@ -538,6 +570,9 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
 
         // Insert element in old location
         insertion.replaceWith(element);
+
+        // Update construction stack
+        stack.pop();
     }
 
     /** ------------------------------------------------------------------------------------------------------
