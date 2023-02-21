@@ -8,7 +8,7 @@
      * NOTE(randomuserhi): Grab references to functions, purely to shorten names for easier time.
      */
 
-	let exists = _RHU.exists;
+    let exists = _RHU.exists;
 
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Declare Symbols and initial conditions for Macros
@@ -277,8 +277,8 @@
         let properties = {};
         for (let el of referencedElements)
         {
-            let identifier = el.rhuMacro;
-            el.removeAttribute("rhu-id");
+            let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
+            Element.prototype.removeAttribute.call(el, "rhu-id");
             if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
             if (options.strict && identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
             _RHU.definePublicAccessor(properties, identifier, {
@@ -350,6 +350,6 @@
     // Document may have loaded already since the script is declared as defer, in this case just call onload
     else 
         _onDocumentLoad();
-	
+    
 })((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
    (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library
