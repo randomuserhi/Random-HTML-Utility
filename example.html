@@ -26,12 +26,12 @@
 				"exampleNested",
 				`
 				<div>Top</div>
-				<rhu-macro id="child" rhu-type="example"></rhu-macro>
+				<span rhu-macro="example"></span>
 				<div>Bottom</div>
-				`);
+				`,
+				{ element: `<ul class="bruh"></ul>` });
 			
 			let test = document.createMacro("exampleNested");
-			test.id = "bruh";
 			document.body.append(test);
 		</script>
 	</body>

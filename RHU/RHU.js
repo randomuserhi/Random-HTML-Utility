@@ -384,6 +384,14 @@
         Object.setPrototypeOf(child, base); // Inherit static properties
     }
 
+    /**
+     * @func    Removes all attributes from an element.
+     */
+    let clearAttributes = function(element)
+    {
+        while(element.attributes.length > 0) element.removeAttribute(element.attributes[0].name);
+    }
+
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Define accessors between local functions (completely hidden), 
      *                     _RHU (private access) and RHU (public access)
@@ -459,6 +467,11 @@
         inherit: {
             enumerable: false,
             value: inherit
+        },
+
+        clearAttributes: {
+            enumerable: false,
+            value: clearAttributes
         }
     });
 
@@ -513,6 +526,10 @@
 
         inherit : {
             get() { return _RHU.inherit; }
+        },
+
+        clearAttributes: {
+            get() { return _RHU.clearAttributes; }
         }
     });
 
@@ -531,19 +548,6 @@
      */
     let domParser = new DOMParser();
 
-    /**
-     * @func                        Append RHU default styles to an element.
-     * @param element{HTMLElement}  Element to append style to.
-     */
-    let insertDefaultStyles = function(element) 
-    {
-        let style = document.createElement("style");
-        style.innerHTML = `rhu-slot,rhu-shadow,rhu-macro { display: contents; } rhu-querycontainer { display: none; }`;
-        element.prepend(style);
-    }
-    // Insert default style to head.
-    insertDefaultStyles(document.head);
-
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Define accessors between local functions (completely hidden), 
      *                     _RHU (private access) and RHU (public access)
@@ -553,79 +557,14 @@
         domParser: { 
             enumerable: false,
             value: domParser
-        },
-
-        insertDefaultStyles: {
-            enumerable: false,
-            value: insertDefaultStyles
         }
     });
 
     _RHU.definePublicAccessors(RHU, {
         domParser: { 
             get() { return _RHU.domParser; }
-        },
-
-        insertDefaultStyles: {
-            get() { return _RHU.insertDefaultStyles; }
         }
     });
-
-    /** ------------------------------------------------------------------------------------------------------
-     * NOTE(randomuserhi): Declare some default custom elements. Since these have no functionality at the moment,
-     *                     they are redundant.
-     */
-
-    /**
-     * @class{_Slot} Describes a custom HTML element.
-     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing.
-     */
-    let _Slot = function()
-    {
-        let construct = Reflect.construct(HTMLElement, [], _Slot);
-
-        (function() {
-
-        }).call(construct);
-
-        return construct;
-    };
-    _Slot.prototype = Object.create(HTMLElement.prototype);
-    customElements.define("rhu-slot", _Slot);
-
-    /**
-     * @class{_Shadow} Describes a custom HTML element.
-     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing.
-     */
-    let _Shadow = function()
-    {
-        let construct = Reflect.construct(HTMLElement, [], _Shadow);
-
-        (function() {
-
-        }).call(construct);
-
-        return construct;
-    };
-    _Shadow.prototype = Object.create(HTMLElement.prototype);
-    customElements.define("rhu-shadow", _Shadow);
-
-    /**
-     * @class{_QueryContainer} Describes a custom HTML element.
-     * NOTE(randomuserhi): This definition might be a bit redundant... consider removing.
-     */
-    let _QueryContainer = function()
-    {
-        let construct = Reflect.construct(HTMLElement, [], _QueryContainer);
-
-        (function() {
-
-        }).call(construct);
-
-        return construct;
-    };
-    _QueryContainer.prototype = Object.create(HTMLElement.prototype);
-    customElements.define("rhu-querycontainer", _QueryContainer);
 
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Declare some global symbols for access to specific private properties.

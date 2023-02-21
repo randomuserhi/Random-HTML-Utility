@@ -134,7 +134,7 @@ if (!document.currentScript.defer) console.warn("'RHU-CustomElement.js' should b
                 _shadow.append(...doc.body.childNodes);
 
                 // Store old location
-                let insertion = document.createElement("div");
+                let insertion = document.createElement("rhu-shadow");
                 if (exists(this.parentNode))
                     this.parentNode.insertBefore(insertion, this);
 

@@ -311,7 +311,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Component.js' should be lo
         else _RHU.assign(element, properties);
 
         // Place content into a shadow
-        let shadow = document.createElement("div");
+        let shadow = document.createElement("rhu-shadow");
         shadow.append(...doc.head.childNodes);
         shadow.append(...doc.body.childNodes);
 

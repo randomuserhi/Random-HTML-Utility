@@ -1,11 +1,6 @@
-if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded with either 'defer' keyword or at the end of <body></body>.");
-
 /**
  * @namespace _RHU (Symbol.for("RHU")), RHU
  * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
- *
- * TODO(randomuserhi): Figure out how I'm gonna handle mutation observers and callbacks, since parsing involves a lot of moving
- *                     DOM elements around, mutation observer will trigger for all of them so you will get unnecessary callbacks.
  */
 (function (_RHU, RHU) 
 {
@@ -20,21 +15,65 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
      */
 
     /**
-     * Attempt to grab `document.body` element and store in `_body`, throw error if it fails.
-     */
-    let _body = (function()
-    {
-        if (exists(document.body)) return document.body;
-        throw new Error(`Unable to get document.body. Try loading this script with 'defer' keyword or at the end of <body></body>.`);
-    })();
-
-    /**
      * @func Called on document load and will trigger parsing for <rhu-macro>
      */
     let _internalLoad = function()
     {
-        // Register element to begin parsing   
-        customElements.define("rhu-macro", _Macro);
+        // TODO(randomuserhi): Implement parsing document, then creating mutation observer
+
+        // Parse macros on document
+        let macros = document.querySelectorAll("*[rhu-macro]");
+        for (let el of macros) _parse(el, el.rhuMacro);
+
+        // Setup mutation observer to detect macros being created
+        let observer = new MutationObserver(function(mutationList, observer) {
+            /**
+             * NOTE(randomuserhi): Since mutation observers are asynchronous, the current attribute value
+             *                     as read from .getAttribute may not be correct. To remedy this, a dictionary
+             *                     storing the atribute changes is used to keep track of changes at the moment
+             *                     a mutation occurs.
+             *                     ref: https://stackoverflow.com/questions/60593551/get-the-new-attribute-value-for-the-current-mutationrecord-when-using-mutationob
+             */
+            attributes = new Map();
+            for (const mutation of mutationList) 
+            {
+                switch (mutation.type)
+                {
+                    case "attributes":
+                    {
+                        if (mutation.attributeName === "rhu-macro")
+                        {
+                            if (!attributes.has(mutation.target)) attributes.set(mutation.target, mutation.oldValue);
+                            else if (attributes.get(mutation.target) !== mutation.oldValue)
+                            {
+                                attributes.set(mutation.target, mutation.oldValue);
+
+                                /**
+                                 * NOTE(randomuserhi): A performance gain could be done by only parsing the last tracked attribute change
+                                 *                     since other changes are redundant as they are replaced by the latest.
+                                 */
+                                _parse(mutation.target, mutation.oldValue);
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+
+            for (let el of attributes.keys()) 
+            {
+                let attr = el.rhuMacro;
+                if (attributes.get(el) !== attr)
+                    _parse(el, attr);
+            }
+        });
+        observer.observe(document, {
+            attributes: true,
+            attributeOldValue: true,
+            attributeFilter: [ "rhu-macro" ],
+            //childList: true,
+            subtree: true
+        });
     }
 
     /**
@@ -59,199 +98,66 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         },
         _constructed: {
             value: Symbol("macro constructed")
-        },
-        _slot: {
-            value: Symbol("macro slot")
         }
     });
 
-    // ------------------------------------------------------------------------------------------------------
+    /** ------------------------------------------------------------------------------------------------------
+     * NOTE(randomuserhi): Set HTMLElement and Node overrides or extended functionality
+     */
 
     /**
-     * @func                Create a macro of type.
-     * @param type{String}  Type of macro.
-     * @return{HTMLElement} Macro element.
+     * @func                            Create a macro of type.
+     * @param type{String}              Type of macro.
+     * @return{HTMLElement}             Macro element.
      */
     HTMLDocument.prototype.createMacro = function(type)
     {
-        let element = this.createElement("rhu-macro");
-        // NOTE(randomuserhi): Since `_internalLoad` is called after `load-rhu-macro` callback,
-        //                     `type` accessor hasn't been declared yet, so we use setAttribute.
-        element.setAttribute("rhu-type", type);
-        return element;
-    };
+        let constructor = _templates.get(type);
+        if (!exists(constructor)) constructor = _default;
+        let definition = Object.getPrototypeOf(constructor.prototype);
+        let options = {
+            element: "<div></div>"
+        };
+        if (exists(definition[_symbols._options]))
+            for (let key in options) 
+                if (exists(definition[_symbols._options][key])) 
+                    options[key] = definition[_symbols._options][key];
 
-    // NOTE(randomuserhi): Store a reference to base accessors for childNodes to use.
-    let Node_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get;
-
-    /** ------------------------------------------------------------------------------------------------------
-     * NOTE(randomuserhi): Define custom element <rhu-component> logic
-     */
-
-    /**
-     * @func Constructor for <rhu-macro> element
-     */
-    let _construct = function()
-    {
-        /**
-         * @property{symbol} _slot{Boolean}     Slot that will contain macro children
-         * @property{symbol} _constructed{Node} If true, node has finished parsing and is constructed
-         */
-
-        this[_symbols._slot] = null;
-        this[_symbols._constructed] = false;
-    }
-
-    /**
-     * @func Destructor for <rhu-macro> element
-     * NOTE(randomuserhi): Acts like a traditional destructor, needs to cleanup things like mutationObservers etc...
-     */
-    let _deconstruct = function()
-    {
-        // Delete element properties
-        _RHU.delete(this);
-        /** 
-         * Reset prototype
-         *
-         * NOTE(randomuserhi): setPrototypeOf is not very performant due to how they are handled
-         *                     internally: https://mathiasbynens.be/notes/prototypes
-         *                     
-         *                     This is a problem since _deconstruct may be called frequently
-         *                     from creating a ton of tempates. Benchmarking may be required
-         *                     since this changes from engine to engine.
-         *                     
-         *                     Technically speaking, this only a problem on initial creation and 
-         *                     subsequent type changes, as long as you don't change its type often
-         *                     you should be fine. May vary on different browser engines so benchmark.
-         *
-         *                     Sadly I don't think I can avoid the use of setPrototypeOf that doesnt
-         *                     require new custom elements since I want to keep functionality on the element.
-         *
-         * NOTE(randomuserhi): It is important that we use Object.create to make
-         *                     a copy of the prototype, such that when we extend it
-         *                     for user-defined items it does not effect the original
-         *                     prototype.
-         *
-         *                     The prototype chain thus looks like:
-         *                     Element -> Proxy Object (from Object.create) -> _Macro.prototype -> HTMLElement.prototype
-         *
-         *                     This proxy object is what gets extended with user functionality.
-         */
-        Object.setPrototypeOf(this, Object.create(_Macro.prototype));
-    }
-
-    /**
-     * @class{_Macro} Custom element for <rhu-macro>
-     */
-    let _Macro = function()
-    {
-        let el = Reflect.construct(HTMLElement, [], _Macro);
-
-        _construct.call(el);
-
+        let doc = _RHU.domParser.parseFromString(options.element, "text/html");
+        let el = doc.body.children[0];
+        if (!exists(el)) el = doc.head.children[0];
+        if (!exists(el)) throw SyntaxError("No valid container element to convert into macro was found.");
+        el.rhuMacro = type;
         return el;
-    }
-    /**  
-     * @func{override} callback that is triggered when rhu-macro type changes
-     *                 https://developer.mozilla.org/en-US/docs/Web/Web_Components/Using_custom_elements#using_the_lifecycle_callbacks
-     */
-    _Macro.prototype.attributeChangedCallback = function(name, oldValue, newValue)
-    {
-        // Trigger parse on type change
-        if (oldValue != newValue) _parse(newValue, this);
     };
-    _RHU.definePublicAccessors(_Macro, {
-        /**
-         * @get{static} observedAttributes{Array[string]} As per HTML Spec provide which 
-         *              attributes that are being watched
-         */ 
-        observedAttributes: {
-            get() 
-            {
-                return ["rhu-type"];
-            }
-        },
-    });
-    _RHU.definePublicAccessors(_Macro.prototype, {
-        /**
-         * @get type{String} Get type of macro
-         * @set type{String} Set type of macro
-         */ 
-        type: {
-            get() 
-            {
-                return this.getAttribute("rhu-type");
-            },
-            set(type)
-            {
-                this.setAttribute("rhu-type", type);
-            }
-        },
 
-        /**
-         * @get children{HTMLCollection} Get child nodes of macro
-         */   
-        childNodes: {
-            get() 
-            {
-                let slot = this[_symbols._slot];
-                if (slot) return slot.childNodes;
-                else throw new Error(`Cannot get 'childNodes' of macro without a slot.`);
-            }
-        },
-        /**
-         * @get children{HTMLCollection} Get children of macro
-         */ 
-        children: {
-            get() 
-            {
-                let slot = this[_symbols._slot];
-                if (slot) return slot.children;
-                else throw new Error(`Cannot get 'children' of macro without a slot.`);
+    /**
+     * @func                    Override setAttribute functionality to handle <rhu-macro> being created to auto parse it
+     * @param attrName{String}  attribute to set.
+     * @param value{String}     value of attribute.
+     */
+    let Element_setAttribute = Element.prototype.setAttribute; // NOTE(randomuserhi): Store a reference to original function to use.
+    Element.prototype.setAttribute = function(attrName, value) 
+    {
+        // Remove macro functionality if element is no longer considered a macro
+        if (attrName === "rhu-macro") _parse(this, attrName);
+        Element_setAttribute.call(this, attrName, value);
+    }
+
+    /**
+     * @get rhuMacro{String}    get rhu-macro attribute
+     * @set rhuMacro{String}    set rhu-macro attribute
+     */
+    RHU.definePublicAccessors(Element.prototype, {
+        rhuMacro: {
+            get() { return Element.prototype.getAttribute.call(this, "rhu-macro"); },
+            set(value) 
+            { 
+                Element.prototype.setAttribute.call(this, "rhu-macro", value);
+                _parse(this, value);
             }
         }
     });
-    /**  
-     * @function                Override append to use slot
-     * @param ...items{Object}  items to append
-     */
-    _Macro.prototype.append = function(...items) 
-    {
-        let slot = this[_symbols._slot];
-        if (slot) slot.append(...items);
-        else throw new Error(`Cannot call 'append' on macro without a slot.`);
-    };
-    /**  
-     * @function            Override prepend to use slot
-     * @param item{Object}  item to prepend
-     */
-    _Macro.prototype.prepend = function(...items) 
-    {
-        let slot = this[_symbols._slot];
-        if (slot) slot.prepend(...items);
-        else throw new Error(`Cannot call 'prepend' on macro without a slot.`);
-    };
-    /**  
-     * @function            Override appendChild to use slot
-     * @param item{Object}  item to append
-     */
-    _Macro.prototype.appendChild = function(item)
-    {
-        let slot = this[_symbols._slot];
-        if (slot) slot.appendChild(item);
-        else throw new Error(`Cannot call 'appendChild' on macro without a slot.`);
-    };
-    /**  
-     * @function                Override replaceChildren to use slot
-     * @param ...items{Object}  items to replace children with
-     */
-    _Macro.prototype.replaceChildren = function(...items) 
-    {
-        let slot = this[_symbols._slot];
-        if (slot) slot.replaceChildren(...items);
-        else throw new Error(`Cannot call 'replaceChildren' on macro without a slot.`);
-    };
-    _RHU.inherit(_Macro, HTMLElement);
 
     // ------------------------------------------------------------------------------------------------------
 
@@ -308,26 +214,41 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
     /**
      * @func                        Parse a given macro
      * @param type{String}          Type of macro.
-     * @param element{HTMLElement}  Macro element <rhu-macro>
+     * @param element{HTMLElement}  Macro element
      */
-    let _parse = function(type, element)
+    let _parse = function(element, type)
     {
-        element[_symbols._constructed] = false;
+        /**
+         * NOTE(randomuserhi): Since rhu-macro elements may override their builtins, Element.prototype etc... are used
+         *                     to prevent undefined behaviour when certain builtins are overridden.
+         */
 
-        let _slot = element[_symbols._slot];
+        /**
+         * NOTE(randomuserhi): In built elements may have properties that need to be protected
+         *                     such that they are not cleared when rhu-macro changes, to do so you would
+         *                     create a proxy as shown below:
+         *                      
+         *                     let proxy = RHU.clone(element);
+         *                     Object.setPrototypeOf(element, proxy);
+         *
+         *                     The proxy should only be created once, to prevent huge prototype chains
+         *                     when type changes frequently.
+         *                     The reason why a poxy isn't used is because all built-ins (needs confirming)
+         *                     seem to not have any properties, an error check is made to double check this.
+         */
 
-        // Get children elements
-        let frag = new DocumentFragment();
-        if (exists(_slot)) frag.append(..._slot.childNodes);
-        else frag.append(...Node_childNodes.call(element));
+        // Check if element is eligible for RHU-Macro (check hasOwn properties and that it has not been converted into a macro already)
+        if ((element[_symbols._constructed] !== "" && !element[_symbols._constructed]) && RHU.properties(element, { hasOwn: true }).size !== 0) 
+            throw new TypeError(`Element is not eligible to be used as a rhu-macro.`);
+
+        // return if type has not changed
+        if (element[_symbols._constructed] === type) return;
+
+        // Clear old element properties
+        RHU.delete(element);
 
         // Purge old dom
-        HTMLElement.prototype.replaceChildren.call(element);
-
-        // De-construct element (call destructor)
-        _deconstruct.call(element)
-        // Re-construct element (call constructor)
-        _construct.call(element);
+        Element.prototype.replaceChildren.call(element);
 
         // Get constructor for type and type definition
         let constructor = _templates.get(type);
@@ -341,8 +262,12 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
                 if (exists(definition[_symbols._options][key])) 
                     options[key] = definition[_symbols._options][key];
 
-        // Assign prototype
-        _RHU.assign(Object.getPrototypeOf(element), constructor.prototype);
+        // Assign prototype methods
+        // NOTE(randomuserhi): prototype methods are not stored in a proxy prototype
+        //                     This may be confusing for those trying to access their methods via
+        //                     Object.getPrototypeOf, but is done due to not utilizing a proxy
+        //                     as described above.
+        _RHU.assign(element, constructor.prototype);
 
         // Get elements from parser 
         let doc = _RHU.domParser.parseFromString(exists(definition[_symbols._source]) ? definition[_symbols._source] : "", "text/html");
@@ -352,7 +277,7 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         let properties = {};
         for (let el of referencedElements)
         {
-            let identifier = el.getAttribute("rhu-id");
+            let identifier = el.rhuMacro;
             el.removeAttribute("rhu-id");
             if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
             if (options.strict && identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
@@ -373,39 +298,21 @@ if (!document.currentScript.defer) console.warn("'RHU-Macro.js' should be loaded
         }
         else _RHU.assign(element, properties);
 
-        // Find append targets
-        // NOTE(randomuserhi): This must be performed before generating nested dom by attaching to body
-        //                     such that it doesnt pull nested rhu-slot's from other macros as possible
-        //                     targets.
-        let possibleTargets = doc.getElementsByTagName("rhu-slot");
-        // Obtain slot, if there isn't a provided slot then create a new one
-        _slot = possibleTargets[0];
-        if (!_slot) _slot = document.createElement("rhu-slot");
-        element[_symbols._slot] = _slot;
+        // Parse nested rhu-macros
+        let nested = doc.querySelectorAll("*[rhu-macro]");
+        for (let el of nested) _parse(el, el.rhuMacro);
 
-        // Place content into a shadow
-        let shadow = document.createElement("rhu-shadow");
-        shadow.append(...doc.head.childNodes);
-        shadow.append(...doc.body.childNodes);
+        // NOTE(randomuserhi): When placing items into macro, account for <style> and other blocks
+        //                     being placed in document head
+        Element.prototype.append.call(element, ...doc.head.childNodes);
+        Element.prototype.append.call(element, ...doc.body.childNodes);
 
-        // Attach to body to expand nested elements using a shadow (Kinda hacky solution)
-        _body.appendChild(shadow);
-
-        // Place items back onto macros
-        HTMLElement.prototype.appendChild.call(element, shadow);
-
-        // Remove shadow
-        shadow.replaceWith(...shadow.childNodes);
-
-        // Append children back into slot
-        _slot.append(...frag.childNodes);
-
-        // Call constructor
         constructor.call(element);
 
-        // Set macro as constructed
-        element[_symbols._constructed] = true;
+        // Set constructed type
+        element[_symbols._constructed] = type;
     }
+    window["parse"] = _parse; // Debug purposes
 
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Create interface for Macro
