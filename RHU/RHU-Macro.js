@@ -106,9 +106,9 @@
      */
 
     /**
-     * @func                            Create a macro of type.
-     * @param type{String}              Type of macro.
-     * @return{HTMLElement}             Macro element.
+     * @func                    Create a macro of type.
+     * @param type{String}      Type of macro.
+     * @return{HTMLElement}     Macro element.
      */
     HTMLDocument.prototype.createMacro = function(type)
     {
@@ -130,6 +130,32 @@
         el.rhuMacro = type;
         return el;
     };
+
+    /**
+     * @func                Returns the HTML DOM String for a given macro.
+     * @param type{String}  Type of macro.
+     * @return{String}      HTML DOM String for the macro.
+     */
+    HTMLDocument.prototype.Macro = function(type)
+    {
+        let constructor = _templates.get(type);
+        if (!exists(constructor)) constructor = _default;
+        let definition = Object.getPrototypeOf(constructor.prototype);
+        let options = {
+            element: "<div></div>"
+        };
+        if (exists(definition[_symbols._options]))
+            for (let key in options) 
+                if (exists(definition[_symbols._options][key])) 
+                    options[key] = definition[_symbols._options][key];
+
+        let doc = _RHU.domParser.parseFromString(options.element, "text/html");
+        let el = doc.body.children[0];
+        if (!exists(el)) el = doc.head.children[0];
+        if (!exists(el)) throw SyntaxError("No valid container element to convert into macro was found.");
+        Element_setAttribute.call(el, "rhu-macro", type);
+        return el.outerHTML;
+    }
 
     /**
      * @func                    Override setAttribute functionality to handle <rhu-macro> being created to auto parse it
