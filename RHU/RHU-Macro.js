@@ -126,7 +126,7 @@
         let doc = _RHU.domParser.parseFromString(options.element, "text/html");
         let el = doc.body.children[0];
         if (!exists(el)) el = doc.head.children[0];
-        if (!exists(el)) throw SyntaxError("No valid container element to convert into macro was found.");
+        if (!exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
         el.rhuMacro = type;
         return el;
     };
@@ -153,7 +153,7 @@
         let doc = _RHU.domParser.parseFromString(options.element, "text/html");
         let el = doc.body.children[0];
         if (!exists(el)) el = doc.head.children[0];
-        if (!exists(el)) throw SyntaxError("No valid container element to convert into macro was found.");
+        if (!exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
         Element_setAttribute.call(el, "rhu-macro", type);
         for (let key in attributes) el.setAttribute(key, attributes[key]);
         return el.outerHTML;
@@ -178,7 +178,12 @@
      */
     RHU.definePublicAccessors(Element.prototype, {
         rhuMacro: {
-            get() { return Element.prototype.getAttribute.call(this, "rhu-macro"); },
+            get() 
+            {
+                let attribute = Element.prototype.getAttribute.call(this, "rhu-macro"); 
+                if (exists(attribute)) return attribute;
+                else return "";
+            },
             set(value) 
             { 
                 Element.prototype.setAttribute.call(this, "rhu-macro", value);
@@ -300,6 +305,34 @@
         // Get elements from parser 
         let doc = _RHU.domParser.parseFromString(exists(definition[_symbols._source]) ? definition[_symbols._source] : "", "text/html");
 
+        // Expand <rhu-macro> tags into their original macros
+        let nested = doc.getElementsByTagName("rhu-macro");
+        for (let el of nested)
+        { 
+            const typename = "rhu-type";
+            let type = Element.prototype.getAttribute.call(el, typename);
+            Element.prototype.removeAttribute.call(el, typename);
+            let constructor = _templates.get(type);
+            if (!exists(constructor)) constructor = _default;
+            let definition = Object.getPrototypeOf(constructor.prototype);
+            let options = {
+                element: "<div></div>"
+            };
+            if (exists(definition[_symbols._options]))
+                for (let key in options) 
+                    if (exists(definition[_symbols._options][key])) 
+                        options[key] = definition[_symbols._options][key];
+
+            let doc = _RHU.domParser.parseFromString(options.element, "text/html");
+            let macro = doc.body.children[0];
+            if (!exists(macro)) macro = doc.head.children[0];
+            if (!exists(macro)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
+            Element_setAttribute.call(macro, "rhu-macro", type);
+            for (let i = 0; i < el.attributes.length; ++i)
+                macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
+            el.replaceWith(macro);
+        }
+
         // Create properties
         let referencedElements = doc.querySelectorAll("*[rhu-id]");
         let properties = {};
@@ -327,7 +360,7 @@
         else _RHU.assign(element, properties);
 
         // Parse nested rhu-macros
-        let nested = doc.querySelectorAll("*[rhu-macro]");
+        nested = doc.querySelectorAll("*[rhu-macro]");
         for (let el of nested) _parse(el, el.rhuMacro);
 
         // NOTE(randomuserhi): When placing items into macro, account for <style> and other blocks
@@ -340,7 +373,6 @@
         // Set constructed type
         element[_symbols._constructed] = type;
     }
-    window["parse"] = _parse; // Debug purposes
 
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Create interface for Macro
