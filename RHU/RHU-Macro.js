@@ -19,7 +19,36 @@
      */
     let _internalLoad = function()
     {
-        // TODO(randomuserhi): Implement parsing document, then creating mutation observer
+        // Expand <rhu-macro> tags into their original macros
+        let expand = [...document.getElementsByTagName("rhu-macro")];
+        for (let el of expand)
+        { 
+            const typename = "rhu-type";
+            let type = Element.prototype.getAttribute.call(el, typename);
+            Element.prototype.removeAttribute.call(el, typename);
+            let constructor = _templates.get(type);
+            if (!exists(constructor)) constructor = _default;
+            let definition = Object.getPrototypeOf(constructor.prototype);
+            let options = {
+                element: "<div></div>"
+            };
+            if (exists(definition[_symbols._options]))
+                for (let key in options) 
+                    if (exists(definition[_symbols._options][key])) 
+                        options[key] = definition[_symbols._options][key];
+
+            let doc = _RHU.domParser.parseFromString(options.element, "text/html");
+            let macro = doc.body.children[0];
+            if (!exists(macro)) macro = doc.head.children[0];
+            if (!exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
+            else
+            {
+                Element_setAttribute.call(macro, "rhu-macro", type);
+                for (let i = 0; i < el.attributes.length; ++i)
+                    macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
+                el.replaceWith(macro);
+            }
+        }
 
         // Parse macros on document
         let macros = document.querySelectorAll("*[rhu-macro]");
@@ -306,7 +335,7 @@
         let doc = _RHU.domParser.parseFromString(exists(definition[_symbols._source]) ? definition[_symbols._source] : "", "text/html");
 
         // Expand <rhu-macro> tags into their original macros
-        let nested = doc.getElementsByTagName("rhu-macro");
+        let nested = [...doc.getElementsByTagName("rhu-macro")];
         for (let el of nested)
         { 
             const typename = "rhu-type";
@@ -326,11 +355,14 @@
             let doc = _RHU.domParser.parseFromString(options.element, "text/html");
             let macro = doc.body.children[0];
             if (!exists(macro)) macro = doc.head.children[0];
-            if (!exists(macro)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
-            Element_setAttribute.call(macro, "rhu-macro", type);
-            for (let i = 0; i < el.attributes.length; ++i)
-                macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
-            el.replaceWith(macro);
+            if (!exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
+            else
+            {
+                Element_setAttribute.call(macro, "rhu-macro", type);
+                for (let i = 0; i < el.attributes.length; ++i)
+                    macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
+                el.replaceWith(macro);
+            }
         }
 
         // Create properties
