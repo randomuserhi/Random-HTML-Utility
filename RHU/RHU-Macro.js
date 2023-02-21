@@ -232,7 +232,7 @@
      * @param source{string}    HTML source of macro
      * @param options{Object}   TODO(randomuserhi): document this object
      */
-    let Macro = function(object, type, source, options = {})
+    let Macro = function(object, type, source = "", options = {})
     {
         /**
          * @property{symbol} _type{String}      name of macro
