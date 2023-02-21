@@ -20,6 +20,8 @@
     let _internalLoad = function()
     {
         // Expand <rhu-macro> tags into their original macros
+        // NOTE(randomuserhi): this expansion is the same as done in _parse, consider
+        //                     converting into a function
         let expand = [...document.getElementsByTagName("rhu-macro")];
         for (let el of expand)
         { 
