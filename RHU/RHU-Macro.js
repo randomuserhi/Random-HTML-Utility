@@ -132,11 +132,12 @@
     };
 
     /**
-     * @func                Returns the HTML DOM String for a given macro.
-     * @param type{String}  Type of macro.
-     * @return{String}      HTML DOM String for the macro.
+     * @func                        Returns the HTML DOM String for a given macro.
+     * @param type{String}          Type of macro.
+     * @param attributes{Object}    Additional attributes to add.
+     * @return{String}              HTML DOM String for the macro.
      */
-    HTMLDocument.prototype.Macro = function(type)
+    HTMLDocument.prototype.Macro = function(type, attributes)
     {
         let constructor = _templates.get(type);
         if (!exists(constructor)) constructor = _default;
@@ -154,6 +155,7 @@
         if (!exists(el)) el = doc.head.children[0];
         if (!exists(el)) throw SyntaxError("No valid container element to convert into macro was found.");
         Element_setAttribute.call(el, "rhu-macro", type);
+        for (let key in attributes) el.setAttribute(key, attributes[key]);
         return el.outerHTML;
     }
 
