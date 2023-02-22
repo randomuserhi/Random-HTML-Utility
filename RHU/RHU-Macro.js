@@ -129,6 +129,9 @@
         },
         _constructed: {
             value: Symbol("macro constructed")
+        },
+        _content: {
+            value: Symbol("macro content")
         }
     });
 
@@ -155,12 +158,15 @@
                 if (exists(definition[_symbols._options][key])) 
                     options[key] = definition[_symbols._options][key];
 
-        if (options.floating) throw new TypeError("Cannot create a floating macro as it won't be based.");
+        //if (options.floating) throw new TypeError("Cannot create a floating macro as it won't be based.");
+
+        //TODO(randomuserhi): for performance, if it is floating, dont parse a doc, just make a <div> with createElement
 
         let doc = _RHU.domParser.parseFromString(options.element, "text/html");
         let el = doc.body.children[0];
         if (!exists(el)) el = doc.head.children[0];
         if (!exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
+        el.remove(); //un bind element from temporary doc
         el.rhuMacro = type;
         return el[_globalSymbols._instance];
     };
@@ -190,6 +196,7 @@
         if (!exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
         Element_setAttribute.call(el, "rhu-macro", type);
         for (let key in attributes) el.setAttribute(key, attributes[key]);
+        el.remove(); //un bind element from temporary doc
         return el.outerHTML;
     }
 
@@ -286,6 +293,10 @@
      * @func                        Parse a given macro
      * @param type{String}          Type of macro.
      * @param element{HTMLElement}  Macro element
+     *
+     * TODO(randomuserhi): Fix bug where if encapsulate is being used and strict is true, it shouldnt prevent properties
+     *                     since they are encapsulated. Basically move the check over to encapsulate as opposed to the properties
+     *                     or something.
      */
     let _parse = function(element, type)
     {
@@ -327,7 +338,9 @@
         let definition = Object.getPrototypeOf(constructor.prototype);
         let options = {
             strict: false,
-            floating: false
+            floating: false,
+            encapsulate: undefined,
+            content: undefined
         };
         if (exists(definition[_symbols._options]))
             for (let key in options) 
@@ -375,16 +388,19 @@
             // convert to for the parser later to use.
             if (options.floating)
             {
-                let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
-                Element.prototype.removeAttribute.call(el, "rhu-id");
-                if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                if (options.strict && identifier in target) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                _RHU.definePublicAccessor(properties, identifier, {
-                    get() 
-                    {
-                        return el[_globalSymbols._instance];
-                    }
-                });
+                if (Element.prototype.hasAttribute.call(el, "rhu-id"))
+                {
+                    let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
+                    Element.prototype.removeAttribute.call(el, "rhu-id");
+                    if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                    if (options.strict && identifier in target) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                    _RHU.definePublicAccessor(properties, identifier, {
+                        get() 
+                        {
+                            return el[_globalSymbols._instance];
+                        }
+                    });
+                }
                 _parse(el, type);
             }
             // If the macro is not floating, parse it and create the container the macro needs to be inside
@@ -410,13 +426,12 @@
         {
             let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
             Element.prototype.removeAttribute.call(el, "rhu-id");
+
             if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
             if (options.strict && identifier in target) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+
             _RHU.definePublicAccessor(properties, identifier, {
-                get() 
-                {
-                    return el[_globalSymbols._instance];
-                }
+                get() { return el[_globalSymbols._instance]; }
             })
         }
 
@@ -429,11 +444,30 @@
         Element.prototype.append.call(element, ...doc.head.childNodes);
         Element.prototype.append.call(element, ...doc.body.childNodes);
 
+        // Set content of macro 
+        // NOTE(randomuserhi): Technically unnecessary and only relevant if option for content is true.
+        //                     (Could just be a local variable, thats getted instead of a symbol property)
+        target[_symbols._content] = [...Node_childNodes.call(element)];
+
+        // Set content variable if set:
+        if (exists(options.content))
+        {            
+            if (typeof options.content !== "string") throw new TypeError("Option 'content' must be a string.");
+            
+            if (Object.prototype.hasOwnProperty.call(properties, options.content)) throw new SyntaxError(`Identifier '${options.content}' already exists.`);
+            if (options.strict && options.content in target) throw new SyntaxError(`Identifier '${options.content}' already exists.`);
+            
+            _RHU.definePublicAccessor(properties, options.content, {
+                get() { return target[_symbols._content]; }
+            });
+        }
+
         if (options.floating)
         {
-            // If we are floating, replace children (throw error if placeholder cannot be replaced)
+            // If we are floating, replace children
+            // If no parent, unbind children
             if (exists(Node_parentNode.call(element))) Element.prototype.replaceWith.call(element, ...Node_childNodes.call(element));
-            else throw SyntaxError("Cannot create a floating macro that is not attached to anything.");
+            else Element.prototype.replaceWith.call(element);
 
             // If we are floating, set instance to be the new target object instead of the element container:
             _RHU.defineProperties(element, {
@@ -456,8 +490,11 @@
 
         constructor.call(target);
 
-        // Set constructed type
+        // Set constructed type for both target and element
+        // NOTE(randomuserhi): You need to set it for both, since if the element is a proxy
+        //                     for the floating macro it needs to be considered constructed
         target[_symbols._constructed] = type;
+        element[_symbols._constructed] = type;
     }
 
     /** ------------------------------------------------------------------------------------------------------
