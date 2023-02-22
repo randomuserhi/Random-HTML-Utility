@@ -147,19 +147,22 @@
         if (!exists(constructor)) constructor = _default;
         let definition = Object.getPrototypeOf(constructor.prototype);
         let options = {
-            element: "<div></div>"
+            element: "<div></div>",
+            floating: false
         };
         if (exists(definition[_symbols._options]))
             for (let key in options) 
                 if (exists(definition[_symbols._options][key])) 
                     options[key] = definition[_symbols._options][key];
 
+        if (options.floating) throw new TypeError("Cannot create a floating macro as it won't be based.");
+
         let doc = _RHU.domParser.parseFromString(options.element, "text/html");
         let el = doc.body.children[0];
         if (!exists(el)) el = doc.head.children[0];
         if (!exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
         el.rhuMacro = type;
-        return el;
+        return el[_globalSymbols._instance];
     };
 
     /**
@@ -199,9 +202,13 @@
     Element.prototype.setAttribute = function(attrName, value) 
     {
         // Remove macro functionality if element is no longer considered a macro
-        if (attrName === "rhu-macro") _parse(this, attrName);
+        if (attrName === "rhu-macro") _parse(this, value);
         Element_setAttribute.call(this, attrName, value);
     }
+
+    // NOTE(randomuserhi): Store a reference to base accessors to use.
+    let Node_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get;
+    let Node_parentNode = Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get;
 
     /**
      * @get rhuMacro{String}    get rhu-macro attribute
@@ -308,6 +315,10 @@
         // return if type has not changed
         if (element[_symbols._constructed] === type) return;
 
+        console.log(element[_symbols._constructed])
+        console.log(type); // why is the first type rhu-macro?????
+        console.log(element);
+
         // Clear old element properties
         RHU.delete(element);
 
@@ -319,7 +330,8 @@
         if (!exists(constructor)) constructor = _default;
         let definition = Object.getPrototypeOf(constructor.prototype);
         let options = {
-            strict: false
+            strict: false,
+            floating: false
         };
         if (exists(definition[_symbols._options]))
             for (let key in options) 
@@ -331,15 +343,23 @@
         //                     This may be confusing for those trying to access their methods via
         //                     Object.getPrototypeOf, but is done due to not utilizing a proxy
         //                     as described above.
-        _RHU.assign(element, constructor.prototype);
+        // Set target object
+        let target = element;
+        if (options.floating) target = Object.create(constructor.prototype);
+        else _RHU.assign(target, constructor.prototype);
+
+        console.log("parse");
 
         // Get elements from parser 
         let doc = _RHU.domParser.parseFromString(exists(definition[_symbols._source]) ? definition[_symbols._source] : "", "text/html");
 
+        // property object to hold element properties
+        let properties = {};
+
         // Expand <rhu-macro> tags into their original macros
         let nested = [...doc.getElementsByTagName("rhu-macro")];
         for (let el of nested)
-        { 
+        {
             const typename = "rhu-type";
             let type = Element.prototype.getAttribute.call(el, typename);
             Element.prototype.removeAttribute.call(el, typename);
@@ -347,35 +367,57 @@
             if (!exists(constructor)) constructor = _default;
             let definition = Object.getPrototypeOf(constructor.prototype);
             let options = {
-                element: "<div></div>"
+                element: "<div></div>",
+                strict: false,
+                floating: false
             };
             if (exists(definition[_symbols._options]))
                 for (let key in options) 
                     if (exists(definition[_symbols._options][key])) 
                         options[key] = definition[_symbols._options][key];
 
-            let doc = _RHU.domParser.parseFromString(options.element, "text/html");
-            let macro = doc.body.children[0];
-            if (!exists(macro)) macro = doc.head.children[0];
-            if (!exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
+            // If the macro is floating, check for id, and create its property and parse it
+            // we have to parse it manually here as floating macros don't have containers to 
+            // convert to for the parser later to use.
+            if (options.floating)
+            {
+                let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
+                Element.prototype.removeAttribute.call(el, "rhu-id");
+                if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                if (options.strict && identifier in target) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                _RHU.definePublicAccessor(properties, identifier, {
+                    get() 
+                    {
+                        return el[_globalSymbols._instance];
+                    }
+                });
+                _parse(el, type);
+            }
+            // If the macro is not floating, parse it and create the container the macro needs to be inside
             else
             {
-                Element_setAttribute.call(macro, "rhu-macro", type);
-                for (let i = 0; i < el.attributes.length; ++i)
-                    macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
-                el.replaceWith(macro);
+                let doc = _RHU.domParser.parseFromString(options.element, "text/html");
+                let macro = doc.body.children[0];
+                if (!exists(macro)) macro = doc.head.children[0];
+                if (!exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
+                else
+                {
+                    Element_setAttribute.call(macro, "rhu-macro", type);
+                    for (let i = 0; i < el.attributes.length; ++i)
+                        macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
+                    el.replaceWith(macro);
+                }
             }
         }
 
         // Create properties
         let referencedElements = doc.querySelectorAll("*[rhu-id]");
-        let properties = {};
         for (let el of referencedElements)
         {
             let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
             Element.prototype.removeAttribute.call(el, "rhu-id");
             if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-            if (options.strict && identifier in element) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+            if (options.strict && identifier in target) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
             _RHU.definePublicAccessor(properties, identifier, {
                 get() 
                 {
@@ -383,17 +425,8 @@
                 }
             })
         }
-        // Add properties to element
-        if (exists(options.encapsulate))
-        {            
-            if (typeof options.encapsulate !== "string") throw new TypeError("Option 'encapsulate' must be a string.");
-            _RHU.definePublicAccessor(element, options.encapsulate, {
-                get() { return properties; }
-            });
-        }
-        else _RHU.assign(element, properties);
 
-        // Parse nested rhu-macros
+        // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
         nested = doc.querySelectorAll("*[rhu-macro]");
         for (let el of nested) _parse(el, el.rhuMacro);
 
@@ -402,10 +435,35 @@
         Element.prototype.append.call(element, ...doc.head.childNodes);
         Element.prototype.append.call(element, ...doc.body.childNodes);
 
-        constructor.call(element);
+        if (options.floating)
+        {
+            // If we are floating, replace children (throw error if placeholder cannot be replaced)
+            if (exists(Node_parentNode.call(element))) Element.prototype.replaceWith.call(element, ...Node_childNodes.call(element));
+            else throw SyntaxError("Cannot create a floating macro that is not attached to anything.");
+
+            // If we are floating, set instance to be the new target object instead of the element container:
+            _RHU.defineProperties(element, {
+                [_globalSymbols._instance]: {
+                    get() { return target; }
+                }
+            });
+        }
+        
+        // Add properties to target => TODO(randomuserhi): check when strict mode is active if the encapsulate 
+        //                                                 property clashes with any other properties.
+        if (exists(options.encapsulate))
+        {            
+            if (typeof options.encapsulate !== "string") throw new TypeError("Option 'encapsulate' must be a string.");
+            _RHU.definePublicAccessor(target, options.encapsulate, {
+                get() { return properties; }
+            });
+        }
+        else _RHU.assign(target, properties);
+
+        constructor.call(target);
 
         // Set constructed type
-        element[_symbols._constructed] = type;
+        target[_symbols._constructed] = type;
     }
 
     /** ------------------------------------------------------------------------------------------------------

@@ -4,7 +4,9 @@
 		<script src="RHU/RHU.js"></script>
 	</head>
 	<body>
-		<div id="target"></div>
+		<div id="target">
+			<rhu-macro rhu-type="exampleNested"></rhu-macro>
+		</div>
 
 		<script src="RHU/RHU-Macro.js"></script>
 		<script type="text/javascript">
@@ -15,8 +17,9 @@
 			new RHU.Macro(example, 
 				"example",
 				`
-				Bruh Cringe
-				`);
+				<div rhu-id="text">Bruh Cringe</div>
+				`,
+				{ floating: true });
 
 			let exampleNested = function()
 			{
@@ -26,13 +29,13 @@
 				"exampleNested",
 				`
 				<div>Top</div>
-				<span rhu-macro="example"></span>
+				<rhu-macro rhu-type="example"></rhu-macro>
 				<div>Bottom</div>
 				`,
 				{ element: `<ul class="bruh"></ul>` });
-			
-			let test = document.createMacro("exampleNested");
-			document.body.append(test);
+
+			//let test = document.createMacro("exampleNested");
+			//document.body.append(test);
 		</script>
 	</body>
 </html>
