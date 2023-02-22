@@ -315,10 +315,6 @@
         // return if type has not changed
         if (element[_symbols._constructed] === type) return;
 
-        console.log(element[_symbols._constructed])
-        console.log(type); // why is the first type rhu-macro?????
-        console.log(element);
-
         // Clear old element properties
         RHU.delete(element);
 
@@ -347,8 +343,6 @@
         let target = element;
         if (options.floating) target = Object.create(constructor.prototype);
         else _RHU.assign(target, constructor.prototype);
-
-        console.log("parse");
 
         // Get elements from parser 
         let doc = _RHU.domParser.parseFromString(exists(definition[_symbols._source]) ? definition[_symbols._source] : "", "text/html");
