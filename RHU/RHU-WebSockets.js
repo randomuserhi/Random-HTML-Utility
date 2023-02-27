@@ -70,7 +70,7 @@
 				this.ws.addEventListener("close", (e) => { if (exists(this.onclose)) this.onclose(e) });
 				this.ws.addEventListener("error", (e) => { if (exists(this.onerror)) this.onerror(e) });
 				this.ws.addEventListener("message", (e) => { if (exists(this.onmessage)) this.onmessage(e) });
-				this.ws.addEventListener("onopen", (e) => { if (exists(this.onopen)) this.onopen(e) });
+				this.ws.addEventListener("open", (e) => { if (exists(this.onopen)) this.onopen(e) });
 			};
 			construct.prototype.addEventListener = (...args) => this.ws.addEventListener(...args);
 			construct.prototype.removeEventListener = (...args) => this.ws.addEventListener(...args);
