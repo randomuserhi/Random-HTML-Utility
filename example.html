@@ -7,34 +7,12 @@
 		<div id="target">
 		</div>
 
-		<script src="RHU/RHU-Macro.js"></script>
+		<script src="RHU/RHU-MD.js"></script>
 		<script type="text/javascript">
-			let example = function()
-			{
-				console.log("example constructor");
-			}
-			new RHU.Macro(example, 
-				"example",
-				`
-				Bruh Cringe
-				`,
-				{ floating: true });
-
-			let exampleNested = function()
-			{
-				console.log("exampleNested constructor");
-			}
-			new RHU.Macro(exampleNested, 
-				"exampleNested",
-				`
-				<div rhu-id="top">Top</div>
-				<rhu-macro rhu-type="example"></rhu-macro>
-				<div>Bottom</div>
-				`,
-				{ floating: true, element: `<ul class="bruh"></ul>`, content: "sussy" });
-
-			var test = document.createMacro("exampleNested");
-			document.body.append(...test.sussy);
+			let parser = new RHU.MD.Parser();
+			let tree = parser.parse(`!['test' scary shit](lmao)`);
+			//console.log(tree);
+			console.log(new RHU.MD.HTMLParser().parse(tree));
 		</script>
 	</body>
 </html>
