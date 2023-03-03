@@ -2668,9 +2668,13 @@
 	            enumerable: false,
 	            value: Parser
 	        },
-	        HTMLParser:{
+	        HTMLParser: {
 	            enumerable: false,
 	            value: HTMLParser
+	        },
+	        escapeXml: {
+	        	enumerable: false,
+	        	value: escapeXml
 	        }
 	    });
 
@@ -2680,6 +2684,9 @@
 	        },
 	        HTMLParser:{
 	            get() { return _MD.HTMLParser }
+	        },
+	        escapeXml: {
+	        	get() { return _MD.escapeXml }
 	        }
 	    });
 
