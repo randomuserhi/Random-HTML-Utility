@@ -2398,20 +2398,11 @@
 		    this.column = 0;
 		    this.lastMatchedContainer = this.doc;
 		    this.currentLine = "";
-		    if (this.options.time) {
-		        console.time("preparing input");
-		    }
 		    var lines = input.split(reLineEnding);
 		    var len = lines.length;
 		    if (input.charCodeAt(input.length - 1) === C_NEWLINE) {
 		        // ignore last blank line created by final newline
 		        len -= 1;
-		    }
-		    if (this.options.time) {
-		        console.timeEnd("preparing input");
-		    }
-		    if (this.options.time) {
-		        console.time("block parsing");
 		    }
 		    for (var i = 0; i < len; i++) {
 		        this.incorporateLine(lines[i]);
@@ -2419,16 +2410,7 @@
 		    while (this.tip) {
 		        this.finalize(this.tip, len);
 		    }
-		    if (this.options.time) {
-		        console.timeEnd("block parsing");
-		    }
-		    if (this.options.time) {
-		        console.time("inline parsing");
-		    }
 		    this.processInlines(this.doc);
-		    if (this.options.time) {
-		        console.timeEnd("inline parsing");
-		    }
 		    return this.doc;
 		};
 
@@ -2465,198 +2447,8 @@
 		        processInlines: processInlines,
 		        closeUnmatchedBlocks: closeUnmatchedBlocks,
 		        parse: parse,
-		        options: options || {}
+		        options: options || { smart: true }
 		    };
-		}
-
-		/** ------------------------------------------------------------------------------------------------------
-		 * Custom parser for Abstract Syntax Tree generated from commonmark
-		 */
-
-		let HTMLParser = function()
-		{
-
-		}
-		HTMLParser.prototype.parse = function(ast)
-		{
-			var walker = ast.walker(),
-		        event,
-		        type;
-
-		    let frag = new DocumentFragment();
-		    this.dom = frag;
-		    while ((event = walker.next())) {
-		        type = event.node.type;
-		        if (this[type]) {
-		            this[type](event.node, event.entering);
-		        }
-		    }
-		    return frag;
-		}
-
-		HTMLParser.prototype.text = function(node) 
-		{
-			// check if we are inside an image tag to add alt text
-			if (this.dom.tagName === "IMG")
-				this.dom.alt += node.literal;
-			else this.dom.append(node.literal);
-		};
-
-		HTMLParser.prototype.softbreak = function(node) 
-		{
-			this.dom.append(document.createElement("br"));
-		};
-
-		HTMLParser.prototype.linebreak = function() 
-		{
-		    this.dom.append(document.createElement("br"));
-		};
-
-		HTMLParser.prototype.link = function(node, entering) 
-		{
-		    if (entering) 
-		    {
-		    	let link = document.createElement("a");
-		    	link.href = escapeXml(node.destination);
-		    	this.dom.append(link);
-		    	this.dom = link;
-		    }
-		    else this.dom = this.dom.parentNode;
-		};
-
-		HTMLParser.prototype.embed = function(node, entering) 
-		{
-			if (entering) // TODO(randomuserhi): interpret different embeds differently, currently assumes all embeds are images
-		    {
-		    	let img = document.createElement("img");
-		    	img.src = escapeXml(node.destination);
-		    	this.dom.append(img);
-		    	this.dom = img;
-		    }
-		    else this.dom = this.dom.parentNode;
-		};
-
-		HTMLParser.prototype.emph = function(node, entering)
-		{
-			if (entering)
-			{
-				let italics = document.createElement("i");
-				this.dom.append(italics);
-				this.dom = italics;
-			}
-			else this.dom = this.dom.parentNode;
-		};
-
-		HTMLParser.prototype.strong = function(node, entering)
-		{
-			if (entering)
-			{
-				let bold = document.createElement("b");
-				this.dom.append(bold);
-				this.dom = bold;
-			}
-			else this.dom = this.dom.parentNode;
-		};
-
-		HTMLParser.prototype.paragraph = function(node, entering)
-		{
-			let grandparent = node.parent.parent;
-			if (grandparent !== null && grandparent.type === "list")
-		        if (grandparent.listTight)
-		            return;
-
-			if (entering)
-			{
-				let p = document.createElement("p");
-				this.dom.append(p);
-				this.dom = p;
-			}
-			else this.dom = this.dom.parentNode;
-		};
-
-		HTMLParser.prototype.heading = function(node, entering)
-		{
-		    if (entering) 
-		    {
-		    	let h = document.createElement(`h${node.level}`);
-				this.dom.append(h);
-				this.dom = h;
-		    } 
-		    else this.dom = this.dom.parentNode;
-		};
-
-		HTMLParser.prototype.code = function(node)
-		{
-			let code = document.createElement("code");
-			code.append(node.literal);
-			this.dom.append(code);
-		};
-
-		HTMLParser.prototype.code_block = function(node)
-		{
-			let container = document.createElement("pre");
-			let code = document.createElement("code");
-			code.append(node.literal);
-			container.append(code);
-			this.dom.append(container);
-		};
-
-		HTMLParser.prototype.thematic_break = function(node)
-		{
-			let hr = document.createElement("hr");
-			this.dom.append(hr);
-		};
-
-		HTMLParser.prototype.block_quote = function(node, entering)
-		{
-			if (entering) 
-		    {
-		    	let blockQuote = document.createElement("blockquote");
-				this.dom.append(blockQuote);
-				this.dom = blockQuote;
-		    } 
-		    else this.dom = this.dom.parentNode;
-		};
-
-		HTMLParser.prototype.list = function(node, entering) // TODO(randomuserhi): Change to allow custom numbering in numbered list...
-		{
-		    let tag = node.listType === "bullet" ? "ul" : "ol";
-
-		    if (entering) 
-		    {
-		    	let list = document.createElement(tag);
-		    	list.start = node.listStart;
-				this.dom.append(list);
-				this.dom = list;
-		    } 
-		    else this.dom = this.dom.parentNode;
-		}
-
-		HTMLParser.prototype.item = function(node, entering) // TODO(randomuserhi): Change to allow custom numbering in numbered list...
-		{
-		    if (entering) 
-		    {
-		    	let item = document.createElement("li");
-				this.dom.append(item);
-				this.dom = item;
-		    } 
-		    else this.dom = this.dom.parentNode;
-		}
-
-		HTMLParser.prototype.html_inline = function(node) {
-		    this.dom.innerHTML += node.literal;
-		}
-
-		HTMLParser.prototype.html_block = function(node) {
-			this.dom.innerHTML += node.literal;
-		}
-
-		HTMLParser.prototype.custom_inline = function(node, entering) {
-			if (entering && node.onEnter) {
-		        this.lit(node.onEnter);
-		    } else if (!entering && node.onExit) {
-		        this.lit(node.onExit);
-		    }
 		}
 
 		/** ------------------------------------------------------------------------------------------------------
@@ -2668,10 +2460,6 @@
 	            enumerable: false,
 	            value: Parser
 	        },
-	        HTMLParser: {
-	            enumerable: false,
-	            value: HTMLParser
-	        },
 	        escapeXml: {
 	        	enumerable: false,
 	        	value: escapeXml
@@ -2681,9 +2469,6 @@
 	    _RHU.definePublicAccessors(MD, {
 	        Parser: {
 	            get() { return _MD.Parser }
-	        },
-	        HTMLParser:{
-	            get() { return _MD.HTMLParser }
 	        },
 	        escapeXml: {
 	        	get() { return _MD.escapeXml }
