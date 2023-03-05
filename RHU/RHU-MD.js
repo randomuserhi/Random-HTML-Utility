@@ -1,4 +1,15 @@
 /**
+ * RHU - Random HTML Utility
+ * @randomuserhi.github.io
+ */
+
+"use strict";
+
+if (window[Symbol.for("RHU")] === undefined ||
+    window[Symbol.for("RHU")] === null)
+    throw new Error("Missing RHU dependency.");
+
+/**
  * @namespace _RHU (Symbol.for("RHU")), RHU
  * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  */
@@ -27,6 +38,7 @@
 		 * from-code-point.js
 		 */
 
+		let _fromCodePoint = null;
 		function fromCodePoint(_) {
 		    return _fromCodePoint(_);
 		}
@@ -449,6 +461,7 @@
 		var C_ASTERISK = 42;
 		var C_UNDERSCORE = 95;
 		var C_BACKTICK = 96;
+		var C_DOLLAR = 36;
 		var C_OPEN_BRACKET = 91;
 		var C_CLOSE_BRACKET = 93;
 		var C_LESSTHAN = 60;
@@ -500,6 +513,10 @@
 
 		var reTicksHere = /^`+/;
 
+		var reDollars = /\$+/;
+
+		var reDollarsHere = /^\$+/;
+
 		var reEllipses = /\.\.\./g;
 
 		var reDash = /--+/g;
@@ -523,7 +540,9 @@
 		var reLinkLabel = /^\[(?:[^\\\[\]]|\\.){0,1000}\]/s;
 
 		// Matches a string of non-special characters.
-		var reMain = /^[^\n`\[\]\\!<&*_'"]+/m;
+		// NOTE(randomuserhi): add special characters that the inline parser should stop and look at here
+		//                     for example, to add latex support I added \$ symbol here
+		var reMain = /^[^\n`\$\[\]\\!<&*_'"]+/m;
 
 		var text = function(s) {
 		    var node = new Node("text");
@@ -595,6 +614,43 @@
 		    while ((matched = this.match(reTicks)) !== null) {
 		        if (matched === ticks) {
 		            node = new Node("code");
+		            contents = this.subject
+		                .slice(afterOpenTicks, this.pos - ticks.length)
+		                .replace(/\n/gm, " ");
+		            if (
+		                contents.length > 0 &&
+		                contents.match(/[^ ]/) !== null &&
+		                contents[0] == " " &&
+		                contents[contents.length - 1] == " "
+		            ) {
+		                node._literal = contents.slice(1, contents.length - 1);
+		            } else {
+		                node._literal = contents;
+		            }
+		            block.appendChild(node);
+		            return true;
+		        }
+		    }
+		    // If we got here, we didn't match a closing backtick sequence.
+		    this.pos = afterOpenTicks;
+		    block.appendChild(text(ticks));
+		    return true;
+		};
+
+		// Attempt to parse dollar symbols, adding either a dollar code span or a
+		// literal sequence of dollar symbols.
+		var parseDollars = function(block) {
+		    var ticks = this.match(reDollarsHere);
+		    if (ticks === null) {
+		        return false;
+		    }
+		    var afterOpenTicks = this.pos;
+		    var matched;
+		    var node;
+		    var contents;
+		    while ((matched = this.match(reDollars)) !== null) {
+		        if (matched === ticks) {
+		            node = new Node("latex");
 		            contents = this.subject
 		                .slice(afterOpenTicks, this.pos - ticks.length)
 		                .replace(/\n/gm, " ");
@@ -1378,6 +1434,9 @@
 		        case C_BACKTICK:
 		            res = this.parseBackticks(block);
 		            break;
+		        case C_DOLLAR:
+		            res = this.parseDollars(block);
+		            break;
 		        case C_ASTERISK:
 		        case C_UNDERSCORE:
 		            res = this.handleDelim(c, block);
@@ -1437,6 +1496,7 @@
 		        peek: parsePeek,
 		        spnl: spnl,
 		        parseBackticks: parseBackticks,
+		        parseDollars: parseDollars,
 		        parseBackslash: parseBackslash,
 		        parseAutolink: parseAutolink,
 		        parseHtmlTag: parseHtmlTag,
@@ -1497,7 +1557,9 @@
 
 		var reThematicBreak = /^(?:\*[ \t]*){3,}$|^(?:_[ \t]*){3,}$|^(?:-[ \t]*){3,}$/;
 
-		var reMaybeSpecial = /^[#`~*+_=<>0-9-]/;
+		// NOTE(randomuserhi): add special characters that the inline parser should stop and look at here
+		//                     for example, to add latex support I added \$ symbol here
+		var reMaybeSpecial = /^[#`\$~*+_=<>0-9-]/;
 
 		var reNonSpace = /[^ \t\f\v\r\n]/;
 
@@ -1510,6 +1572,10 @@
 		var reCodeFence = /^`{3,}(?!.*`)|^~{3,}/;
 
 		var reClosingCodeFence = /^(?:`{3,}|~{3,})(?=[ \t]*$)/;
+
+		var reLatexFence = /^\${2,}/;
+
+		var reClosingLatexFence = /^(?:\${2,})(?=[ \t]*$)/;
 
 		var reSetextHeadingLine = /^(?:=+|-+)[ \t]*$/;
 
@@ -1876,6 +1942,66 @@
 		        },
 		        acceptsLines: true
 		    },
+		    latex_block: {
+		        continue: function(parser, container) {
+		            var ln = parser.currentLine;
+		            var indent = parser.indent;
+		            if (container._isFenced) {
+		                // fenced
+		                var match =
+		                    indent <= 3 &&
+		                    ln.charAt(parser.nextNonspace) === container._fenceChar &&
+		                    ln.slice(parser.nextNonspace).match(reClosingLatexFence);
+		                if (match && match[0].length >= container._fenceLength) {
+		                    // closing fence - we're at end of line, so we can return
+		                    parser.lastLineLength =
+		                        parser.offset + indent + match[0].length;
+		                    parser.finalize(container, parser.lineNumber);
+		                    return 2;
+		                } else {
+		                    // skip optional spaces of fence offset
+		                    var i = container._fenceOffset;
+		                    while (i > 0 && isSpaceOrTab(peek(ln, parser.offset))) {
+		                        parser.advanceOffset(1, true);
+		                        i--;
+		                    }
+		                }
+		            } else {
+		                // indented
+		                if (indent >= CODE_INDENT) {
+		                    parser.advanceOffset(CODE_INDENT, true);
+		                } else if (parser.blank) {
+		                    parser.advanceNextNonspace();
+		                } else {
+		                    return 1;
+		                }
+		            }
+		            return 0;
+		        },
+		        finalize: function(parser, block) {
+		            if (block._isFenced) {
+		                // fenced
+		                // first line becomes info string
+		                var content = block._string_content;
+		                var newlinePos = content.indexOf("\n");
+		                var firstLine = content.slice(0, newlinePos);
+		                var rest = content.slice(newlinePos + 1);
+		                block.info = unescapeString(firstLine.trim());
+		                block._literal = rest;
+		            } else {
+		                // indented
+		                block._literal = block._string_content.replace(
+		                    /(\n *)+$/,
+		                    "\n"
+		                );
+		            }
+		            block._string_content = null; // allow GC
+		        },
+		        canContain: function() {
+		            return false;
+		        },
+		        acceptsLines: true
+		    },
 		    html_block: {
 		        continue: function(parser, container) {
 		            return parser.blank &&
@@ -1986,6 +2112,30 @@
 		            var fenceLength = match[0].length;
 		            parser.closeUnmatchedBlocks();
 		            var container = parser.addChild("code_block", parser.nextNonspace);
+		            container._isFenced = true;
+		            container._fenceLength = fenceLength;
+		            container._fenceChar = match[0][0];
+		            container._fenceOffset = parser.indent;
+		            parser.advanceNextNonspace();
+		            parser.advanceOffset(fenceLength, false);
+		            return 2;
+		        } else {
+		            return 0;
+		        }
+		    },
+
+		    // Fenced latex block
+		    function(parser) {
+		        var match;
+		        if (
+		            !parser.indented &&
+		            (match = parser.currentLine
+		                .slice(parser.nextNonspace)
+		                .match(reLatexFence))
+		        ) {
+		            var fenceLength = match[0].length;
+		            parser.closeUnmatchedBlocks();
+		            var container = parser.addChild("latex_block", parser.nextNonspace);
 		            container._isFenced = true;
 		            container._fenceLength = fenceLength;
 		            container._fenceChar = match[0][0];
@@ -2312,6 +2462,7 @@
 		            !(
 		                t === "block_quote" ||
 		                (t === "code_block" && container._isFenced) ||
+		                (t === "latex_block" && container._isFenced) ||
 		                (t === "item" &&
 		                    !container._firstChild &&
 		                    container.sourcepos[0][0] === this.lineNumber)

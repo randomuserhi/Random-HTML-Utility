@@ -1,4 +1,15 @@
 /**
+ * RHU - Random HTML Utility
+ * @randomuserhi.github.io
+ */
+
+"use strict";
+
+if (window[Symbol.for("RHU")] === undefined ||
+    window[Symbol.for("RHU")] === null)
+    throw new Error("Missing RHU dependency.");
+
+/**
  * @namespace _RHU (Symbol.for("RHU")), RHU
  * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
  */
@@ -53,7 +64,7 @@
         }
 
         // Parse macros on document
-        let macros = document.querySelectorAll("*[rhu-macro]");
+        let macros = document.querySelectorAll("[rhu-macro]");
         for (let el of macros) _parse(el, el.rhuMacro);
 
         // Setup mutation observer to detect macros being created
