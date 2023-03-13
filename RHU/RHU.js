@@ -41,6 +41,21 @@
         return obj !== null && obj !== undefined;
     };
 
+    // TODO(randomuserhi): document this object
+    let parseOptions = function(template, opt, inplace = true)
+    {
+        if (!exists(opt)) return template;
+        if (!exists(template)) return template;
+        
+        let result = template;
+        if (!inplace) result = clone(template);
+        // NOTE(randomuserhi): Object.assign as opposed to assign method defined in RHU
+        //                     is because we want a soft copy (ignoring getters and setters)
+        //                     RHU copies everything including getters and setters
+        Object.assign(result, opt);
+        return result;
+    }
+
     /**
      * @func                                        Get the properties for a given object.
      * @param   obj{Object}                         Object to get properties of.
@@ -95,7 +110,13 @@
                 {
                     if (!properties.has(p) && exists(operation))
                         operation(curr, p);
-                    properties.set(p);
+
+                    // NOTE(randomuserhi): Can only obtain values for properties that are not getters / setters
+                    //                     due to illegal invocation
+                    let value = undefined;
+                    if (exists(descriptors[p].value))
+                        value = descriptors[p].value;
+                    properties.set(p, value);
                 }
             }
         }
@@ -404,6 +425,16 @@
     })
 
     definePublicProperties(_RHU, {
+        blankImg: {
+            enumerable: false,
+            value: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
+        },
+
+        parseOptions: {
+            enumerable: false,
+            value: parseOptions
+        },
+
         getElementById: {
             enumerable: false,
             value: getElementById
@@ -476,11 +507,18 @@
     });
 
     definePublicAccessors(RHU, {
-        getElementById: {
-            enumerable: false,
-            value: getElementById
+        blankImg: {
+            get() { return _RHU.blankImg; }
         },
-        
+
+        parseOptions: {
+            get() { return _RHU.parseOptions; }
+        },
+
+        getElementById: {
+            get() { return _RHU.getElementById; }
+        },
+
         defineProperty: { 
             get() { return _RHU.defineProperty; }
         },

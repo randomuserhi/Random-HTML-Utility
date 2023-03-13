@@ -12,6 +12,8 @@ if (window[Symbol.for("RHU")] === undefined ||
 /**
  * @namespace _RHU (Symbol.for("RHU")), RHU
  * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
+ *
+ * TODO(randomuserhi): make a config parser like mathjax has to enable things like performance measurement etc...
  */
 (function (_RHU, RHU) 
 {
@@ -20,6 +22,7 @@ if (window[Symbol.for("RHU")] === undefined ||
      */
 
     let exists = _RHU.exists;
+    let clone = _RHU.clone;
 
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Declare Symbols and initial conditions for Macros
@@ -27,10 +30,13 @@ if (window[Symbol.for("RHU")] === undefined ||
 
     /**
      * @func Called on document load and will trigger parsing for <rhu-macro>
+     *
+     * TODO(randomuserhi): Add performance measuring using `performance.now()`
      */
     let _internalLoad = function()
     {
         // Expand <rhu-macro> tags into their original macros
+        // TODO(randomuserhi): consider using a custom element to convert <rhu-macro>, also allows for document.createElement();
         // NOTE(randomuserhi): this expansion is the same as done in _parse, consider
         //                     converting into a function
         let expand = [...document.getElementsByTagName("rhu-macro")];
@@ -39,9 +45,8 @@ if (window[Symbol.for("RHU")] === undefined ||
             const typename = "rhu-type";
             let type = Element.prototype.getAttribute.call(el, typename);
             Element.prototype.removeAttribute.call(el, typename);
-            let constructor = _templates.get(type);
-            if (!exists(constructor)) constructor = _default;
-            let definition = Object.getPrototypeOf(constructor.prototype);
+            let definition = _templates.get(type);
+            if (!exists(definition)) definition = _default;
             let options = {
                 element: "<div></div>"
             };
@@ -129,6 +134,9 @@ if (window[Symbol.for("RHU")] === undefined ||
      */
     let _symbols = {};
     _RHU.defineProperties(_symbols, {
+        _constructor: {
+            value: Symbol("macro constructor")
+        },
         _type: {
             value: Symbol("macro type")
         },
@@ -140,6 +148,9 @@ if (window[Symbol.for("RHU")] === undefined ||
         },
         _constructed: {
             value: Symbol("macro constructed")
+        },
+        _prototype: {
+            value: Symbol("macro element prototype")
         },
         _content: {
             value: Symbol("macro content")
@@ -157,9 +168,8 @@ if (window[Symbol.for("RHU")] === undefined ||
      */
     HTMLDocument.prototype.createMacro = function(type)
     {
-        let constructor = _templates.get(type);
-        if (!exists(constructor)) constructor = _default;
-        let definition = Object.getPrototypeOf(constructor.prototype);
+        let definition = _templates.get(type);
+        if (!exists(definition)) definition = _default;
         let options = {
             element: "<div></div>",
             floating: false
@@ -190,9 +200,8 @@ if (window[Symbol.for("RHU")] === undefined ||
      */
     HTMLDocument.prototype.Macro = function(type, attributes)
     {
-        let constructor = _templates.get(type);
-        if (!exists(constructor)) constructor = _default;
-        let definition = Object.getPrototypeOf(constructor.prototype);
+        let definition = _templates.get(type);
+        if (!exists(definition)) definition = _default;
         let options = {
             element: "<div></div>"
         };
@@ -251,6 +260,19 @@ if (window[Symbol.for("RHU")] === undefined ||
     // ------------------------------------------------------------------------------------------------------
 
     /**
+     * TODO(randomuserhi): Document this => essentially creates a deep clone of a prototype chain and
+     *                                      assigns the given prototype at the end of it.
+     * @param prototype{Object} Prototype chain to clone
+     * @param last{Object}      Prototype to add at the end of the chain
+     */
+    let _createChain = function(prototype, last)
+    {
+        let next = Object.getPrototypeOf(prototype);
+        if (next === Object.prototype) return clone(prototype, last);
+        return clone(prototype, _createChain(next, last));
+    }
+
+    /**
      * @class{RHU.Macro}        Describes a RHU macro
      * @param object{Object}    Object definition for macro
      * @param type{string}      type name of macro
@@ -271,28 +293,21 @@ if (window[Symbol.for("RHU")] === undefined ||
         if (typeof source !== "string") throw new TypeError("'source' must be a string.");
         if (!_RHU.isConstructor(object)) throw new TypeError("'object' must be a constructor.");
 
-        /** 
-         * Set prototype of object to make it a macro
-         * NOTE(randomuserhi): setPrototypeOf is not very performant due to how they are handled
-         *                     internally: https://mathiasbynens.be/notes/prototypes
-         *                     In this case, it should only be called on macro definition, which should
-         *                     only run once which is fine.
-         */
-        Object.setPrototypeOf(object.prototype, this);
-
-        // Create definition
-        this[_symbols._type] = type;
-        this[_symbols._source] = source;
-        this[_symbols._options] = options;
-
         // Add constructor to template map
         if (_templates.has(type)) console.warn(`Macro template '${type}' already exists. Definition will be overwritten.`);
-        _templates.set(type, object);
+        _templates.set(type, {
+            [_symbols._constructor]: object,
+            [_symbols._type]: type,
+            [_symbols._source]: source,
+            [_symbols._options]: options
+        });
     };
 
     // Store a default definition to use when macro type cannot be found.
-    let _default = function() {};
-    _default.prototype = Object.create(Macro.prototype);
+    // NOTE(randomuserhi): the constructor cannot be an arrow function
+    let _default = {
+            [_symbols._constructor]: function() {}
+    };
 
     let _templates = new Map();
 
@@ -308,6 +323,8 @@ if (window[Symbol.for("RHU")] === undefined ||
      * TODO(randomuserhi): Fix bug where if encapsulate is being used and strict is true, it shouldnt prevent properties
      *                     since they are encapsulated. Basically move the check over to encapsulate as opposed to the properties
      *                     or something.
+     *
+     * TODO(randomuserhi): Add performance measuring using `performance.now()`
      */
     let _parse = function(element, type)
     {
@@ -337,6 +354,9 @@ if (window[Symbol.for("RHU")] === undefined ||
         // return if type has not changed
         if (element[_symbols._constructed] === type) return;
 
+        // get prototype of element
+        let proto = element[_symbols._prototype];
+
         // Clear old element properties
         RHU.delete(element);
 
@@ -344,9 +364,9 @@ if (window[Symbol.for("RHU")] === undefined ||
         Element.prototype.replaceChildren.call(element);
 
         // Get constructor for type and type definition
-        let constructor = _templates.get(type);
-        if (!exists(constructor)) constructor = _default;
-        let definition = Object.getPrototypeOf(constructor.prototype);
+        let definition = _templates.get(type);
+        if (!exists(definition)) definition = _default;
+        let constructor = definition[_symbols._constructor];
         let options = {
             strict: false,
             floating: false,
@@ -366,7 +386,30 @@ if (window[Symbol.for("RHU")] === undefined ||
         // Set target object
         let target = element;
         if (options.floating) target = Object.create(constructor.prototype);
-        else _RHU.assign(target, constructor.prototype);
+        else
+        { 
+            // Handle inheritance
+            
+            // get HTML prototype
+            if (!exists(proto)) proto = Object.getPrototypeOf(target);
+            /**
+             * create a clone of the chain and inherit from it
+             * NOTE(randomuserhi): setPrototypeOf is not very performant due to how they are handled
+             *                     internally: https://mathiasbynens.be/notes/prototypes
+             *                     This means RHU-Macros are not very performant.
+             *
+             *                     A way to get around this would be to append the methods directly to the element
+             *                     handling overrides by not overwriting properties that already exist:
+             *                     
+             *                     for (let proto = constructor.prototype; proto !== Object.prototype; proto = Object.getPrototypeOf(proto))
+             *                          RHU.assign(target, proto, { replace: false });
+             */
+            Object.setPrototypeOf(target, _createChain(constructor.prototype, proto));
+
+            // NOTE(randomuserhi): Alternate method not using setPrototypeOf in the event of performance
+            //for (let proto = constructor.prototype; proto !== Object.prototype; proto = Object.getPrototypeOf(proto))
+            //    RHU.assign(target, proto, { replace: false });
+        }
 
         // Get elements from parser 
         let doc = _RHU.domParser.parseFromString(exists(definition[_symbols._source]) ? definition[_symbols._source] : "", "text/html");
@@ -381,9 +424,9 @@ if (window[Symbol.for("RHU")] === undefined ||
             const typename = "rhu-type";
             let type = Element.prototype.getAttribute.call(el, typename);
             Element.prototype.removeAttribute.call(el, typename);
-            let constructor = _templates.get(type);
-            if (!exists(constructor)) constructor = _default;
-            let definition = Object.getPrototypeOf(constructor.prototype);
+            let definition = _templates.get(type);
+            if (!exists(definition)) definition = _default;
+            let constructor = definition[_symbols._constructor];
             let options = {
                 element: "<div></div>",
                 strict: false,
@@ -449,6 +492,12 @@ if (window[Symbol.for("RHU")] === undefined ||
         // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
         nested = doc.querySelectorAll("*[rhu-macro]");
         for (let el of nested) _parse(el, el.rhuMacro);
+
+        // Remove comment nodes:
+        const xPath = "//comment()";
+        let query = doc.evaluate(xPath, doc.documentElement, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
+        for (let i = 0, length = query.snapshotLength; i < length; ++i)
+            let comment = query.snapshotItem(i).replaceWith();
 
         // NOTE(randomuserhi): When placing items into macro, account for <style> and other blocks
         //                     being placed in document head

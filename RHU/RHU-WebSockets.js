@@ -67,14 +67,17 @@ if (window[Symbol.for("RHU")] === undefined ||
 			if (WebSocket !== webSocket && !Object.isPrototypeOf.call(WebSocket, webSocket)) 
 				throw new TypeError("WebSocket must be inherited from or of type 'WebSocket'.");
 
+			// TODO(randomuserhi): Documentation...
 			let construct = function(...args)
 			{
+				this.args = args;
+
 				let parsedParams = {
 					url: undefined,
 					protocols: []
 				};
 				let params = constructor.call(this, ...args);
-				if (exists(params)) for (let key in parsedParams) if (exists(params[key])) parsedParams[key] = params[key];
+				RHU.parseOptions(parsedParams, params);
 				this.ws = new webSocket(parsedParams.url, parsedParams.protocols);
 			
 				this.ws.addEventListener("close", (e) => { if (exists(this.onclose)) this.onclose(e) });
@@ -82,8 +85,12 @@ if (window[Symbol.for("RHU")] === undefined ||
 				this.ws.addEventListener("message", (e) => { if (exists(this.onmessage)) this.onmessage(e) });
 				this.ws.addEventListener("open", (e) => { if (exists(this.onopen)) this.onopen(e) });
 			};
-			construct.prototype.addEventListener = (...args) => this.ws.addEventListener(...args);
-			construct.prototype.removeEventListener = (...args) => this.ws.addEventListener(...args);
+			construct.prototype.reconnect = function(...args)
+			{
+				construct.call(this, ...(args.length === 0 ? this.args : args));
+			};
+			construct.prototype.addEventListener = function (...args) { return this.ws.addEventListener(...args); };
+			construct.prototype.removeEventListener = function (...args) { return this.ws.removeEventListener(...args); };
 			construct.prototype.send = function(data)
 			{
 				this.ws.send(data);

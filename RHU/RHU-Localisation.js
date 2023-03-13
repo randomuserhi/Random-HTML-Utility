@@ -45,7 +45,7 @@ if (window[Symbol.for("RHU")].Rest === undefined ||
 		let _fetchLocalisation = _RHU.Rest.JSONfetch(
 		{
 			url: "http://localhost:8000/local",
-			fetch: { method: "POST" },
+			fetch: { method: "GET" },
 			parser: function(language) {
 			    return {
 			    	body: {

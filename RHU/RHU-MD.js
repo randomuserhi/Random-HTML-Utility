@@ -1569,11 +1569,11 @@ if (window[Symbol.for("RHU")] === undefined ||
 
 		var reATXHeadingMarker = /^#{1,6}(?:[ \t]+|$)/;
 
-		var reCodeFence = /^`{3,}(?!.*`)|^~{3,}/;
+		var reCodeFence = /(^`{3,}(?!.*`))|(^~{3,}(?!.*~))/;
 
 		var reClosingCodeFence = /^(?:`{3,}|~{3,})(?=[ \t]*$)/;
 
-		var reLatexFence = /^\${2,}/;
+		var reLatexFence = /^\${2,}(?!.*\$)/;
 
 		var reClosingLatexFence = /^(?:\${2,})(?=[ \t]*$)/;
 
@@ -2539,7 +2539,7 @@ if (window[Symbol.for("RHU")] === undefined ||
 		};
 
 		// The main parsing function.  Returns a parsed document AST.
-		var parse = function(input) {
+		var parse = async function(input) {
 		    this.doc = new Document();
 		    this.tip = this.doc;
 		    this.refmap = {};

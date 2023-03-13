@@ -60,6 +60,9 @@ if (window[Symbol.for("RHU")] === undefined ||
      */
     let _symbols = {};
     _RHU.defineProperties(_symbols, {
+        _constructor: {
+            value: Symbol("component constructor")
+        },
         _type: {
             value: Symbol("component type")
         },
@@ -210,6 +213,19 @@ if (window[Symbol.for("RHU")] === undefined ||
      */
 
     /**
+     * TODO(randomuserhi): Document this => essentially creates a deep clone of a prototype chain and
+     *                                      assigns the given prototype at the end of it.
+     * @param prototype{Object} Prototype chain to clone
+     * @param last{Object}      Prototype to add at the end of the chain
+     */
+    let _createChain = function(prototype, last)
+    {
+        let next = Object.getPrototypeOf(prototype);
+        if (next === Object.prototype) return clone(prototype, last);
+        return clone(prototype, _createChain(next, last));
+    }
+
+    /**
      * @class{RHU.Component}        Describes a RHU component
      * @param object{Object}    Object definition for component
      * @param type{string}      type name of component
@@ -230,28 +246,21 @@ if (window[Symbol.for("RHU")] === undefined ||
         if (typeof source !== "string") throw new TypeError("'source' must be a string.");
         if (!_RHU.isConstructor(object)) throw new TypeError("'object' must be a constructor.");
 
-        /** 
-         * Set prototype of object to make it a component
-         * NOTE(randomuserhi): setPrototypeOf is not very performant due to how they are handled
-         *                     internally: https://mathiasbynens.be/notes/prototypes
-         *                     In this case, it should only be called on component definition, which should
-         *                     only run once which is fine.
-         */
-        Object.setPrototypeOf(object.prototype, this);
-
-        // Create definition
-        this[_symbols._type] = type;
-        this[_symbols._source] = source;
-        this[_symbols._options] = options;
-
-        // Add constructor to component map
+        // Add constructor to template map
         if (_templates.has(type)) console.warn(`Component template '${type}' already exists. Definition will be overwritten.`);
-        _templates.set(type, object);
+        _templates.set(type, {
+            [_symbols._constructor]: object,
+            [_symbols._type]: type,
+            [_symbols._source]: source,
+            [_symbols._options]: options
+        });
     };
 
-    // Store a default definition to use when component type cannot be found.
-    let _default = function() {};
-    _default.prototype = Object.create(Component.prototype);
+    // Store a default definition to use when macro type cannot be found.
+    // NOTE(randomuserhi): the constructor cannot be an arrow function
+    let _default = {
+            [_symbols._constructor]: function() {}
+    };
 
     let _templates = new Map();
 
@@ -278,9 +287,9 @@ if (window[Symbol.for("RHU")] === undefined ||
         _shadow.replaceChildren();
 
         // Get constructor for type and type definition
-        let constructor = _templates.get(type);
-        if (!exists(constructor)) constructor = _default;
-        let definition = Object.getPrototypeOf(constructor.prototype);
+        let definition = _templates.get(type);
+        if (!exists(definition)) definition = _default;
+        let constructor = definition[_symbols._constructor];
         let options = {
             strict: false
         };
