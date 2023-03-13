@@ -81,7 +81,7 @@ if (window[Symbol.for("RHU")] === undefined ||
              *                     a mutation occurs.
              *                     ref: https://stackoverflow.com/questions/60593551/get-the-new-attribute-value-for-the-current-mutationrecord-when-using-mutationob
              */
-            attributes = new Map();
+            let attributes = new Map();
             for (const mutation of mutationList) 
             {
                 switch (mutation.type)
