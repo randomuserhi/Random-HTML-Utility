@@ -403,10 +403,14 @@ if (window[Symbol.for("RHU")] === undefined ||
              *                     
              *                     for (let proto = constructor.prototype; proto !== Object.prototype; proto = Object.getPrototypeOf(proto))
              *                          RHU.assign(target, proto, { replace: false });
+             *
+             *                     The downside to this approach over setPrototypeOf is the inability to call parent methods since obv they dont exist
+             *                     in the prototype.
              */
             Object.setPrototypeOf(target, _createChain(constructor.prototype, proto));
 
             // NOTE(randomuserhi): Alternate method not using setPrototypeOf in the event of performance
+            //                     Won't work if ur code relies on calling parent, Object.getPrototypeOf(this).superMethod.
             //for (let proto = constructor.prototype; proto !== Object.prototype; proto = Object.getPrototypeOf(proto))
             //    RHU.assign(target, proto, { replace: false });
         }

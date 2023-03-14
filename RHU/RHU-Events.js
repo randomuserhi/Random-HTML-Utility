@@ -13,7 +13,7 @@
 (function (_RHU, RHU) 
 {
 
-    let EventTarget = function(target)
+    let EventTarget = function()
     {
         // create a node for handling events with EventTarget
         let node = document.createTextNode(null);

@@ -72,6 +72,8 @@ if (window[Symbol.for("RHU")] === undefined ||
 			{
 				this.args = args;
 
+				RHU.EventTarget.call(this);
+
 				let parsedParams = {
 					url: undefined,
 					protocols: []
@@ -80,17 +82,15 @@ if (window[Symbol.for("RHU")] === undefined ||
 				RHU.parseOptions(parsedParams, params);
 				this.ws = new webSocket(parsedParams.url, parsedParams.protocols);
 			
-				this.ws.addEventListener("close", (e) => { if (exists(this.onclose)) this.onclose(e) });
-				this.ws.addEventListener("error", (e) => { if (exists(this.onerror)) this.onerror(e) });
-				this.ws.addEventListener("message", (e) => { if (exists(this.onmessage)) this.onmessage(e) });
-				this.ws.addEventListener("open", (e) => { if (exists(this.onopen)) this.onopen(e) });
+				this.ws.addEventListener("close", (e) => { this.dispatchEvent(new CustomEvent("close", { detail: e })); if (exists(this.onclose)) this.onclose(e) });
+				this.ws.addEventListener("error", (e) => { this.dispatchEvent(new CustomEvent("error", { detail: e })); if (exists(this.onerror)) this.onerror(e) });
+				this.ws.addEventListener("message", (e) => { this.dispatchEvent(new CustomEvent("message", { detail: e })); if (exists(this.onmessage)) this.onmessage(e) });
+				this.ws.addEventListener("open", (e) => { this.dispatchEvent(new CustomEvent("open", { detail: e })); if (exists(this.onopen)) this.onopen(e) });
 			};
 			construct.prototype.reconnect = function(...args)
 			{
 				construct.call(this, ...(args.length === 0 ? this.args : args));
 			};
-			construct.prototype.addEventListener = function (...args) { return this.ws.addEventListener(...args); };
-			construct.prototype.removeEventListener = function (...args) { return this.ws.removeEventListener(...args); };
 			construct.prototype.send = function(data)
 			{
 				this.ws.send(data);

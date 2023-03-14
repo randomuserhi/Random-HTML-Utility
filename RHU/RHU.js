@@ -406,6 +406,23 @@
     }
 
     /**
+     * TODO(randomuserhi): Document, refer to reflect inheritance notes
+     */
+    let reflectConstruct = function(child, base, constructor)
+    {
+        return function(newTarget)
+        {
+            if (exists(newTarget))
+            {
+                let obj = Reflect.construct(base, [], child);
+                constructor.call(obj);
+                return obj;
+            }
+            else constructor.call(this);
+        };
+    }
+
+    /**
      * @func    Removes all attributes from an element.
      */
     let clearAttributes = function(element)
@@ -500,6 +517,11 @@
             value: inherit
         },
 
+        reflectConstruct: {
+            enumerable: false,
+            value: reflectConstruct
+        },
+
         clearAttributes: {
             enumerable: false,
             value: clearAttributes
@@ -564,6 +586,10 @@
 
         inherit : {
             get() { return _RHU.inherit; }
+        },
+
+        reflectConstruct: {
+            get() { return _RHU.reflectConstruct; }
         },
 
         clearAttributes: {
