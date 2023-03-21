@@ -9,6 +9,8 @@
  * @namespace _RHU (Symbol.for("RHU")), RHU
  * 
  * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
+ *
+ * TODO(randomuserhi): Implement a script loading scheme similar to MathJax that can use a config to choose which parts of RHU to get. 
  */
 (function (_RHU, RHU) 
 {
@@ -41,7 +43,13 @@
         return obj !== null && obj !== undefined;
     };
 
-    // TODO(randomuserhi): document this object
+    /**
+     * @func                                        Parses an incomplete set of properties for options.
+     * @param   template{Object}                    Complete set of options to parse into.
+     * @param   opt{Object}                         Incomplete set of options to parse from.
+     * @param   inplace{Boolean:optional(true)}     If true, parses into `template` inplace, otherwise returns a new object.
+     * @return  {Object}                            Complete set of options given by `opt`.
+     */
     let parseOptions = function(template, opt, inplace = true)
     {
         if (!exists(opt)) return template;
@@ -391,9 +399,9 @@
     }
 
     /**
-     * @func                    Makes a child class inherit from a base class.
-     * @param   child{Object}   Child class.
-     * @param   base{Object}    Base class.
+     * @func                        Makes a child class inherit from a base class.
+     * @param   child{Function}     Child class.
+     * @param   base{Function}      Base class.
      * 
      * NOTE(randomuserhi): Doesn't support inheritting objects, only function constructors.
      */
@@ -406,19 +414,50 @@
     }
 
     /**
-     * TODO(randomuserhi): Document, refer to reflect inheritance notes
+     * @func                            Construct an object via `Reflect.construct`. Useful for inheritting built-in types.
+     * @param   child{Function}         Child class.
+     * @param   base{Function}          Base class (Typically, the built-in type you are inheritting from).
+     * @param   constructor{Function}   Constructor for the child class.
+     *
+     * NOTE(randomuserhi): When inheritting from a base class that inherits from a built-in type you want reflectConstruct to 
+     *                     inherit from the built-in type rather than the base. This is because the child will contain the actual
+     *                     base class:
+     *
+     *                     ```js
+     *
+     *                     // Base class inheriting from built-in type Map
+     *                     let _baseConstructor = function()
+     *                     {
+     *                         console.log("base constructor!");
+     *                     };
+     *                     let _baseReflect = RHU.reflectConstruct(Base, Map, _baseConstructor);
+     *                     let Base = function() { return _baseReflect.call(this, new.target); }
+     *                     RHU.inherit(Base, Map); // regular inheritance pattern to built-in Map class
+     *                     
+     *                     // Child class inheriting from base
+     *                     let _childConstructor = function()
+     *                     {
+     *                         Base.call(this); // Call super constructor
+     *                         console.log("child constructor!");
+     *                     };
+     *                     // Notice how we still reflect inherit from Map despite Child inheritting from Base
+     *                     let _childReflect = RHU.reflectConstruct(Child, Map, _childConstructor);
+     *                     let Child = function() { return _childReflect.call(this, new.target); }
+     *                     RHU.inherit(Child, Base); // regular inheritance pattern to Base class
+     *
+     *                     ```
      */
     let reflectConstruct = function(child, base, constructor)
     {
-        return function(newTarget)
+        return function(newTarget, args = [])
         {
             if (exists(newTarget))
             {
-                let obj = Reflect.construct(base, [], child);
-                constructor.call(obj);
+                let obj = Reflect.construct(base, args, child);
+                constructor.call(obj, ...args);
                 return obj;
             }
-            else constructor.call(this);
+            else constructor.call(this, ...args);
         };
     }
 

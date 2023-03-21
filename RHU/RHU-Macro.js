@@ -21,8 +21,9 @@ if (window[Symbol.for("RHU")] === undefined ||
      * NOTE(randomuserhi): Grab references to functions, purely to shorten names for easier time.
      */
 
-    let exists = _RHU.exists;
-    let clone = _RHU.clone;
+    const exists = _RHU.exists;
+    const clone = _RHU.clone;
+    const parseOptions = _RHU.parseOptions;
 
     /** ------------------------------------------------------------------------------------------------------
      * NOTE(randomuserhi): Declare Symbols and initial conditions for Macros
@@ -50,10 +51,7 @@ if (window[Symbol.for("RHU")] === undefined ||
             let options = {
                 element: "<div></div>"
             };
-            if (exists(definition[_symbols._options]))
-                for (let key in options) 
-                    if (exists(definition[_symbols._options][key])) 
-                        options[key] = definition[_symbols._options][key];
+            parseOptions(options, definition[_symbols._options]);
 
             let doc = _RHU.domParser.parseFromString(options.element, "text/html");
             let macro = doc.body.children[0];
@@ -174,10 +172,7 @@ if (window[Symbol.for("RHU")] === undefined ||
             element: "<div></div>",
             floating: false
         };
-        if (exists(definition[_symbols._options]))
-            for (let key in options) 
-                if (exists(definition[_symbols._options][key])) 
-                    options[key] = definition[_symbols._options][key];
+        parseOptions(options, definition[_symbols._options]);
 
         //if (options.floating) throw new TypeError("Cannot create a floating macro as it won't be based.");
 
@@ -205,10 +200,7 @@ if (window[Symbol.for("RHU")] === undefined ||
         let options = {
             element: "<div></div>"
         };
-        if (exists(definition[_symbols._options]))
-            for (let key in options) 
-                if (exists(definition[_symbols._options][key])) 
-                    options[key] = definition[_symbols._options][key];
+        parseOptions(options, definition[_symbols._options]);
 
         let doc = _RHU.domParser.parseFromString(options.element, "text/html");
         let el = doc.body.children[0];
@@ -260,8 +252,7 @@ if (window[Symbol.for("RHU")] === undefined ||
     // ------------------------------------------------------------------------------------------------------
 
     /**
-     * TODO(randomuserhi): Document this => essentially creates a deep clone of a prototype chain and
-     *                                      assigns the given prototype at the end of it.
+     * @func                    Creates a deep clone of a prototype chain and assigns a given prototype at the end.
      * @param prototype{Object} Prototype chain to clone
      * @param last{Object}      Prototype to add at the end of the chain
      */
@@ -320,10 +311,6 @@ if (window[Symbol.for("RHU")] === undefined ||
      * @param type{String}          Type of macro.
      * @param element{HTMLElement}  Macro element
      *
-     * TODO(randomuserhi): Fix bug where if encapsulate is being used and strict is true, it shouldnt prevent properties
-     *                     since they are encapsulated. Basically move the check over to encapsulate as opposed to the properties
-     *                     or something.
-     *
      * TODO(randomuserhi): Add performance measuring using `performance.now()`
      */
     let _parse = function(element, type)
@@ -373,10 +360,7 @@ if (window[Symbol.for("RHU")] === undefined ||
             encapsulate: undefined,
             content: undefined
         };
-        if (exists(definition[_symbols._options]))
-            for (let key in options) 
-                if (exists(definition[_symbols._options][key])) 
-                    options[key] = definition[_symbols._options][key];
+        parseOptions(options, definition[_symbols._options]);
 
         // Assign prototype methods
         // NOTE(randomuserhi): prototype methods are not stored in a proxy prototype
@@ -393,7 +377,8 @@ if (window[Symbol.for("RHU")] === undefined ||
             // get HTML prototype
             if (!exists(proto)) proto = Object.getPrototypeOf(target);
             /**
-             * create a clone of the chain and inherit from it
+             * Create a clone of the chain and inherit from it. A clone has to be created to avoid editting the original prototype.
+             *
              * NOTE(randomuserhi): setPrototypeOf is not very performant due to how they are handled
              *                     internally: https://mathiasbynens.be/notes/prototypes
              *                     This means RHU-Macros are not very performant.
@@ -409,7 +394,7 @@ if (window[Symbol.for("RHU")] === undefined ||
              */
             Object.setPrototypeOf(target, _createChain(constructor.prototype, proto));
 
-            // NOTE(randomuserhi): Alternate method not using setPrototypeOf in the event of performance
+            // NOTE(randomuserhi): Alternate method that does not use setPrototypeOf in the event of performance
             //                     Won't work if ur code relies on calling parent, Object.getPrototypeOf(this).superMethod.
             //for (let proto = constructor.prototype; proto !== Object.prototype; proto = Object.getPrototypeOf(proto))
             //    RHU.assign(target, proto, { replace: false });
@@ -420,6 +405,14 @@ if (window[Symbol.for("RHU")] === undefined ||
 
         // property object to hold element properties
         let properties = {};
+        let checkProperty = (identifier) => {
+            if (Object.prototype.hasOwnProperty.call(properties, identifier)) 
+                throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+            if (!options.encapsulate && options.strict && identifier in target) 
+                throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+
+            return true;
+        };
 
         // Expand <rhu-macro> tags into their original macros
         let nested = [...doc.getElementsByTagName("rhu-macro")];
@@ -436,10 +429,7 @@ if (window[Symbol.for("RHU")] === undefined ||
                 strict: false,
                 floating: false
             };
-            if (exists(definition[_symbols._options]))
-                for (let key in options) 
-                    if (exists(definition[_symbols._options][key])) 
-                        options[key] = definition[_symbols._options][key];
+            parseOptions(options, definition[_symbols._options]);
 
             // If the macro is floating, check for id, and create its property and parse it
             // we have to parse it manually here as floating macros don't have containers to 
@@ -450,13 +440,9 @@ if (window[Symbol.for("RHU")] === undefined ||
                 {
                     let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
                     Element.prototype.removeAttribute.call(el, "rhu-id");
-                    if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-                    if (options.strict && identifier in target) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
+                    checkProperty(identifier);
                     _RHU.definePublicAccessor(properties, identifier, {
-                        get() 
-                        {
-                            return el[_globalSymbols._instance];
-                        }
+                        get() { return el[_globalSymbols._instance]; }
                     });
                 }
                 _parse(el, type);
@@ -484,13 +470,10 @@ if (window[Symbol.for("RHU")] === undefined ||
         {
             let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
             Element.prototype.removeAttribute.call(el, "rhu-id");
-
-            if (Object.prototype.hasOwnProperty.call(properties, identifier)) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-            if (options.strict && identifier in target) throw new SyntaxError(`Identifier '${identifier}' already exists.`);
-
+            checkProperty(identifier);
             _RHU.definePublicAccessor(properties, identifier, {
                 get() { return el[_globalSymbols._instance]; }
-            })
+            });
         }
 
         // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
@@ -501,7 +484,7 @@ if (window[Symbol.for("RHU")] === undefined ||
         const xPath = "//comment()";
         let query = doc.evaluate(xPath, doc.documentElement, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
         for (let i = 0, length = query.snapshotLength; i < length; ++i)
-            let comment = query.snapshotItem(i).replaceWith();
+            query.snapshotItem(i).replaceWith();
 
         // NOTE(randomuserhi): When placing items into macro, account for <style> and other blocks
         //                     being placed in document head
@@ -516,11 +499,8 @@ if (window[Symbol.for("RHU")] === undefined ||
         // Set content variable if set:
         if (exists(options.content))
         {            
-            if (typeof options.content !== "string") throw new TypeError("Option 'content' must be a string.");
-            
-            if (Object.prototype.hasOwnProperty.call(properties, options.content)) throw new SyntaxError(`Identifier '${options.content}' already exists.`);
-            if (options.strict && options.content in target) throw new SyntaxError(`Identifier '${options.content}' already exists.`);
-            
+            //if (typeof options.content !== "string") throw new TypeError("Option 'content' must be a string.");
+            checkProperty(options.content);
             _RHU.definePublicAccessor(properties, options.content, {
                 get() { return target[_symbols._content]; }
             });
@@ -541,11 +521,11 @@ if (window[Symbol.for("RHU")] === undefined ||
             });
         }
         
-        // Add properties to target => TODO(randomuserhi): check when strict mode is active if the encapsulate 
-        //                                                 property clashes with any other properties.
+        // Add properties to target
         if (exists(options.encapsulate))
         {            
-            if (typeof options.encapsulate !== "string") throw new TypeError("Option 'encapsulate' must be a string.");
+            //if (typeof options.encapsulate !== "string") throw new TypeError("Option 'encapsulate' must be a string.");
+            checkProperty(options.encapsulate);
             _RHU.definePublicAccessor(target, options.encapsulate, {
                 get() { return properties; }
             });

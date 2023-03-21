@@ -64,7 +64,7 @@
         return x;
     }
 
-    let Bezier = function(x0, y0, x1, y1)
+    let Bezier = function(x0 = 0, y0 = 0, x1 = 0, y1 = 0)
     {
         if (x0 < 0) x0 = 0;
         else if (x0 > 1) x0 = 1;

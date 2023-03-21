@@ -20,36 +20,37 @@ if (window[Symbol.for("RHU")] === undefined ||
 	 */
 	(function (_WebSockets, WebSockets) 
 	{
-		let exists = _RHU.exists;
+		const exists = _RHU.exists;
 
 		// NOTE(randomuserhi): readyStates of websockets from https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/readyState
 		//                     Technically redundant due to WebSocket.CONNECTING etc...
-		let CONNECTING = WebSocket.CONNECTING;
-		let OPEN = WebSocket.OPEN;
-		let CLOSING = WebSocket.CLOSING;
-		let CLOSED = WebSocket.CLOSED;
+		const CONNECTING = WebSocket.CONNECTING;
+		const OPEN = WebSocket.OPEN;
+		const CLOSING = WebSocket.CLOSING;
+		const CLOSED = WebSocket.CLOSED;
 		
-		// TODO(randomuserhi): Documentation
+		/**
+	     * @class{RHU.WebSockets.ws}		Custom web socket class to handle queue messages prior to socket connection
+	     * @param url{String}    			Web socket url to connect to
+	     * @param protocols{List[String]}   List of web socket protocols this socket accepts
+	     */
+	   	let _wsConstructor = function(url, protocols = []) 
+	   	{
+	   		/**
+	         * @property{public}	queue{List[String]}		List of enqueued messages to be sent.	
+	         */
 
-		let ws = function(url, protocols = [])
-		{
-			let construct = Reflect.construct(WebSocket, [url, protocols], ws);
+	   		this.queue = [];
 
-			(function()
-			{
-				this.queue = [];
-
-				this.addEventListener("open", (e) => {
-					// Send messages in queue, NOTE(randomuserhi): A simple for loop can be used, but this
-					//                                             just shows shift() function exists :)
-					while (this.queue.length) 
-						WebSocket.prototype.send.call(this, this.queue.shift());
-				});
-
-			}).call(construct);
-
-			return construct;
-		}
+			this.addEventListener("open", (e) => {
+				// Send messages in queue, NOTE(randomuserhi): A simple for loop can be used, but this
+				//                                             just shows shift() function exists :)
+				while (this.queue.length) 
+					WebSocket.prototype.send.call(this, this.queue.shift());
+			});
+	   	};
+	   	let _wsReflect = RHU.reflectConstruct(ws, WebSocket, _wsConstructor);
+	   	let ws = function(url, protocols = []) { return _wsReflect.call(this, new.target, [ url, protocols ]); };
 		ws.prototype.send = function(data)
 		{
 			if (this.readyState === RHU.WebSockets.OPEN)
@@ -59,6 +60,11 @@ if (window[Symbol.for("RHU")] === undefined ||
 		}
 		RHU.inherit(ws, WebSocket);
 
+		/**
+	     * @generator{RHU.WebSockets.wsClient}	Generates a socket client class
+	     * @param webSocket{Object}    			Web socket the client will manage
+	     * @param constructor{Function}   		Constructor function for this socket client
+	     */
 		let wsClient = function(webSocket, constructor)
 		{
 			// NOTE(randomuserhi): Technically not needed, but I think using new keyword makes the syntax nicer.
@@ -72,7 +78,7 @@ if (window[Symbol.for("RHU")] === undefined ||
 			{
 				this.args = args;
 
-				RHU.EventTarget.call(this);
+				_RHU.EventTarget.call(this);
 
 				let parsedParams = {
 					url: undefined,

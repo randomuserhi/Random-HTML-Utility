@@ -16,6 +16,7 @@ if (window[Symbol.for("RHU")].Rest === undefined ||
 /**
  * @namespace _RHU (Symbol.for("RHU")), RHU
  * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
+ * TODO(randomuserhi): Add mutation observer cause doesnt work with new rhu-loc elements
  */
 (function (_RHU, RHU) 
 {
@@ -44,12 +45,12 @@ if (window[Symbol.for("RHU")].Rest === undefined ||
 		// TODO(randomuserhi): change link and format
 		let _fetchLocalisation = _RHU.Rest.JSONfetch(
 		{
-			url: "http://localhost:8000/local",
+			url: "http://localhost:8000/LocalisationGet",
 			fetch: { method: "GET" },
 			parser: function(language) {
 			    return {
-			    	body: {
-						"language": language
+			    	urlParams: {
+						"lang": language
 				    }
 			    }
 			},
@@ -70,6 +71,7 @@ if (window[Symbol.for("RHU")].Rest === undefined ||
 		let Localiser = function(languages)
 		{
 			this[_symbols._loaded] = {};
+			this.current = "en"; // TODO(randomuserhi): make this better
 		}
 		Localiser.prototype.load = function(lang, translation)
 		{
@@ -80,11 +82,19 @@ if (window[Symbol.for("RHU")].Rest === undefined ||
 			let cache = this[_symbols._loaded][language];
 			if (exists(cache))
 			{
+				console.log(cache);
 				let elements = document.querySelectorAll("[rhu-loc]");
 				for (let el of elements)
 				{
 					let key = el.getAttribute("rhu-loc");
-					if (exists(cache[key])) el.innerText = cache[key];
+					if (exists(cache[key])) 
+					{
+						this.current = language;
+						for (let prop in cache[key])
+						{
+							el[prop] = cache[key][prop];
+						}
+					}
 				}
 			}
 			else
@@ -93,7 +103,7 @@ if (window[Symbol.for("RHU")].Rest === undefined ||
 					if (exists(res)) 
 					{
 						// TODO(randomuserhi): check for error response
-						this[_symbols._loaded] = res;
+						this[_symbols._loaded][language] = res.body.lang_set;
 						this.set(language);
 					}
 				});
