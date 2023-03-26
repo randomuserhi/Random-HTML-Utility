@@ -9,7 +9,7 @@
  * @namespace _RHU (Symbol.for("RHU")), RHU
  * 
  * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
- * TODO(randomuserhi): document this
+ * TODO(randomuserhi): Documentation
  */
 (function (_RHU, RHU) 
 {

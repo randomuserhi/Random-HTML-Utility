@@ -1,14 +1,23 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<script src="RHU v2/RHU.js"></script>
 		<script src="RHU/RHU.js"></script>
 	</head>
 	<body>
+		<template id="test">
+		</template>
+
 		<div id="target">
 		</div>
 
+		<script src="RHU/RHU-Macro.js"></script>
 		<script src="RHU/RHU-MD.js"></script>
 		<script type="text/javascript">
+			new RHU.Macro(function() {}, "woah",
+				/*HTML*/`<td>boomer</td>`,
+				{ element: /*HTML*/`<div></div>` });
+
 			let parser = new RHU.MD.Parser();
 			let tree = parser.parse(`!['test' scary shit](lmao)`);
 			//console.log(tree);

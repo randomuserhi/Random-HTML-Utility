@@ -30,6 +30,7 @@ if (window[Symbol.for("RHU")] === undefined ||
 	 * 					   https://stackoverflow.com/questions/18299806/how-to-check-file-mime-type-with-javascript-before-upload/29672957#29672957
 	 *
 	 * TODO(randomuserhi): Possibly implement with Promise API (currently uses callbacks)
+	 * TODO(randomuserhi): Documentation
 	 */
 	(function (_File, File) 
 	{
