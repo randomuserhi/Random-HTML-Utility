@@ -5,6 +5,8 @@
 
 "use strict";
 
+// TODO(randomuserhi): Config setting for 
+
 {
 
     // Core sub-library for functionality pre-RHU
@@ -25,22 +27,22 @@
         dependencies: function(_opt = {})
         {
             let opt = { 
+                error: true,
                 module: "Module",
                 hard: [], 
                 soft: []
             };
             this.parseOptions(opt, _opt);
 
-            function check(items)
-            {
+            let check = (items) => {
                 let has = [];
                 let missing = [];
                 for (let path of items)
                 {
                     let traversal = path.split(".");
                     let obj = window;
-                    for (; traversal.length !== 0; obj = obj[traversal.shift()]) {}
-                    if (obj !== null && obj !== undefined)
+                    for (; traversal.length !== 0 && this.exists(obj); obj = obj[traversal.shift()]) {}
+                    if (this.exists(obj))
                         has.push(path)
                     else
                         missing.push(path)
@@ -52,7 +54,7 @@
             }
 
             let hard = check(opt.hard);
-            if (hard.missing.length !== 0)
+            if (opt.error && hard.missing.length !== 0)
             {
                 for (let dependency of hard.missing)
                 {
@@ -66,13 +68,19 @@
             return {
                 info: {
                     has: [...hard.has, ...soft.has],
-                    missing: soft.missing
+                    missing: [...hard.missing, ...soft.missing]
                 },
+                hard: hard,
+                soft: soft,
                 has: function(dependency)
                 {
                     return this.info.has.includes(dependency);
+                },
+                missing: function(dependency)
+                {
+                    return this.info.missing.includes(dependency);
                 }
-            }
+            };
         },
         path: {
             // Adapted from: https://stackoverflow.com/a/55142565/9642458
@@ -96,8 +104,9 @@
     core.dependencies({
         module: "RHU",
         hard: [
-            "document",
             "document.createElement",
+            "document.head",
+            "document.createTextNode",
             "window.Function"
         ]
     });
@@ -118,9 +127,7 @@
 
         // Load config into core
         // TODO(randomuserhi): Proper error handling on the eval command to say config loaded incorrectly or something
-        (function()
         {
-
             let loaded;
             
             let scripts = document.getElementsByTagName("script");
@@ -130,7 +137,7 @@
                 if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) 
                 {
                     s.type += ";executed=true";
-                    loaded = Function(`"use strict"; RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
+                    loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
                 }
             }
 
@@ -144,13 +151,11 @@
                 modules: []
             };
             core.parseOptions(core.config, RHU.config);
-
-        })();
+        }
 
         // Dynamic script loader
         (function($)
         {
-
             let config = core.config;
             let root = {
                 location: config.root,
@@ -173,7 +178,7 @@
                     }
                 }
             }
-            else console.warn("Unable to find script object."); // NOTE(randomuserhi): Not sure if this is a fatal error or not...
+            else console.warn("Unable to find script element."); // NOTE(randomuserhi): Not sure if this is a fatal error or not...
 
             $.loader = {
                 timeout: 15 * 1000,
@@ -184,14 +189,19 @@
                         return core.path.join(this.location, path);
                     }
                 }, root),
-                JS: function(path, options)
+                JS: function(path, options, callback)
                 {
                     let handler = {
                         extension: undefined,
-                        module: undefined,
-                        callback: undefined
+                        module: undefined
                     };
-                    core.parseOptions(handler, options)
+                    core.parseOptions(handler, options);
+
+                    if (core.exists(handler.module) && core.exists(handler.extension))
+                    {
+                        console.error("Cannot load item that is both an extension and a module.");
+                        return;
+                    }
 
                     let script = document.createElement("script");
                     script.type = "text/javascript";
@@ -199,12 +209,9 @@
                     let handled = false;
                     script.onload = function()
                     {
-                        handled = true;  
-                        if (core.exists(handler.callback)) handler.callback();
+                        handled = true;
+                        if (core.exists(callback)) callback(true);
                     };
-                    // TODO(randomuserhi): Handle dependency like if a file is a hard dependency,
-                    //                     code needs to know which parts can't run due to this file being missing
-                    //                     etc...
                     let onerror = function()
                     {
                         if (handled) return;
@@ -215,6 +222,7 @@
                         else
                             console.error(`Unable to load script: [RHU]/${path}`);
                         handled = true;
+                        if (core.exists(callback)) callback(false);
                     };
                     script.onerror = onerror;
                     setTimeout(onerror, this.timeout);
@@ -222,37 +230,146 @@
                     this.head.append(script);
                 }
             };
-        
         })(core); //not sure if I should expose it on RHU or leave it on local core implementation
 
-        // Core
-        (function($)
+        // Event Handler
         {
+            // create a node for handling events with EventTarget
+            let node = document.createTextNode(null);
+            let addEventListener = node.addEventListener.bind(node);
+            RHU.addEventListener = function (type, listener, options) {
+                addEventListener(type, (e) => { listener(e.detail); }, options);
+            };
+            RHU.removeEventListener = node.removeEventListener.bind(node);
+            RHU.dispatchEvent = node.dispatchEvent.bind(node);
+        }
 
-            $.exists = function(obj)
+        // Core
+        {
+            RHU.exists = function(obj)
             {
                 return obj !== null && obj !== undefined;
             };
-        
-        })(RHU);
+        }
 
-        // Load scripts
-        (function()
+        // Load scripts and manage dependencies
         {
+            RHU.readyState = "loading";
 
             let config = core.config;
             let loader = core.loader;
+            let extensions = new Map();
+            let modules = new Map();
             
+            let watching = [];
+
+            function execute(item, callback)
+            {
+                let result = core.dependencies(item.dependencies);
+                if (result.hard.missing.length === 0)
+                    callback(result);
+                else
+                {
+                    if (core.exists(item.dependencies.module))
+                    {
+                        console.warn(`Module, '${item.dependencies.module}', could not loaded as not all hard dependencies were found.`);
+                        console.groupCollapsed(`[${item.dependencies.module}] Trace:`);
+                    }
+                    else
+                    {
+                        console.warn(`Unknown module could not loaded as not all hard dependencies were found.`);
+                        console.groupCollapsed(`[unknown] Trace:`);
+                    }
+                    for (let dependency of result.hard.missing)
+                    {
+                        console.warn(`Missing '${dependency}'`);
+                    }
+                    console.groupEnd();
+                }
+            }
+
+            function onload(success, handle)
+            {
+                if (success)
+                {
+                    let newWatching = [];
+                    for (let item of watching)
+                    {
+                        let result = core.dependencies(item.dependencies);
+                        if (result.info.missing.length === 0)
+                            item.callback(result);
+                        else
+                            newWatching.push(item);
+                    }
+                    watching = newWatching;
+                }
+
+                let handler = {
+                    extension: undefined,
+                    module: undefined
+                };
+                core.parseOptions(handler, handle);
+
+                if (core.exists(handler.extension) && core.exists(handler.module))
+                {
+                    console.error("Cannot handle loading of item that is both an extension and a module.");
+                    return;
+                }
+
+                if (core.exists(handler.extension))
+                    extensions.delete(handler.extension);
+                else if (core.exists(handler.module))
+                    modules.delete(handler.module);
+
+                if (extensions.size === 0 && modules.size === 0)
+                    oncomplete();
+            }
+
+            function oncomplete()
+            {
+                RHU.dispatchEvent(new CustomEvent("load"));
+                RHU.readyState = "complete";
+            
+                for (let item of watching)
+                {
+                    execute(item, item.callback);
+                }
+            }
+
+            RHU.module = function(dependencies, callback)
+            {
+                let opt = { 
+                    module: undefined,
+                    hard: [], 
+                    soft: []
+                };
+                this.parseOptions(opt, dependencies);
+                opt.error = false;
+
+                if (RHU.readyState !== "complete")
+                {
+                    watching.push({
+                        dependencies: opt,
+                        callback: callback
+                    });
+                }
+                else
+                {
+                    execute(opt, callback);
+                }
+            };
+
             for (let extension of config.extensions)
             {
-                loader.JS(core.path.join("extensions", `${extension}.js`), { extension: extension });
+                extensions.set(extension);
+                loader.JS(core.path.join("extensions", `${extension}.js`), { extension: extension }, (success) => { onload(success, { extension : extension }); });
             }
             for (let module of config.modules)
             {
-                loader.JS(core.path.join("modules", `${module}.js`), { module: module });
+                modules.set(module);
+                loader.JS(core.path.join("modules", `${module}.js`), { module: module }, (success) => { onload(success, { module: module }); });
             }
-
-        })();
+        }
     }
 
 }
