@@ -3,13 +3,12 @@
  * @randomuserhi.github.io
  */
 
-"use strict";
+(function() {
+    "use strict";
 
-// TODO(randomuserhi): Config setting for performance (record timings)
-// TODO(randomuserhi): Documentation
-// TODO(randomuserhi): Splitting up key parts and custom compiler to merge them
-
-{
+    // TODO(randomuserhi): Config setting for performance (record timings)
+    // TODO(randomuserhi): Documentation
+    // TODO(randomuserhi): Splitting up key parts and custom compiler to merge them
 
     // Core sub-library for functionality pre-RHU
     let core = {
@@ -41,17 +40,19 @@
                 {
                     let traversal = path.split(".");
                     let obj = window;
-                    for (; traversal.length !== 0 && this.exists(obj); obj = obj[traversal.shift()]) {}
+                    for (; traversal.length !== 0 && this.exists(obj); obj = obj[traversal.shift()]) {
+                        // Not needed body, since for loop handles traversal
+                    }
                     if (this.exists(obj))
-                        has.push(path)
+                        has.push(path);
                     else
-                        missing.push(path)
+                        missing.push(path);
                 }
                 return {
                     has: has,
                     missing: missing
                 };
-            }
+            };
 
             let hard = check(opt.hard);
             let soft = check(opt.soft);
@@ -73,7 +74,7 @@
                     if (index !== paths.length - 1) 
                         part = part.replace(new RegExp(separator + '$'), '');
                     return part;
-                })
+                });
                 return paths.join(separator);
             },
             // NOTE(randomuserhi): Uses POSIX standard, so '/file' is an absolute path.
@@ -82,7 +83,7 @@
                 return /^([a-z]+:)?[\\/]/i.test(path);
             }
         }
-    }
+    };
 
     // Check for dependencies
     {
@@ -178,7 +179,7 @@
                 if (!core.exists(root.location))
                 {
                     let s = document.currentScript;
-                    root.location = s.src.match(/(.*)[\/\\]/)[1] || "";
+                    root.location = s.src.match(/(.*)[/\\]/)[1] || "";
                     root.script = s.innerHTML;
                     let params = (new URL(s.src)).searchParams;
                     for (let key of params.keys())
@@ -272,7 +273,7 @@
                     writable: undefined,
                     get: undefined,
                     set: undefined
-                }
+                };
                 RHU.parseOptions(opt, options);
 
                 /** 
@@ -305,7 +306,7 @@
                             }
                         }
                     }
-                }
+                };
                 
                 /**
                  * NOTE(randomuserhi): Reflect.ownKeys() gets both symbols and non-symbols so it may be worth using that
@@ -328,7 +329,7 @@
                         let props = Object.getOwnPropertySymbols(curr);
                         iterate(props, descriptors);
                     }
-                } while((curr = Object.getPrototypeOf(curr)) && !opt.hasOwn)
+                } while((curr = Object.getPrototypeOf(curr)) && !opt.hasOwn);
                 
                 return properties;
             };
@@ -344,8 +345,8 @@
 
                 if (opt.replace || !RHU.properties(obj, { hasOwn: true }).has(p))
                 {
-                    delete obj[p]; // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'.
-                                   //                     Also will not cause issues with inherited properties as `delete` only removes own properties.    
+                    delete obj[p];  // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'.
+                                    //                     Also will not cause issues with inherited properties as `delete` only removes own properties.    
                     Object.defineProperty(obj, p, o);
                     return true;
                 }
@@ -545,7 +546,7 @@
             
             let watching = [];
 
-            function execute(item, callback)
+            let execute = function(item, callback)
             {
                 let result = core.dependencies(item.dependencies);
                 if (result.hard.missing.length === 0)
@@ -568,9 +569,9 @@
                     }
                     console.groupEnd();
                 }
-            }
+            };
 
-            function onload(success, handle)
+            let onload = function(success, handle)
             {
                 if (success)
                 {
@@ -605,9 +606,9 @@
 
                 if (extensions.size === 0 && modules.size === 0)
                     oncomplete();
-            }
+            };
 
-            function oncomplete()
+            let oncomplete = function()
             {
                 core.readyState = "complete";
             
@@ -620,7 +621,7 @@
                         window[core.loader.root.params.load]();
                     else console.error(`Callback for 'load' event called '${core.loader.root.params.load}' does not exist.`);
                 RHU.dispatchEvent(new CustomEvent("load"));
-            }
+            };
 
             RHU.module = function(dependencies, callback)
             {
@@ -676,5 +677,4 @@
                 window[core.loader.root.params.ready]();
             else console.error(`Callback for 'ready' event called '${core.loader.root.params.ready}' does not exist.`);
     }
-
-}
+})();

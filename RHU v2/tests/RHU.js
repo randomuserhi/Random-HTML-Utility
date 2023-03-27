@@ -1,4 +1,6 @@
-{
+(function() {
+	"use strict";
+
 	let RHU = window.RHU;
 	if (RHU === null || RHU === undefined) throw new Error("RHU library could not be found. Did you import it prior testing?");
 	
@@ -222,7 +224,7 @@
 
 		// TODO(randomuserhi): Need to test getters, setters, symbols, enumerable, configurable etc...
 		{
-			function identical(a, b)
+			let identical = function(a, b)
 			{
 				for (let key in a)
 				{
@@ -255,12 +257,12 @@
 							prop3: null
 						};
 
-						for (key in obj)
+						for (let key in obj)
 						{
 							if (!result.has(key)) return false;
 							if (!identical(result.get(key), Object.getOwnPropertyDescriptor(obj, key))) return false;
 						}
-						for (key in Object)
+						for (let key in Object)
 						{
 							if (!result.has(key)) return false;
 							if (!identical(result.get(key), Object.getOwnPropertyDescriptor(obj, key))) return false;
@@ -293,12 +295,12 @@
 							prop4: "woah"
 						};
 
-						for (key in obj)
+						for (let key in obj)
 						{
 							if (!result.has(key)) return false;
 							if (!identical(result.get(key), Object.getOwnPropertyDescriptor(obj, key))) return false;
 						}
-						for (key in Object)
+						for (let key in Object)
 						{
 							if (!result.has(key)) return false;
 							if (!identical(result.get(key), Object.getOwnPropertyDescriptor(obj, key))) return false;
@@ -331,7 +333,7 @@
 						};
 
 						if (result.size !== 3) return false;
-						for (key in obj)
+						for (let key in obj)
 						{
 							if (!result.has(key)) return false;
 							if (!identical(result.get(key), Object.getOwnPropertyDescriptor(obj, key))) return false;
@@ -344,4 +346,4 @@
 
 		// TODO(randomuserhi): Add tests for the other core RHU functions
 	});
-}
+})();
