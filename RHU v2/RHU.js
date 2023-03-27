@@ -476,7 +476,7 @@
 
                 return function(newTarget, args = [])
                 {
-                    if (exists(newTarget))
+                    if (RHU.exists(newTarget))
                     {
                         let obj = Reflect.construct(base, args, child);
                         constructor.call(obj, ...args);

@@ -3,7 +3,7 @@
 {
 	let RHU = window.RHU;
 	if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-	RHU.module({ module: "rhu/macro", hard: ["Map"] }, function(e)
+	RHU.module({ module: "rhu/macro", hard: ["Map", "XPathEvaluator"] }, function(e)
 	{
 		//TODO(randomuserhi): read from a config and enable performance logging etc...
 

@@ -3,8 +3,8 @@
 	<head>
 		<script type="text/x-rhu-config">
 		RHU.config = {
-			modules: ["macro"],
-			extensions: ["blankImg"]
+			modules: ["macro", "event", "websockets", "rest"],
+			extensions: ["rhu/blankImg", "rhu/localisation"]
 		};
 		</script>
 		<script src="RHU v2/RHU.js"></script>
@@ -19,7 +19,7 @@
 				new RHU.Macro(function() {}, "asd",
 					/*HTML*/`<td>boomer</td><!--woah-->crazy`,
 					{ element: /*HTML*/`<div></div>` });
-				
+
 				new RHU.Macro(function() {}, "woah",
 					/*HTML*/`<td>boomer</td><!--woah-->crazy<rhu-macro rhu-type="asd"></rhu-macro>`,
 					{ element: /*HTML*/`<div></div>` });
