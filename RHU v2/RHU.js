@@ -254,7 +254,8 @@
 
         // Load scripts and manage dependencies
         {
-            RHU.readyState = "loading";
+            core.readyState = "loading";
+            RHU.readyState = core.readyState;
 
             let config = core.config;
             let loader = core.loader;
@@ -292,16 +293,16 @@
             {
                 if (success)
                 {
-                    let newWatching = [];
-                    for (let item of watching)
+                    let old = watching;
+                    watching = [];
+                    for (let item of old)
                     {
                         let result = core.dependencies(item.dependencies);
                         if (result.info.missing.length === 0)
                             item.callback(result);
                         else
-                            newWatching.push(item);
+                            watching.push(item);
                     }
-                    watching = newWatching;
                 }
 
                 let handler = {
@@ -327,13 +328,12 @@
 
             function oncomplete()
             {
-                RHU.dispatchEvent(new CustomEvent("load"));
-                RHU.readyState = "complete";
+                core.readyState = "complete";
+                RHU.readyState = core.readyState;
             
-                for (let item of watching)
-                {
-                    execute(item, item.callback);
-                }
+                for (let item of watching) execute(item, item.callback);
+                
+                RHU.dispatchEvent(new CustomEvent("load"));
             }
 
             RHU.module = function(dependencies, callback)
@@ -346,17 +346,14 @@
                 this.parseOptions(opt, dependencies);
                 opt.error = false;
 
-                if (RHU.readyState !== "complete")
+                if (core.readyState !== "complete")
                 {
                     watching.push({
                         dependencies: opt,
                         callback: callback
                     });
                 }
-                else
-                {
-                    execute(opt, callback);
-                }
+                else execute(opt, callback);
             };
 
             for (let extension of config.extensions)
