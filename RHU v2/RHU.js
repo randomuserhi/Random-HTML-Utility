@@ -597,10 +597,10 @@
 
                 // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
                 //                     so callback.special accesses window["callback.special"]
-                if (core.exists(core.loader.root.params.callback))
-                    if (core.exists(window[core.loader.root.params.callback]))
-                        window[core.loader.root.params.callback]();
-                    else console.error(`Callback '${core.loader.root.params.callback}' does not exist.`);
+                if (core.exists(core.loader.root.params.load))
+                    if (core.exists(window[core.loader.root.params.load]))
+                        window[core.loader.root.params.load]();
+                    else console.error(`Callback for 'load' event called '${core.loader.root.params.load}' does not exist.`);
                 RHU.dispatchEvent(new CustomEvent("load"));
             }
 
@@ -633,6 +633,14 @@
                     loader.JS(core.path.join("modules", `${module}.js`), { module: module }, (success) => { onload(success, { module: module }); });
             }
         }
+
+        // RHU is ready, but not yet loaded content
+        // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
+        //                     so callback.special accesses window["callback.special"]
+        if (core.exists(core.loader.root.params.ready))
+            if (core.exists(window[core.loader.root.params.ready]))
+                window[core.loader.root.params.ready]();
+            else console.error(`Callback for 'ready' event called '${core.loader.root.params.ready}' does not exist.`);
     }
 
 }
