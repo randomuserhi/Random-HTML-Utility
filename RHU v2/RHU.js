@@ -75,6 +75,11 @@
                     return part;
                 })
                 return paths.join(separator);
+            },
+            // NOTE(randomuserhi): Uses POSIX standard, so '/file' is an absolute path.
+            isAbsolute: function(path)
+            {
+                return /^([a-z]+:)?[\\/]/i.test(path);
             }
         }
     }
@@ -88,18 +93,29 @@
                 "document.createTextNode",
                 "window.Function",
                 "Map",
-                "Reflect"
+                "Reflect",
+                "console.groupCollapsed",
+                "console.group",
+                "console.groupEnd"
             ]
         });
         if (result.hard.missing.length !== 0)
         {
             console.error("RHU was unable to import due to missing dependencies.");
-            console.groupCollapsed(`[RHU] Trace:`);
-            for (let dependency of result.hard.missing)
+            if (core.exists(console.group) && core.exists(console.groupEnd))
             {
-                console.error(`Missing '${dependency}'`);
+                console.groupCollapsed(`[RHU] Trace:`);
+                for (let dependency of result.hard.missing)
+                {
+                    console.error(`Missing '${dependency}'`);
+                }
+                console.groupEnd();
             }
-            console.groupEnd();
+            else
+            {
+                for (let dependency of result.hard.missing)
+                    console.error(`Missing '${dependency}'`);
+            }
             throw new Error("Missing dependencies");
         }
     }
@@ -140,7 +156,8 @@
             core.config = {
                 root: undefined,
                 extensions: [],
-                modules: []
+                modules: [],
+                includes: {}
             };
             core.parseOptions(core.config, RHU.config);
         }
@@ -191,13 +208,13 @@
 
                     if (core.exists(handler.module) && core.exists(handler.extension))
                     {
-                        console.error("Cannot load item that is both an extension and a module.");
+                        console.error("Cannot load item that is both an x-module and a module.");
                         return;
                     }
 
                     let script = document.createElement("script");
                     script.type = "text/javascript";
-                    script.src = this.root.path(path);
+                    script.src = path;
                     let handled = false;
                     script.onload = function()
                     {
@@ -210,7 +227,7 @@
                         if (core.exists(handler.module))
                             console.error(`Unable to find module '${handler.module}'.`);
                         else if (core.exists(handler.extension))
-                            console.error(`Unable to find extension '${handler.extension}'.`);
+                            console.error(`Unable to find x-module '${handler.extension}'.`);
                         else
                             console.error(`Unable to load script: [RHU]/${path}`);
                         handled = true;
@@ -524,6 +541,7 @@
             let loader = core.loader;
             let extensions = new Map();
             let modules = new Map();
+            let includes = new Map();
             
             let watching = [];
 
@@ -576,7 +594,7 @@
 
                 if (core.exists(handler.extension) && core.exists(handler.module))
                 {
-                    console.error("Cannot handle loading of item that is both an extension and a module.");
+                    console.error("Cannot handle loading of item that is both an x-module and a module.");
                     return;
                 }
 
@@ -622,15 +640,31 @@
                 extensions.set(extension);
             for (let module of config.modules)
                 modules.set(module);
+            for (let path in config.includes)
+            {
+                let isAbsolute = core.path.isAbsolute(path);
+                for (let include of config.includes[path])
+                {
+                    if (isAbsolute)
+                        includes.set(core.path.join(path, `${include}.js`), include);
+                    else
+                        includes.set(loader.root.path(core.path.join(path, `${include}.js`)), include);
+                }
+            }
             
-            if (extensions.size === 0 && modules.size === 0)
+            if (extensions.size === 0 && modules.size === 0 && includes.size === 0)
                 oncomplete();
             else
             {
                 for (let extension of extensions.keys())
-                    loader.JS(core.path.join("extensions", `${extension}.js`), { extension: extension }, (success) => { onload(success, { extension : extension }); });
+                    loader.JS(loader.root.path(core.path.join("extensions", `${extension}.js`)), { extension: extension }, (success) => { onload(success, { extension : extension }); });
                 for (let module of modules.keys())
-                    loader.JS(core.path.join("modules", `${module}.js`), { module: module }, (success) => { onload(success, { module: module }); });
+                    loader.JS(loader.root.path(core.path.join("modules", `${module}.js`)), { module: module }, (success) => { onload(success, { module: module }); });
+                for (let include of includes.keys())
+                {
+                    let module = includes.get(include);
+                    loader.JS(include, { module: module }, (success) => { onload(success, { module: module }); });
+                }
             }
         }
 
