@@ -4,27 +4,26 @@
 		<script type="text/x-rhu-config">
 		RHU.config = {
 			modules: ["macro"],
-			extensions: []
+			extensions: ["blankImg"]
 		};
 		</script>
 		<script src="RHU v2/RHU.js"></script>
-		<script src="RHU/RHU.js"></script>
 	</head>
 	<body>
-		<div id="target">
+		<div id="target" rhu-macro="woah">
 		</div>
+		<rhu-macro rhu-type="woah"></rhu-macro>
 
-		<!--<script src="RHU/RHU-Macro.js"></script>
-		<script src="RHU/RHU-MD.js"></script>
 		<script type="text/javascript">
-			new RHU.Macro(function() {}, "woah",
-				/*HTML*/`<td>boomer</td>`,
-				{ element: /*HTML*/`<div></div>` });
-
-			let parser = new RHU.MD.Parser();
-			let tree = parser.parse(`!['test' scary shit](lmao)`);
-			//console.log(tree);
-			console.log(new RHU.MD.HTMLParser().parse(tree));
-		</script>-->
+			RHU.module({ hard: ["RHU.Macro"] }, function(e) {
+				new RHU.Macro(function() {}, "asd",
+					/*HTML*/`<td>boomer</td><!--woah-->crazy`,
+					{ element: /*HTML*/`<div></div>` });
+				
+				new RHU.Macro(function() {}, "woah",
+					/*HTML*/`<td>boomer</td><!--woah-->crazy<rhu-macro rhu-type="asd"></rhu-macro>`,
+					{ element: /*HTML*/`<div></div>` });
+			});
+		</script>
 	</body>
 </html>

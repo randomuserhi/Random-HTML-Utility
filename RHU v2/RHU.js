@@ -5,7 +5,9 @@
 
 "use strict";
 
-// TODO(randomuserhi): Config setting for 
+// TODO(randomuserhi): Config setting for performance (record timings)
+// TODO(randomuserhi): Documentation
+// TODO(randomuserhi): Splitting up key parts and custom compiler to merge them
 
 {
 
@@ -26,9 +28,7 @@
         },
         dependencies: function(_opt = {})
         {
-            let opt = { 
-                error: true,
-                module: "Module",
+            let opt = {
                 hard: [], 
                 soft: []
             };
@@ -54,32 +54,11 @@
             }
 
             let hard = check(opt.hard);
-            if (opt.error && hard.missing.length !== 0)
-            {
-                for (let dependency of hard.missing)
-                {
-                    console.error(`Missing dependency '${dependency}'.`);
-                }
-                throw new Error(`${opt.module} had missing dependencies.`);
-            }
-
             let soft = check(opt.soft);
 
             return {
-                info: {
-                    has: [...hard.has, ...soft.has],
-                    missing: [...hard.missing, ...soft.missing]
-                },
                 hard: hard,
-                soft: soft,
-                has: function(dependency)
-                {
-                    return this.info.has.includes(dependency);
-                },
-                missing: function(dependency)
-                {
-                    return this.info.missing.includes(dependency);
-                }
+                soft: soft
             };
         },
         path: {
@@ -101,26 +80,39 @@
     }
 
     // Check for dependencies
-    core.dependencies({
-        module: "RHU",
-        hard: [
-            "document.createElement",
-            "document.head",
-            "document.createTextNode",
-            "window.Function"
-        ]
-    });
+    {
+        let result = core.dependencies({
+            hard: [
+                "document.createElement",
+                "document.head",
+                "document.createTextNode",
+                "window.Function",
+                "Map",
+                "Reflect"
+            ]
+        });
+        if (result.hard.missing.length !== 0)
+        {
+            console.error("RHU was unable to import due to missing dependencies.");
+            console.groupCollapsed(`[RHU] Trace:`);
+            for (let dependency of result.hard.missing)
+            {
+                console.error(`Missing '${dependency}'`);
+            }
+            console.groupEnd();
+            throw new Error("Missing dependencies");
+        }
+    }
 
     {
         // Initialize RHU
         if (window.RHU)
         {
-
+            console.warn("Overwriting global RHU...");
         }
-        else
-        {
-            window.RHU = {};
-        }
+        
+        window.RHU = {};
+        let RHU = window.RHU;
 
         // Meta
         RHU.version = "1.0.0";
@@ -250,12 +242,283 @@
             {
                 return obj !== null && obj !== undefined;
             };
+
+            RHU.properties = function(obj, options = {}, operation = null)
+            {
+                if (!RHU.exists(obj)) throw TypeError("Cannot get properties of 'null' or 'undefined'.");
+
+                let opt = {
+                    enumerable: undefined,
+                    configurable: undefined,
+                    symbols: undefined,
+                    hasOwn: undefined,
+                    writable: undefined,
+                    get: undefined,
+                    set: undefined
+                }
+                RHU.parseOptions(opt, options);
+
+                /** 
+                 * NOTE(randomuserhi): In the event that Map() is not supported:
+                 *                     Can use an object {} and then do `properties[descriptor] = undefined`,
+                 *                     then use `for (let key in properties)` to return an array of properties.
+                 */
+                let properties = new Map();
+                let iterate = function(props, descriptors)
+                {
+                    for (let p of props)
+                    {
+                        let descriptor = descriptors[p];
+                        let valid = true;
+                        
+                        if (opt.enumerable && descriptor.enumerable !== opt.enumerable) valid = false;
+                        if (opt.configurable && descriptor.configurable !== opt.configurable) valid = false;
+                        if (opt.writable && descriptor.writable !== opt.writable) valid = false;
+                        if (opt.get === false && descriptor.get) valid = false;
+                        else if (opt.get === true && !descriptor.get) valid = false;
+                        if (opt.set === false && descriptor.set) valid = false;
+                        else if (opt.set === true && !descriptor.set) valid = false;
+
+                        if (valid) 
+                        {
+                            if (!properties.has(p))
+                            {
+                                if (RHU.exists(operation)) operation(curr, p);
+                                properties.set(p, descriptors[p]);
+                            }
+                        }
+                    }
+                }
+                
+                /**
+                 * NOTE(randomuserhi): Reflect.ownKeys() gets both symbols and non-symbols so it may be worth using that
+                 *                     when symbols is undefined
+                 */
+
+                let curr = obj;
+                do
+                {
+                    let descriptors = Object.getOwnPropertyDescriptors(curr);
+                    
+                    if (!RHU.exists(opt.symbols) || opt.symbols === false)
+                    {
+                        let props = Object.getOwnPropertyNames(curr);
+                        iterate(props, descriptors);
+                    }
+                    
+                    if (!RHU.exists(opt.symbols) || opt.symbols === true)
+                    {
+                        let props = Object.getOwnPropertySymbols(curr);
+                        iterate(props, descriptors);
+                    }
+                } while((curr = Object.getPrototypeOf(curr)) && !opt.hasOwn)
+                
+                return properties;
+            };
+
+            RHU.defineProperty = function(obj, p, o, options = {})
+            {
+                let opt = {
+                    replace: false,
+                    warn: false,
+                    err: false
+                };
+                for (let key in opt) if (RHU.exists(options[key])) opt[key] = options[key];
+
+                if (opt.replace || !RHU.properties(obj, { hasOwn: true }).has(p))
+                {
+                    delete obj[p]; // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'.
+                                   //                     Also will not cause issues with inherited properties as `delete` only removes own properties.    
+                    Object.defineProperty(obj, p, o);
+                    return true;
+                }
+                if (opt.warn) console.warn(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
+                if (opt.err) console.error(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
+                return false;
+            };
+
+            RHU.definePublicProperty = function(obj, p, o, options = {})
+            {
+                let opt = {
+                    writable: true,
+                    enumerable: true
+                };
+                return RHU.defineProperty(obj, p, Object.assign(opt, o), options);
+            };
+
+            RHU.definePublicAccessor = function(obj, p, o, options = {})
+            {
+                let opt = {
+                    configurable: true,
+                    enumerable: true
+                };
+                return RHU.defineProperty(obj, p, Object.assign(opt, o), options);
+            };
+
+            RHU.defineProperties = function(obj, p, options = {})
+            {
+                for (let key of RHU.properties(p, { hasOwn: true }).keys())
+                {
+                    if (Object.hasOwnProperty.call(p, key))
+                    {
+                        RHU.defineProperty(obj, key, p[key], options);
+                    }
+                }
+            };
+
+            RHU.definePublicProperties = function(obj, p, options = {})
+            {
+                let opt = function()
+                {
+                    this.configurable = true;
+                    this.writable = true;
+                    this.enumerable = true;
+                };
+                for (let key of RHU.properties(p, { hasOwn: true }).keys())
+                {
+                    if (Object.hasOwnProperty.call(p, key))
+                    {
+                        let o = Object.assign(new opt(), p[key]);
+                        RHU.defineProperty(obj, key, o, options);
+                    }
+                }
+            };
+
+            RHU.definePublicAccessors = function(obj, p, options = {})
+            {
+                let opt = function()
+                {
+                    this.configurable = true;
+                    this.enumerable = true;
+                };
+                for (let key of RHU.properties(p, { hasOwn: true }).keys())
+                {
+                    if (Object.hasOwnProperty.call(p, key))
+                    {
+                        let o = Object.assign(new opt(), p[key]);
+                        RHU.defineProperty(obj, key, o, options);
+                    }
+                }
+            };
+
+            RHU.assign = function(target, source, options = { replace: true })
+            {
+                if (target === source) return target;
+                RHU.defineProperties(target, Object.getOwnPropertyDescriptors(source), options);
+                return target;
+            };
+
+            RHU.delete = function(object, preserve = null)
+            {
+                if (object === preserve) return;
+
+                /**
+                 * Since preserve uses hasOwnProperty, inherited properties of preserve are not preserved:
+                 * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties
+                 *
+                 * Since traversing and deleting a prototype can effect other objects, we do not recursively delete
+                 * through the prototype.
+                 *
+                 * TODO(randomuserhi): Option to skip properties that are non-configurable (aka cannot be deleted).
+                 *                     Right now we just throw an error.
+                 */
+                RHU.properties(object, { hasOwn: true }, (obj, prop) => {
+                    if (!RHU.exists(preserve) || !RHU.properties(preserve, { hasOwn: true }).has(prop))
+                        delete obj[prop];
+                });
+            };
+
+            RHU.clone = function(object, prototype = null)
+            {
+                /** 
+                 * NOTE(randomuserhi): Performs a shallow clone => references inside the cloned object will be the same
+                 *                     as original.
+                 */
+                if (RHU.exists(prototype)) return RHU.assign(Object.create(prototype), object);
+                else return RHU.assign(Object.create(Object.getPrototypeOf(object)), object);
+            };
+
+            RHU.redefine = function (object, prototype, preserve = null) 
+            {
+                /**
+                 * NOTE(randomuserhi): redefines an objects type (prototype), removing old values, but does not 
+                 *                     call the new types constructor.
+                 */
+                RHU.deleteProperties(object, preserve);
+                Object.setPrototypeOf(object, prototype);
+                return object;
+            };
+
+            RHU.isConstructor = function(func) 
+            {
+                try 
+                {
+                    Reflect.construct(String, [], func);
+                } 
+                catch (e) 
+                {
+                    return false;
+                }
+                return true;
+            };
+
+            RHU.inherit = function(child, base)
+            {
+                if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`); 
+
+                Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
+                Object.setPrototypeOf(child, base); // Inherit static properties
+            };
+
+            RHU.reflectConstruct = function(child, base, constructor)
+            {
+                if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`);
+
+                return function(newTarget, args = [])
+                {
+                    if (exists(newTarget))
+                    {
+                        let obj = Reflect.construct(base, args, child);
+                        constructor.call(obj, ...args);
+                        return obj;
+                    }
+                    else constructor.call(this, ...args);
+                };
+            };
+
+            RHU.parseOptions = function(template, opt, inplace = true)
+            {
+                if (!RHU.exists(opt)) return template;
+                if (!RHU.exists(template)) return template;
+                
+                let result = template;
+                if (!inplace) result = RHU.clone(template);
+                // NOTE(randomuserhi): Object.assign as opposed to assign method defined in RHU
+                //                     is because we want a soft copy (ignoring getters and setters)
+                //                     RHU copies everything including getters and setters
+                Object.assign(result, opt);
+                return result;
+            };
+
+            RHU.clearAttributes = function(element)
+            {
+                while(element.attributes.length > 0) element.removeAttribute(element.attributes[0].name);
+            };
+
+            RHU.getElementById = function(id, clearID = true)
+            {
+                let el = document.getElementById(id);
+                if (clearID) el.removeAttribute("id");
+                return el;
+            };
         }
 
         // Load scripts and manage dependencies
         {
             core.readyState = "loading";
-            RHU.readyState = core.readyState;
+            RHU.definePublicAccessor(RHU, "readyState", {
+                get: function() { return core.readyState; }
+            });
 
             let config = core.config;
             let loader = core.loader;
@@ -298,7 +561,7 @@
                     for (let item of old)
                     {
                         let result = core.dependencies(item.dependencies);
-                        if (result.info.missing.length === 0)
+                        if (result.hard.missing.length === 0 && result.soft.missing.length === 0)
                             item.callback(result);
                         else
                             watching.push(item);
@@ -329,42 +592,45 @@
             function oncomplete()
             {
                 core.readyState = "complete";
-                RHU.readyState = core.readyState;
             
                 for (let item of watching) execute(item, item.callback);
-                
+
+                // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
+                //                     so callback.special accesses window["callback.special"]
+                if (core.exists(core.loader.root.params.callback))
+                    if (core.exists(window[core.loader.root.params.callback]))
+                        window[core.loader.root.params.callback]();
+                    else console.error(`Callback '${core.loader.root.params.callback}' does not exist.`);
                 RHU.dispatchEvent(new CustomEvent("load"));
             }
 
             RHU.module = function(dependencies, callback)
             {
-                let opt = { 
-                    module: undefined,
-                    hard: [], 
-                    soft: []
-                };
-                this.parseOptions(opt, dependencies);
-                opt.error = false;
+                // NOTE(randomuserhi): dependencies can take an extra 'module' property which is the name of the module.
 
                 if (core.readyState !== "complete")
                 {
                     watching.push({
-                        dependencies: opt,
+                        dependencies: dependencies,
                         callback: callback
                     });
                 }
-                else execute(opt, callback);
+                else execute(dependencies, callback);
             };
 
             for (let extension of config.extensions)
-            {
                 extensions.set(extension);
-                loader.JS(core.path.join("extensions", `${extension}.js`), { extension: extension }, (success) => { onload(success, { extension : extension }); });
-            }
             for (let module of config.modules)
-            {
                 modules.set(module);
-                loader.JS(core.path.join("modules", `${module}.js`), { module: module }, (success) => { onload(success, { module: module }); });
+            
+            if (extensions.size === 0 && modules.size === 0)
+                oncomplete();
+            else
+            {
+                for (let extension of extensions.keys())
+                    loader.JS(core.path.join("extensions", `${extension}.js`), { extension: extension }, (success) => { onload(success, { extension : extension }); });
+                for (let module of modules.keys())
+                    loader.JS(core.path.join("modules", `${module}.js`), { module: module }, (success) => { onload(success, { module: module }); });
             }
         }
     }
