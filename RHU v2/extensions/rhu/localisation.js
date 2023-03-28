@@ -42,11 +42,19 @@
         let watching = new RHU.WeakCollection();
         Localisation.parse = function(el, schema)
         {
-            let local = schema[el.rhuLoc];
-            if (RHU.exists(local))
+            if (RHU.exists(schema))
             {
-                watching.add(el);
+                let local = schema[el.rhuLoc];
+                if (RHU.exists(local))
+                {
+                    // TODO(randomuserhi): Implement       
+                }
             }
+            
+            if (Element.prototype.hasAttribute.call(el, "rhu-loc"))
+                watching.add(el);
+            else
+                watching.delete(el);
         };
     });
 })();

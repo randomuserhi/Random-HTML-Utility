@@ -175,7 +175,7 @@
              */
 
             // Check if element is eligible for RHU-Macro (check hasOwn properties and that it has not been converted into a macro already)
-            if (!Object.prototype.hasOwnProperty.call(element, symbols.constructed) && RHU.properties(element, { hasOwn: true }).size !== 0) 
+            if (!Object.hasOwnProperty.call(element, symbols.constructed) && RHU.properties(element, { hasOwn: true }).size !== 0) 
                 throw new TypeError(`Element is not eligible to be used as a rhu-macro.`);
 
             // return if element doesn't exist

@@ -39,10 +39,7 @@
         RHU.WeakCollection.prototype.delete = function(...items)
         {
             for (let item of items)
-            {
-                if (this._weakSet.has(item))
-                    this._weakSet.delete(item);
-            }  
+                this._weakSet.delete(item);
             this._collection = this._collection.filter((i) => {
                 i = i.deref();
                 return RHU.exists(i) && !items.includes(i); 
