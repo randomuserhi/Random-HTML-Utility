@@ -44,8 +44,9 @@
         {
             let local = schema[el.rhuLoc];
             if (RHU.exists(local))
-
-            watching.add(el);
+            {
+                watching.add(el);
+            }
         };
     });
 })();

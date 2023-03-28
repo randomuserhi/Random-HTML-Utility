@@ -24,6 +24,7 @@
         });
 
         // NOTE(randomuserhi): Store a reference to base functions that will be overridden
+        let isPrototypeOf = Function.call.bind(Object.prototype.isPrototypeOf);
         let Element_setAttribute = Element.prototype.setAttribute;
         let Node_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get;
         let Node_parentNode = Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get;
@@ -40,7 +41,8 @@
             let el = doc.children[0];
             if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
             el.remove(); //un bind element from temporary doc
-            el.rhuMacro = type;
+            Element_setAttribute.call(el, "rhu-macro", type);
+            Macro.parse(el, type);
             return el[symbols.macro];
         };
 
@@ -69,9 +71,7 @@
         RHU.definePublicAccessor(Element.prototype, "rhuMacro", {
             get() 
             {
-                let attribute = Element.prototype.getAttribute.call(this, "rhu-macro"); 
-                if (RHU.exists(attribute)) return attribute;
-                else return undefined;
+                return Element.prototype.getAttribute.call(this, "rhu-macro"); 
             },
             set(value) 
             { 
@@ -311,7 +311,7 @@
 
             // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
             nested = doc.querySelectorAll("*[rhu-macro]");
-            for (let el of nested) Macro.parse(el, el.rhuMacro);
+            for (let el of nested) Macro.parse(el, Element.prototype.getAttribute.call(el, "rhu-macro"));
 
             // Place elements onto element
             Element.prototype.append.call(element, ...doc.childNodes);
@@ -338,6 +338,8 @@
                 else Element.prototype.replaceWith.call(element);
 
                 // If we are floating, set instance to be the new target object instead of the element container:
+                // NOTE(randomuserhi): Needs to be configurable to ensure that the property can be deleted when element
+                //                     is reused
                 RHU.defineProperties(element, {
                     [symbols.macro]: {
                         configurable: true,
@@ -424,7 +426,7 @@
 
             // Parse macros on document
             let macros = document.querySelectorAll("[rhu-macro]");
-            for (let el of macros) Macro.parse(el, el.rhuMacro);
+            for (let el of macros) Macro.parse(el, Element.prototype.getAttribute.call(el, "rhu-macro"));
 
             // Initialize observer
             Macro.observe(document);
@@ -467,8 +469,12 @@
                     {
                         for (let node of mutation.addedNodes)
                         {
-                            if (RHU.exists(node.rhuMacro))
-                                Macro.parse(node, node.rhuMacro);
+                            // Check if the node is a HTMLElement (TextNodes or CharacterData won't have getAttribute)
+                            if (isPrototypeOf(node, HTMLElement))
+                            {
+                                let type = Element.prototype.getAttribute.call(node, "rhu-macro");
+                                if (RHU.exists(type)) Macro.parse(node, type);
+                            }
                         }
                     }
                     break;
@@ -477,7 +483,7 @@
 
             for (let el of attributes.keys()) 
             {
-                let attr = el.rhuMacro;
+                let attr = Element.prototype.getAttribute.call(el, "rhu-macro");
                 if (attributes.get(el) !== attr)
                     Macro.parse(el, attr);
             }
