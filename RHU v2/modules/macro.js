@@ -146,7 +146,7 @@
         {
             this._weakSet = new WeakSet();
             this._collection = [];
-            // NOTE(randomuserhi): Technically can be moved into a soft dependency since this just assists
+            // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
             //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
             //                     collection only occures on deletion / iteration of the collection which can
             //                     cause huge memory consumption as the collection of WeakRef grows.
@@ -536,6 +536,7 @@
                     Macro.parse(el, attr);
             }
         });
+        // Allows you to assign macro observation to other docs to trigger macro updates
         Macro.observe = function(target)
         {
             observer.observe(target, {
