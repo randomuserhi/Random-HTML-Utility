@@ -568,7 +568,7 @@
                     }
                     for (let dependency of result.hard.missing)
                     {
-                        console.warn(`Missing '${dependency}'`);
+                        console.log(`Missing '${dependency}'`);
                     }
                     console.groupEnd();
                 }

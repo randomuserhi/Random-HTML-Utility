@@ -184,6 +184,8 @@
 
             // get prototype of element
             let proto = element[symbols.prototype];
+            // get old type of element
+            let oldType = element[symbols.constructed];
 
             // Clear old element properties
             RHU.delete(element);
@@ -358,9 +360,8 @@
 
             // Update live map
             // Handle old type
-            if (RHU.exists(element[symbols.constructed]))
+            if (RHU.exists(oldType))
             {
-                let oldType = element[symbols.constructed];
                 let old = templates.get(oldType);
                 if (!RHU.exists(old)) old = defaultDefinition;
                 // check if old type was not floating
