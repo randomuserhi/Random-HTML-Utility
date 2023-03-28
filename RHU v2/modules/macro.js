@@ -180,6 +180,9 @@
             if (parseStack.includes(type))
                 throw new Error("Recursive definition of macros are not allowed.");
 
+            // Normalize blank type to undefined
+            if (type === "") type = undefined;
+
             parseStack.push(type);
 
             // get prototype of element
@@ -377,7 +380,7 @@
             // - floating macros are 1 time use (get consumed) and thus arn't watched
             if (!options.floating)
             {
-                if (RHU.exists(type) && type !== "")
+                if (RHU.exists(type))
                 {
                     if (!watching.has(type))
                         watching.set(type, new RHU.WeakCollection());    
