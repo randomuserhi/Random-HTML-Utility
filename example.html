@@ -3,7 +3,7 @@
 	<head>
 		<script type="text/x-rhu-config">
 		RHU.config = {
-			modules: ["macro", "event", "websockets", "rest"],
+			modules: ["macro", "event", "websockets", "rest", "weak"],
 			extensions: ["rhu/blankImg", "rhu/localisation"],
 			/*includes: {
 				"file:///D:/bruh": ["epic"],
@@ -26,7 +26,7 @@
 			// RHU.Macro hasnt been imported yet so there is no way for it to know
 			// that the element should get updated
 
-			RHU.module({ hard: ["RHU.Macro"] }, function(e) {
+			RHU.module({ module: "internal", hard: ["RHU.Macro"] }, function(e) {
 				let willGetUpdated = document.createElement("div");
 				willGetUpdated.setAttribute("rhu-macro", "woah");
 				console.log(willGetUpdated);

@@ -546,12 +546,15 @@
             
             let watching = [];
 
-            let execute = function(item, callback)
+            let execute = function(item, callback, logging = false)
             {
                 let result = core.dependencies(item.dependencies);
                 if (result.hard.missing.length === 0)
+                {
                     callback(result);
-                else
+                    return true;
+                }
+                else if (logging)
                 {
                     if (core.exists(item.dependencies.module))
                     {
@@ -569,6 +572,7 @@
                     }
                     console.groupEnd();
                 }
+                return false;
             };
 
             let onload = function(success, handle)
@@ -612,7 +616,22 @@
             {
                 core.readyState = "complete";
             
-                for (let item of watching) execute(item, item.callback);
+                // Attempt to reconcile remaining modules and dependencies
+                let oldLen = watching.length;
+                do
+                {
+                    oldLen = watching.length;
+
+                    let old = watching;
+                    watching = [];
+                    for (let item of old)
+                        if (!execute(item, item.callback))
+                            watching.push(item);
+                } while(oldLen !== watching.length);
+
+                // print modules that failed to reconcile
+                for (let item of watching)
+                    execute(item, item.callback);
 
                 // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
                 //                     so callback.special accesses window["callback.special"]
@@ -625,8 +644,6 @@
 
             RHU.module = function(dependencies, callback)
             {
-                // NOTE(randomuserhi): dependencies can take an extra 'module' property which is the name of the module.
-
                 if (core.readyState !== "complete")
                 {
                     watching.push({
@@ -634,7 +651,7 @@
                         callback: callback
                     });
                 }
-                else execute(dependencies, callback);
+                else execute(dependencies, callback, true);
             };
 
             for (let extension of config.extensions)
@@ -643,9 +660,13 @@
                 modules.set(module);
             for (let path in config.includes)
             {
+                if (typeof path !== "string" || path === "") continue;
+
                 let isAbsolute = core.path.isAbsolute(path);
                 for (let include of config.includes[path])
                 {
+                    if (typeof include !== "string" || include === "") continue;
+                    
                     if (isAbsolute)
                         includes.set(core.path.join(path, `${include}.js`), include);
                     else
@@ -658,9 +679,15 @@
             else
             {
                 for (let extension of extensions.keys())
-                    loader.JS(loader.root.path(core.path.join("extensions", `${extension}.js`)), { extension: extension }, (success) => { onload(success, { extension : extension }); });
+                {
+                    if (typeof extension === "string" && extension)
+                        loader.JS(loader.root.path(core.path.join("extensions", `${extension}.js`)), { extension: extension }, (success) => { onload(success, { extension : extension }); });
+                }
                 for (let module of modules.keys())
-                    loader.JS(loader.root.path(core.path.join("modules", `${module}.js`)), { module: module }, (success) => { onload(success, { module: module }); });
+                {
+                    if (typeof module === "string" && module)
+                        loader.JS(loader.root.path(core.path.join("modules", `${module}.js`)), { module: module }, (success) => { onload(success, { module: module }); });
+                }
                 for (let include of includes.keys())
                 {
                     let module = includes.get(include);

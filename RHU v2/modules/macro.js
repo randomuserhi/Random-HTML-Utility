@@ -3,7 +3,7 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ module: "rhu/macro", hard: ["Map", "XPathEvaluator", "WeakRef", "WeakSet", "FinalizationRegistry"] }, function()
+    RHU.module({ module: "rhu/macro", hard: ["Map", "XPathEvaluator", "RHU.WeakCollection"] }, function()
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
@@ -109,7 +109,7 @@
             });
 
             // parse macros currently of said type
-            let update = liveMacros.get(type);
+            let update = watching.get(type);
             if (RHU.exists(update))
                 for (let el of update)
                     Macro.parse(el, type, true);
@@ -142,68 +142,9 @@
             return RHU.clone(prototype, clonePrototypeChain(next, last));
         };
 
-        let MacroCollection = function()
-        {
-            this._weakSet = new WeakSet();
-            this._collection = [];
-            // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
-            //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
-            //                     collection only occures on deletion / iteration of the collection which can
-            //                     cause huge memory consumption as the collection of WeakRef grows.
-            //                     - The version that runs without FinalizationRegistry, if it is moved, to a soft
-            //                       dependency, would simply run a setTimeout loop which will filter the collection every
-            //                       30 seconds or something (or do analysis on how frequent its used to determine how often)
-            //                       cleanup is required.
-            this._registry = new FinalizationRegistry(() => {
-                this._collection = this._collection.filter((i) => {
-                    return RHU.exists(i.deref()); 
-                });
-            });
-
-            this.has = this._weakSet.has;
-        };
-        MacroCollection.prototype.add = function(...items)
-        {
-            for (let item of items)
-            {
-                if (!this._weakSet.has(item))
-                {
-                    this._collection.push(new WeakRef(item));
-                    this._weakSet.add(item);
-                    this._registry.register(item);
-                }
-            }
-        };
-        MacroCollection.prototype.delete = function(...items)
-        {
-            for (let item of items)
-            {
-                if (this._weakSet.has(item))
-                    this._weakSet.delete(item);
-            }  
-            this._collection = this._collection.filter((i) => {
-                i = i.deref();
-                return RHU.exists(i) && !items.includes(i); 
-            });
-        };
-        MacroCollection.prototype[Symbol.iterator] = function* ()
-        {
-            let collection = this._collection;
-            this._collection = []; 
-            for (let item of collection)
-            {
-                item = item.deref();
-                if (RHU.exists(item))
-                {
-                    this._collection.push(new WeakRef(item));
-                    yield item;
-                }
-            }
-        };
-
         let parseStack = [];
-        let liveMacros = new Map(); // Stores active macros that are being watched
-        Macro._liveMacros = liveMacros;
+        let watching = new Map(); // Stores active macros that are being watched
+        Macro.watching = watching;
         Macro.parse = function(element, type, force = false)
         {
             /**
@@ -229,8 +170,8 @@
             if ((element[symbols.constructed] !== "" && !element[symbols.constructed]) && RHU.properties(element, { hasOwn: true }).size !== 0) 
                 throw new TypeError(`Element is not eligible to be used as a rhu-macro.`);
 
-            // return if type or element doesn't exist
-            if (!RHU.exists(element) || !RHU.exists(type)) return;
+            // return if element doesn't exist
+            if (!RHU.exists(element)) return;
 
             // return if type has not changed unless we are force parsing it
             if (force === false && element[symbols.constructed] === type) return;
@@ -424,18 +365,21 @@
                 if (!RHU.exists(old)) old = defaultDefinition;
                 // check if old type was not floating
                 // - floating macros are 1 time use (get consumed) and thus arn't watched
-                if (!old.options.floating && liveMacros.has(oldType))
-                    liveMacros.get(oldType).delete(element);
+                if (!old.options.floating && watching.has(oldType))
+                    watching.get(oldType).delete(element);
             }
             // Handle new type
             // check if new type is floating
             // - floating macros are 1 time use (get consumed) and thus arn't watched
             if (!options.floating)
             {
-                if (!liveMacros.has(type))
-                    liveMacros.set(type, new MacroCollection());    
-                let typeCollection = liveMacros.get(type);
-                typeCollection.add(element);
+                if (RHU.exists(type) && type !== "")
+                {
+                    if (!watching.has(type))
+                        watching.set(type, new RHU.WeakCollection());    
+                    let typeCollection = watching.get(type);
+                    typeCollection.add(element);
+                }
             }
 
             // Set constructed type for both target and element
