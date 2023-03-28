@@ -20,7 +20,17 @@
 		<rhu-macro rhu-type="woah"></rhu-macro>
 
 		<script type="text/javascript">
+			let wontGetUpdated = document.createElement("div");
+			wontGetUpdated.setAttribute("rhu-macro", "woah");
+			console.log(wontGetUpdated); 
+			// RHU.Macro hasnt been imported yet so there is no way for it to know
+			// that the element should get updated
+
 			RHU.module({ hard: ["RHU.Macro"] }, function(e) {
+				let willGetUpdated = document.createElement("div");
+				willGetUpdated.setAttribute("rhu-macro", "woah");
+				console.log(willGetUpdated);
+
 				new RHU.Macro(function() {}, "asd",
 					/*HTML*/`<td>boomer</td><!--woah-->crazy`,
 					{ element: /*HTML*/`<div></div>` });
@@ -28,6 +38,9 @@
 				new RHU.Macro(function() {}, "woah",
 					/*HTML*/`<td>boomer</td><!--woah-->crazy<rhu-macro rhu-type="asd"></rhu-macro>`,
 					{ element: /*HTML*/`<div></div>` });
+
+				console.log(wontGetUpdated);
+				console.log(willGetUpdated);
 			});
 		</script>
 	</body>

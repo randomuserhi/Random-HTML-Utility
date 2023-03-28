@@ -3,7 +3,7 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ module: "rhu/macro", hard: ["Map", "XPathEvaluator"] }, function()
+    RHU.module({ module: "rhu/macro", hard: ["Map", "XPathEvaluator", "WeakRef", "WeakSet", "FinalizationRegistry"] }, function()
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
@@ -32,7 +32,7 @@
         {
             let definition = templates.get(type);
             if (!RHU.exists(definition)) definition = defaultDefinition;
-            let options = definition;
+            let options = definition.options;
 
             //TODO(randomuserhi): for performance, if it is floating, dont parse a doc, just make a <div> with createElement
 
@@ -109,9 +109,10 @@
             });
 
             // parse macros currently of said type
-            let update = document.querySelectorAll(`*[rhu-macro=${type}]`);
-            for (let el of update)
-                Macro.parse(el, type, true);
+            let update = liveMacros.get(type);
+            if (RHU.exists(update))
+                for (let el of update)
+                    Macro.parse(el, type, true);
         };
         let templates = new Map();
         let defaultDefinition = {
@@ -141,7 +142,68 @@
             return RHU.clone(prototype, clonePrototypeChain(next, last));
         };
 
+        let MacroCollection = function()
+        {
+            this._weakSet = new WeakSet();
+            this._collection = [];
+            // NOTE(randomuserhi): Technically can be moved into a soft dependency since this just assists
+            //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
+            //                     collection only occures on deletion / iteration of the collection which can
+            //                     cause huge memory consumption as the collection of WeakRef grows.
+            //                     - The version that runs without FinalizationRegistry, if it is moved, to a soft
+            //                       dependency, would simply run a setTimeout loop which will filter the collection every
+            //                       30 seconds or something (or do analysis on how frequent its used to determine how often)
+            //                       cleanup is required.
+            this._registry = new FinalizationRegistry(() => {
+                this._collection = this._collection.filter((i) => {
+                    return RHU.exists(i.deref()); 
+                });
+            });
+
+            this.has = this._weakSet.has;
+        };
+        MacroCollection.prototype.add = function(...items)
+        {
+            for (let item of items)
+            {
+                if (!this._weakSet.has(item))
+                {
+                    this._collection.push(new WeakRef(item));
+                    this._weakSet.add(item);
+                    this._registry.register(item);
+                }
+            }
+        };
+        MacroCollection.prototype.delete = function(...items)
+        {
+            for (let item of items)
+            {
+                if (this._weakSet.has(item))
+                    this._weakSet.delete(item);
+            }  
+            this._collection = this._collection.filter((i) => {
+                i = i.deref();
+                return RHU.exists(i) && !items.includes(i); 
+            });
+        };
+        MacroCollection.prototype[Symbol.iterator] = function* ()
+        {
+            let collection = this._collection;
+            this._collection = []; 
+            for (let item of collection)
+            {
+                item = item.deref();
+                if (RHU.exists(item))
+                {
+                    this._collection.push(new WeakRef(item));
+                    yield item;
+                }
+            }
+        };
+
         let parseStack = [];
+        let liveMacros = new Map(); // Stores active macros that are being watched
+        Macro._liveMacros = liveMacros;
         Macro.parse = function(element, type, force = false)
         {
             /**
@@ -166,6 +228,9 @@
             // Check if element is eligible for RHU-Macro (check hasOwn properties and that it has not been converted into a macro already)
             if ((element[symbols.constructed] !== "" && !element[symbols.constructed]) && RHU.properties(element, { hasOwn: true }).size !== 0) 
                 throw new TypeError(`Element is not eligible to be used as a rhu-macro.`);
+
+            // return if type or element doesn't exist
+            if (!RHU.exists(element) || !RHU.exists(type)) return;
 
             // return if type has not changed unless we are force parsing it
             if (force === false && element[symbols.constructed] === type) return;
@@ -350,6 +415,29 @@
 
             constructor.call(target);
 
+            // Update live map
+            // Handle old type
+            if (RHU.exists(element[symbols.constructed]))
+            {
+                let oldType = element[symbols.constructed];
+                let old = templates.get(oldType);
+                if (!RHU.exists(old)) old = defaultDefinition;
+                // check if old type was not floating
+                // - floating macros are 1 time use (get consumed) and thus arn't watched
+                if (!old.options.floating && liveMacros.has(oldType))
+                    liveMacros.get(oldType).delete(element);
+            }
+            // Handle new type
+            // check if new type is floating
+            // - floating macros are 1 time use (get consumed) and thus arn't watched
+            if (!options.floating)
+            {
+                if (!liveMacros.has(type))
+                    liveMacros.set(type, new MacroCollection());    
+                let typeCollection = liveMacros.get(type);
+                typeCollection.add(element);
+            }
+
             // Set constructed type for both target and element
             // NOTE(randomuserhi): You need to set it for both, since if the element is a proxy
             //                     for the floating macro it needs to be considered constructed
@@ -392,59 +480,65 @@
             let macros = document.querySelectorAll("[rhu-macro]");
             for (let el of macros) Macro.parse(el, el.rhuMacro);
 
-            // Setup mutation observer to detect macros being created
-            let observer = new MutationObserver(function(mutationList) {
-                /**
-                 * NOTE(randomuserhi): Since mutation observers are asynchronous, the current attribute value
-                 *                     as read from .getAttribute may not be correct. To remedy this, a dictionary
-                 *                     storing the atribute changes is used to keep track of changes at the moment
-                 *                     a mutation occurs.
-                 *                     ref: https://stackoverflow.com/questions/60593551/get-the-new-attribute-value-for-the-current-mutationrecord-when-using-mutationob
-                 */
-                let attributes = new Map();
-                for (const mutation of mutationList) 
+            // Initialize observer
+            Macro.observe(document);
+        };
+
+        // Setup mutation observer to detect macros being created
+        let observer = new MutationObserver(function(mutationList) {
+            /**
+             * NOTE(randomuserhi): Since mutation observers are asynchronous, the current attribute value
+             *                     as read from .getAttribute may not be correct. To remedy this, a dictionary
+             *                     storing the atribute changes is used to keep track of changes at the moment
+             *                     a mutation occurs.
+             *                     ref: https://stackoverflow.com/questions/60593551/get-the-new-attribute-value-for-the-current-mutationrecord-when-using-mutationob
+             */
+            let attributes = new Map();
+            for (const mutation of mutationList) 
+            {
+                switch (mutation.type)
                 {
-                    switch (mutation.type)
+                case "attributes":
                     {
-                    case "attributes":
+                        if (mutation.attributeName === "rhu-macro")
                         {
-                            if (mutation.attributeName === "rhu-macro")
+                            if (!attributes.has(mutation.target)) attributes.set(mutation.target, mutation.oldValue);
+                            else if (attributes.get(mutation.target) !== mutation.oldValue)
                             {
-                                if (!attributes.has(mutation.target)) attributes.set(mutation.target, mutation.oldValue);
-                                else if (attributes.get(mutation.target) !== mutation.oldValue)
-                                {
-                                    attributes.set(mutation.target, mutation.oldValue);
+                                attributes.set(mutation.target, mutation.oldValue);
 
-                                    /**
-                                     * NOTE(randomuserhi): A performance gain could be done by only parsing the last tracked attribute change
-                                     *                     since other changes are redundant as they are replaced by the latest.
-                                     *                     This is purely done for the sake of being consistent with what the user may expect.
-                                     */
-                                    Macro.parse(mutation.target, mutation.oldValue);
-                                }
+                                /**
+                                 * NOTE(randomuserhi): A performance gain could be done by only parsing the last tracked attribute change
+                                 *                     since other changes are redundant as they are replaced by the latest.
+                                 *                     This is purely done for the sake of being consistent with what the user may expect.
+                                 */
+                                Macro.parse(mutation.target, mutation.oldValue);
                             }
                         }
-                        break;
-                    case "childList":
-                        {
-                            for (let node of mutation.addedNodes)
-                            {
-                                if (RHU.exists(node.rhuMacro))
-                                    Macro.parse(node, node.rhuMacro);
-                            }
-                        }
-                        break;
                     }
+                    break;
+                case "childList":
+                    {
+                        for (let node of mutation.addedNodes)
+                        {
+                            if (RHU.exists(node.rhuMacro))
+                                Macro.parse(node, node.rhuMacro);
+                        }
+                    }
+                    break;
                 }
+            }
 
-                for (let el of attributes.keys()) 
-                {
-                    let attr = el.rhuMacro;
-                    if (attributes.get(el) !== attr)
-                        Macro.parse(el, attr);
-                }
-            });
-            observer.observe(document, {
+            for (let el of attributes.keys()) 
+            {
+                let attr = el.rhuMacro;
+                if (attributes.get(el) !== attr)
+                    Macro.parse(el, attr);
+            }
+        });
+        Macro.observe = function(target)
+        {
+            observer.observe(target, {
                 attributes: true,
                 attributeOldValue: true,
                 attributeFilter: [ "rhu-macro" ],
