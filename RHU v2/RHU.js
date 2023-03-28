@@ -631,7 +631,7 @@
 
                 // print modules that failed to reconcile
                 for (let item of watching)
-                    execute(item, item.callback);
+                    execute(item, item.callback, true);
 
                 // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
                 //                     so callback.special accesses window["callback.special"]
@@ -655,9 +655,15 @@
             };
 
             for (let extension of config.extensions)
-                extensions.set(extension);
+            {
+                if (typeof extension === "string" && extension)
+                    extensions.set(extension);
+            }
             for (let module of config.modules)
-                modules.set(module);
+            {
+                if (typeof module === "string" && module)
+                    modules.set(module);
+            }
             for (let path in config.includes)
             {
                 if (typeof path !== "string" || path === "") continue;
@@ -666,7 +672,7 @@
                 for (let include of config.includes[path])
                 {
                     if (typeof include !== "string" || include === "") continue;
-                    
+
                     if (isAbsolute)
                         includes.set(core.path.join(path, `${include}.js`), include);
                     else
@@ -679,15 +685,9 @@
             else
             {
                 for (let extension of extensions.keys())
-                {
-                    if (typeof extension === "string" && extension)
-                        loader.JS(loader.root.path(core.path.join("extensions", `${extension}.js`)), { extension: extension }, (success) => { onload(success, { extension : extension }); });
-                }
+                    loader.JS(loader.root.path(core.path.join("extensions", `${extension}.js`)), { extension: extension }, (success) => { onload(success, { extension : extension }); });
                 for (let module of modules.keys())
-                {
-                    if (typeof module === "string" && module)
-                        loader.JS(loader.root.path(core.path.join("modules", `${module}.js`)), { module: module }, (success) => { onload(success, { module: module }); });
-                }
+                    loader.JS(loader.root.path(core.path.join("modules", `${module}.js`)), { module: module }, (success) => { onload(success, { module: module }); });
                 for (let include of includes.keys())
                 {
                     let module = includes.get(include);
