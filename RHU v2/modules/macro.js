@@ -25,9 +25,10 @@
 
         // NOTE(randomuserhi): Store a reference to base functions that will be overridden
         let isPrototypeOf = Function.call.bind(Object.prototype.isPrototypeOf);
-        let Element_setAttribute = Element.prototype.setAttribute;
-        let Node_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get;
-        let Node_parentNode = Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get;
+        let Element_setAttribute = Function.call.bind(Element.prototype.setAttribute);
+        let Element_removeAttribute = Function.call.bind(Element.prototype.removeAttribute);
+        let Node_childNodes = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get);
+        let Node_parentNode = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get);
 
         HTMLDocument.prototype.createMacro = function(type)
         {
@@ -41,7 +42,7 @@
             let el = doc.children[0];
             if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
             el.remove(); //un bind element from temporary doc
-            Element_setAttribute.call(el, "rhu-macro", type);
+            Element_setAttribute(el, "rhu-macro", type);
             Macro.parse(el, type);
             return el[symbols.macro];
         };
@@ -55,7 +56,7 @@
             let doc = Macro.parseDomString(options.element);
             let el = doc.children[0];
             if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
-            Element_setAttribute.call(el, "rhu-macro", type);
+            Element_setAttribute(el, "rhu-macro", type);
             for (let key in attributes) el.setAttribute(key, attributes[key]);
             el.remove(); //un bind element from temporary doc
             return el.outerHTML;
@@ -65,7 +66,14 @@
         {
             // Remove macro functionality if element is no longer considered a macro
             if (attrName === "rhu-macro") Macro.parse(this, value);
-            Element_setAttribute.call(this, attrName, value);
+            Element_setAttribute(this, attrName, value);
+        };
+
+        Element.prototype.removeAttribute = function(attrName) 
+        {
+            // Remove macro functionality if element is no longer considered a macro
+            if (attrName === "rhu-macro") Macro.parse(this);
+            Element_removeAttribute(this, attrName);
         };
 
         RHU.definePublicAccessor(Element.prototype, "rhuMacro", {
@@ -75,7 +83,7 @@
             },
             set(value) 
             { 
-                Element_setAttribute.call(this, "rhu-macro", value);
+                Element_setAttribute(this, "rhu-macro", value);
                 Macro.parse(this, value);
             }
         });
@@ -167,7 +175,7 @@
              */
 
             // Check if element is eligible for RHU-Macro (check hasOwn properties and that it has not been converted into a macro already)
-            if ((element[symbols.constructed] !== "" && !element[symbols.constructed]) && RHU.properties(element, { hasOwn: true }).size !== 0) 
+            if (!Object.prototype.hasOwnProperty.call(element, symbols.constructed) && RHU.properties(element, { hasOwn: true }).size !== 0) 
                 throw new TypeError(`Element is not eligible to be used as a rhu-macro.`);
 
             // return if element doesn't exist
@@ -179,9 +187,6 @@
             // Check parse stack to see if we are in a recursive loop
             if (parseStack.includes(type))
                 throw new Error("Recursive definition of macros are not allowed.");
-
-            // Normalize blank type to undefined
-            if (type === "") type = undefined;
 
             parseStack.push(type);
 
@@ -292,7 +297,7 @@
                     if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
                     else
                     {
-                        Element_setAttribute.call(macro, "rhu-macro", type);
+                        Element_setAttribute(macro, "rhu-macro", type);
                         for (let i = 0; i < el.attributes.length; ++i)
                             macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                         el.replaceWith(macro);
@@ -330,14 +335,14 @@
             {            
                 //if (typeof options.content !== "string") throw new TypeError("Option 'content' must be a string.");
                 checkProperty(options.content);
-                properties[options.content] = [...Node_childNodes.call(element)];
+                properties[options.content] = [...Node_childNodes(element)];
             }
 
             if (options.floating)
             {
                 // If we are floating, replace children
                 // If no parent, unbind children
-                if (RHU.exists(Node_parentNode.call(element))) Element.prototype.replaceWith.call(element, ...Node_childNodes.call(element));
+                if (RHU.exists(Node_parentNode(element))) Element.prototype.replaceWith.call(element, ...Node_childNodes(element));
                 else Element.prototype.replaceWith.call(element);
 
                 // If we are floating, set instance to be the new target object instead of the element container:
@@ -420,7 +425,7 @@
                 if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
                 else
                 {
-                    Element_setAttribute.call(macro, "rhu-macro", type);
+                    Element_setAttribute(macro, "rhu-macro", type);
                     for (let i = 0; i < el.attributes.length; ++i)
                         macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                     el.replaceWith(macro);
