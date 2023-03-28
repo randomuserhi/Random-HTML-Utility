@@ -340,6 +340,7 @@
                 // If we are floating, set instance to be the new target object instead of the element container:
                 RHU.defineProperties(element, {
                     [symbols.macro]: {
+                        configurable: true,
                         get() { return target; }
                     }
                 });
