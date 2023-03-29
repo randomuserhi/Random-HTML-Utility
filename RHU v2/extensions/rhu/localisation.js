@@ -3,7 +3,7 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection", "RHU.eventTarget"] }, function(e)
+    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection", "RHU.eventTarget"] }, function()
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
@@ -62,7 +62,7 @@
             Localisation.dispatchEvent(RHU.CustomEvent("change", currentSchema));
         };
         RHU.definePublicAccessor(Localisation, "schema", {
-            get: function() { return currentSchema },
+            get: function() { return currentSchema; },
             set: Localisation.setSchema
         });
 
