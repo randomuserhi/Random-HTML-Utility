@@ -3,8 +3,10 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection", "RHU.eventTarget"] }, function()
+    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection", "RHU.eventTarget"], soft: ["RHU.Macro"] }, function()
     {
+        console.log("local");
+
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
         if (RHU.exists(RHU.Localisation))
@@ -75,6 +77,7 @@
             // Check if element is eligible for localisation (check hasOwn properties and that it has not been converted into a rhu-loc already)
             // NOTE(randomuserhi): RHU-Macros are not eligible to be rhu-loc due to their destructive nature and vice versa,
             //                     thus this error should be triggered if the element has properties (either from built-in or rhu-macro assigning them)
+            // TODO(randomuserhi): Better error message for if its clashing with RHU-Macro or built in changed their specification
             if (!Object.hasOwnProperty.call(el, symbols.constructed) && RHU.properties(el, { hasOwn: true }).size !== 0) 
                 throw new TypeError(`Element is not eligible to be used as a rhu-loc.`);
 

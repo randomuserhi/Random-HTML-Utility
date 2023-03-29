@@ -69,6 +69,7 @@
             //                     - Todo this I could use a proxy with a getter such that when you access like `dep.hard.somedependency`
             //                       it checks if it exists and if not, sets it to true or false depending on if it exists or not.
             //                       THOUGH relying on proxy may be bad due to browser support.
+            //                     - Wait... why not just use RHU.exists(dependency)........ :/
             return {
                 hard: hard,
                 soft: soft,
@@ -548,10 +549,11 @@
             
             let watching = [];
 
-            let execute = function(item, callback, logging = false)
+            // TODO(randomuserhi): cleanup code, handleSoft here is kinda tacked on
+            let execute = function(item, callback, handleSoft = true, logging = false)
             {
                 let result = core.dependencies(item.dependencies);
-                if (result.hard.missing.length === 0)
+                if (result.hard.missing.length === 0 && (handleSoft && result.soft.missing.length === 0))
                 {
                     callback(result);
                     return true;
@@ -616,18 +618,32 @@
                 core.readyState = "complete";
             
                 // Attempt to reconcile remaining modules and dependencies
-                // BUG: soft dependencies arnt managed properly
-                let oldLen = watching.length;
-                do
-                {
-                    oldLen = watching.length;
+                { // First handle dependencies that are fully accepted (no missing hard AND soft dependencies)
+                    let oldLen = watching.length;
+                    do
+                    {
+                        oldLen = watching.length;
 
-                    let old = watching;
-                    watching = [];
-                    for (let item of old)
-                        if (!execute(item, item.callback))
-                            watching.push(item);
-                } while(oldLen !== watching.length);
+                        let old = watching;
+                        watching = [];
+                        for (let item of old)
+                            if (!execute(item, item.callback))
+                                watching.push(item);
+                    } while(oldLen !== watching.length);
+                }
+                { // Handle dependencies that are accepted (missing soft dependencies)
+                    let oldLen = watching.length;
+                    do
+                    {
+                        oldLen = watching.length;
+
+                        let old = watching;
+                        watching = [];
+                        for (let item of old)
+                            if (!execute(item, item.callback, false))
+                                watching.push(item);
+                    } while(oldLen !== watching.length);
+                }
 
                 // print modules that failed to reconcile
                 for (let item of watching)
