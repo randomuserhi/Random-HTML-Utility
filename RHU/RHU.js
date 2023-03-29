@@ -37,9 +37,12 @@
             let check = (items) => {
                 let has = [];
                 let missing = [];
-                // TODO(randomuserhi): Handle duplicate paths
+                let set = {};
                 for (let path of items)
                 {
+                    if (core.exists(set[path])) continue;
+
+                    set[path] = true;
                     let traversal = path.split(".");
                     let obj = window;
                     for (; traversal.length !== 0 && this.exists(obj); obj = obj[traversal.shift()]) {
