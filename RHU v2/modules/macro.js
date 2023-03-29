@@ -1,6 +1,12 @@
 (function() {
     "use strict";
 
+    /**
+     * NOTE(randomuserhi): <rhu-macro> is a c-style macro which means that it is preprocessed into the given macro
+     *                     but has no functionality beyond that. For example, if you create a <rhu-macro> element and
+     *                     attach to dom with document.body.append(document.createElement("rhu-macro")), it won't do anything. 
+     */
+
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module({ module: "rhu/macro", trace: new Error(), hard: ["Map", "XPathEvaluator", "RHU.WeakCollection"] }, function()
@@ -24,8 +30,10 @@
         });
 
         // NOTE(randomuserhi): Store a reference to base functions that will be overridden
-        let isPrototypeOf = Function.call.bind(Object.prototype.isPrototypeOf);
+        let isElement = Object.prototype.isPrototypeOf.bind(HTMLElement.prototype);
         let Element_setAttribute = Function.call.bind(Element.prototype.setAttribute);
+        let Element_getAttribute = Function.call.bind(Element.prototype.getAttribute);
+        let Element_hasAttribute = Function.call.bind(Element.prototype.hasAttribute);
         let Element_removeAttribute = Function.call.bind(Element.prototype.removeAttribute);
         let Node_childNodes = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get);
         let Node_parentNode = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get);
@@ -66,20 +74,20 @@
         {
             // Remove macro functionality if element is no longer considered a macro
             if (attrName === "rhu-macro") Macro.parse(this, value);
-            Element_setAttribute(this, attrName, value);
+            return Element_setAttribute(this, attrName, value);
         };
 
         Element.prototype.removeAttribute = function(attrName) 
         {
             // Remove macro functionality if element is no longer considered a macro
             if (attrName === "rhu-macro") Macro.parse(this);
-            Element_removeAttribute(this, attrName);
+            return Element_removeAttribute(this, attrName);
         };
 
         RHU.definePublicAccessor(Element.prototype, "rhuMacro", {
             get() 
             {
-                return Element.prototype.getAttribute.call(this, "rhu-macro"); 
+                return Element_getAttribute(this, "rhu-macro"); 
             },
             set(value) 
             { 
@@ -267,7 +275,7 @@
             for (let el of nested)
             {
                 const typename = "rhu-type";
-                let type = Element.prototype.getAttribute.call(el, typename);
+                let type = Element_getAttribute(el, typename);
                 Element.prototype.removeAttribute.call(el, typename);
                 let definition = templates.get(type);
                 if (!RHU.exists(definition)) definition = defaultDefinition;
@@ -278,9 +286,9 @@
                 // convert to for the parser later to use.
                 if (options.floating)
                 {
-                    if (Element.prototype.hasAttribute.call(el, "rhu-id"))
+                    if (Element_hasAttribute(el, "rhu-id"))
                     {
-                        let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
+                        let identifier = Element_getAttribute(el, "rhu-id");
                         Element.prototype.removeAttribute.call(el, "rhu-id");
                         checkProperty(identifier);
                         RHU.definePublicAccessor(properties, identifier, {
@@ -309,7 +317,7 @@
             let referencedElements = doc.querySelectorAll("*[rhu-id]");
             for (let el of referencedElements)
             {
-                let identifier = Element.prototype.getAttribute.call(el, "rhu-id");
+                let identifier = Element_getAttribute(el, "rhu-id");
                 Element.prototype.removeAttribute.call(el, "rhu-id");
                 checkProperty(identifier);
                 RHU.definePublicAccessor(properties, identifier, {
@@ -319,7 +327,7 @@
 
             // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
             nested = doc.querySelectorAll("*[rhu-macro]");
-            for (let el of nested) Macro.parse(el, Element.prototype.getAttribute.call(el, "rhu-macro"));
+            for (let el of nested) Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
 
             // Place elements onto element
             Element.prototype.append.call(element, ...doc.childNodes);
@@ -413,7 +421,7 @@
             for (let el of expand)
             { 
                 const typename = "rhu-type";
-                let type = Element.prototype.getAttribute.call(el, typename);
+                let type = Element_getAttribute(el, typename);
                 Element.prototype.removeAttribute.call(el, typename);
                 let definition = templates.get(type);
                 if (!RHU.exists(definition)) definition = defaultDefinition;
@@ -434,7 +442,7 @@
 
             // Parse macros on document
             let macros = document.querySelectorAll("[rhu-macro]");
-            for (let el of macros) Macro.parse(el, Element.prototype.getAttribute.call(el, "rhu-macro"));
+            for (let el of macros) Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
 
             // Initialize observer
             Macro.observe(document);
@@ -478,9 +486,9 @@
                         for (let node of mutation.addedNodes)
                         {
                             // Check if the node is a HTMLElement (TextNodes or CharacterData won't have getAttribute)
-                            if (isPrototypeOf(node, HTMLElement))
+                            if (isElement(node))
                             {
-                                let type = Element.prototype.getAttribute.call(node, "rhu-macro");
+                                let type = Element_getAttribute(node, "rhu-macro");
                                 if (RHU.exists(type)) Macro.parse(node, type);
                             }
                         }
@@ -491,7 +499,7 @@
 
             for (let el of attributes.keys()) 
             {
-                let attr = Element.prototype.getAttribute.call(el, "rhu-macro");
+                let attr = Element_getAttribute(el, "rhu-macro");
                 if (attributes.get(el) !== attr)
                     Macro.parse(el, attr);
             }
