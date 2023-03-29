@@ -29,7 +29,8 @@
         {
             let opt = {
                 hard: [], 
-                soft: []
+                soft: [],
+                trace: null
             };
             this.parseOptions(opt, _opt);
 
@@ -57,9 +58,16 @@
             let hard = check(opt.hard);
             let soft = check(opt.soft);
 
+            // TODO(randomuserhi): return an actual depenendency object with prototypes and design it to be efficient
+            //                     with a caching mechanism and lookup code so when other modules use it to look up
+            //                     missing modules its fast.
+            //                     - Todo this I could use a proxy with a getter such that when you access like `dep.hard.somedependency`
+            //                       it checks if it exists and if not, sets it to true or false depending on if it exists or not.
+            //                       THOUGH relying on proxy may be bad due to browser support.
             return {
                 hard: hard,
-                soft: soft
+                soft: soft,
+                trace: opt.trace
             };
         },
         path: {
@@ -94,30 +102,19 @@
                 "document.createTextNode",
                 "window.Function",
                 "Map",
-                "Reflect",
-                "console.groupCollapsed",
-                "console.group",
-                "console.groupEnd"
+                "Reflect"
             ]
         });
         if (result.hard.missing.length !== 0)
         {
-            console.error("RHU was unable to import due to missing dependencies.");
-            if (core.exists(console.group) && core.exists(console.groupEnd))
+            let msg = `RHU was unable to import due to missing dependencies.`;
+            if (core.exists(result.trace))
+                msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
+            for (let dependency of result.hard.missing)
             {
-                console.groupCollapsed(`[RHU] Trace:`);
-                for (let dependency of result.hard.missing)
-                {
-                    console.error(`Missing '${dependency}'`);
-                }
-                console.groupEnd();
+                msg += (`\n\tMissing '${dependency}'`);
             }
-            else
-            {
-                for (let dependency of result.hard.missing)
-                    console.error(`Missing '${dependency}'`);
-            }
-            throw new Error("Missing dependencies");
+            console.error(msg);
         }
     }
 
@@ -556,21 +553,18 @@
                 }
                 else if (logging)
                 {
-                    if (core.exists(item.dependencies.module))
-                    {
-                        console.warn(`Module, '${item.dependencies.module}', could not loaded as not all hard dependencies were found.`);
-                        console.groupCollapsed(`[${item.dependencies.module}] Trace:`);
-                    }
-                    else
-                    {
-                        console.warn(`Unknown module could not loaded as not all hard dependencies were found.`);
-                        console.groupCollapsed(`[unknown] Trace:`);
-                    }
+                    let msg = `could not loaded as not all hard dependencies were found.`;
+                    if (RHU.exists(result.trace))
+                        msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
                     for (let dependency of result.hard.missing)
                     {
-                        console.log(`Missing '${dependency}'`);
+                        msg += (`\n\tMissing '${dependency}'`);
                     }
-                    console.groupEnd();
+
+                    if (core.exists(item.dependencies.module))
+                        console.warn(`Module, '${item.dependencies.module}', ${msg}`);
+                    else
+                        console.warn(`Unknown module ${msg}`);
                 }
                 return false;
             };

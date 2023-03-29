@@ -3,7 +3,7 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ module: "x-rhu/localisation", hard: ["Map", "RHU.WeakCollection"] }, function()
+    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection"] }, function()
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
@@ -43,13 +43,7 @@
         Localisation.parse = function(el, schema)
         {
             if (RHU.exists(schema))
-            {
-                let local = schema[el.rhuLoc];
-                if (RHU.exists(local))
-                {
-                    // TODO(randomuserhi): Implement       
-                }
-            }
+                RHU.parseOptions(el, schema[el.rhuLoc]);
             
             if (Element.prototype.hasAttribute.call(el, "rhu-loc"))
                 watching.add(el);

@@ -3,7 +3,7 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("");
-    RHU.module({ module: "weak", hard: ["WeakRef", "WeakSet", "FinalizationRegistry"] }, function() {
+    RHU.module({ module: "weak", trace: new Error(), hard: ["WeakRef", "WeakSet", "FinalizationRegistry"] }, function() {
         RHU.WeakCollection = function()
         {
             this._weakSet = new WeakSet();
