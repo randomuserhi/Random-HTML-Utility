@@ -10,6 +10,10 @@
     // TODO(randomuserhi): Documentation
     // TODO(randomuserhi): Splitting up key parts and custom compiler to merge them
 
+    // TODO(randomuserhi): make sure that core (everything prior to checking main dependencies and running RHU),
+    //                     is FULLY browser compatible
+    //                     This lets RHU know if it will run on a given browser
+
     // Core sub-library for functionality pre-RHU
     let core = {
         exists: function(obj)
@@ -103,6 +107,7 @@
                 "document.createTextNode",
                 "window.Function",
                 "Map",
+                "Set",
                 "Reflect"
             ]
         });
@@ -279,7 +284,7 @@
                  *                     Can use an object {} and then do `properties[descriptor] = undefined`,
                  *                     then use `for (let key in properties)` to return an array of properties.
                  */
-                let properties = new Map();
+                let properties = new Set();
                 let iterate = function(props, descriptors)
                 {
                     for (let p of props)
@@ -300,7 +305,7 @@
                             if (!properties.has(p))
                             {
                                 if (RHU.exists(operation)) operation(curr, p);
-                                properties.set(p, descriptors[p]);
+                                properties.add(p);
                             }
                         }
                     }
@@ -537,13 +542,24 @@
             });
             core.imports = []; // List of imports in order of execution
             RHU.definePublicAccessor(RHU, "imports", {
-                get: function() { return [...core.imports]; }
+                get: function() { 
+                    let obj = [...core.imports];
+                    obj.toString = function() {
+                        let msg = "Imports in order of execution:";
+                        for (let item of obj)
+                        {
+                            msg += `\n${core.exists(item.module) ? item.module : "Unknown"}${core.exists(item.trace) ? "\n" + item.trace : ""}`;
+                        }
+                        return msg;
+                    };
+                    return obj; 
+                }
             });
 
             let config = core.config;
             let loader = core.loader;
-            let extensions = new Map();
-            let modules = new Map();
+            let extensions = new Set();
+            let modules = new Set();
             let includes = new Map();
             
             let watching = [];
@@ -673,12 +689,12 @@
             for (let extension of config.extensions)
             {
                 if (typeof extension === "string" && extension)
-                    extensions.set(extension);
+                    extensions.add(extension);
             }
             for (let module of config.modules)
             {
                 if (typeof module === "string" && module)
-                    modules.set(module);
+                    modules.add(module);
             }
             for (let path in config.includes)
             {
