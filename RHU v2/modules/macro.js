@@ -12,6 +12,7 @@
     RHU.module({ module: "rhu/macro", trace: new Error(), hard: ["Map", "XPathEvaluator", "RHU.WeakCollection"] }, function()
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
+        //TODO(randomuserhi): documentation
 
         if (RHU.exists(RHU.Macro))
             console.warn("Overwriting RHU.Macro...");

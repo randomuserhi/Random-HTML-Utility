@@ -9,10 +9,6 @@
     // TODO(randomuserhi): Config setting for performance (record timings)
     // TODO(randomuserhi): Documentation
     // TODO(randomuserhi): Splitting up key parts and custom compiler to merge them
-    // TODO(randomuserhi): Update dependency API entirely (needs a rewrite to properly handle soft dependencies)
-    //                     - BUG where a soft dependency isn't properly reconciled during oncomplete function
-    //                       - this is because the system doesn't understand that a soft dependency *will* get resolved
-    //                         on future includes.
 
     // Core sub-library for functionality pre-RHU
     let core = {
@@ -63,13 +59,9 @@
             let hard = check(opt.hard);
             let soft = check(opt.soft);
 
-            // TODO(randomuserhi): return an actual depenendency object with prototypes and design it to be efficient
-            //                     with a caching mechanism and lookup code so when other modules use it to look up
-            //                     missing modules its fast.
-            //                     - Todo this I could use a proxy with a getter such that when you access like `dep.hard.somedependency`
-            //                       it checks if it exists and if not, sets it to true or false depending on if it exists or not.
-            //                       THOUGH relying on proxy may be bad due to browser support.
-            //                     - Wait... why not just use RHU.exists(dependency)........ :/
+            // TODO(randomuserhi): Returns dependencies that were available at the moment of module execution
+            //                     Since the dependencies that are actually available at the current point in time
+            //                     may change (soft dependencies), use RHU.exists to determine if it exists or not. 
             return {
                 hard: hard,
                 soft: soft,

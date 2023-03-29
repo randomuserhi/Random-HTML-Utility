@@ -6,6 +6,7 @@
     RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection", "RHU.eventTarget"] }, function()
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
+        //TODO(randomuserhi): documentation
 
         if (RHU.exists(RHU.Localisation))
             console.warn("Overwriting RHU.Localisation...");
