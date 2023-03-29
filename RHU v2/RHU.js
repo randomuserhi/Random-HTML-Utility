@@ -34,7 +34,7 @@
             let opt = {
                 hard: [], 
                 soft: [],
-                trace: null
+                trace: undefined
             };
             this.parseOptions(opt, _opt);
 
@@ -540,7 +540,7 @@
             RHU.definePublicAccessor(RHU, "readyState", {
                 get: function() { return core.readyState; }
             });
-            core.imports = [];
+            core.imports = []; // List of imports in order of execution
             RHU.definePublicAccessor(RHU, "imports", {
                 get: function() { return [...core.imports]; }
             });
@@ -559,20 +559,10 @@
                 let result = core.dependencies(item.dependencies);
                 if (result.hard.missing.length === 0 && (handleSoft && result.soft.missing.length === 0))
                 {
-                    if (core.exists(item.dependencies.module))
-                    {
-                        let msg = "";
-                        if (core.exists(result.trace))
-                            msg = `\n${result.trace.stack.split("\n")[1]}`;
-                        core.imports.push(`${item.dependencies.module}${msg}`);
-                    }
-                    else
-                    {
-                        let msg = "";
-                        if (core.exists(result.trace))
-                            msg = `\n${result.trace.stack.split("\n")[1]}`;
-                        core.imports.push(`Unknown module${msg}`);
-                    }
+                    core.imports.push({
+                        module: item.dependencies.module,
+                        trace: core.exists(result.trace) ? result.trace.stack.split("\n")[1] : undefined
+                    });
                     callback(result);
                     return true;
                 }
