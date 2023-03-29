@@ -592,7 +592,6 @@
                     watching = [];
                     for (let item of old)
                     {
-                        let result = core.dependencies(item.dependencies);
                         if (!execute(item, item.callback))
                             watching.push(item);
                     }
