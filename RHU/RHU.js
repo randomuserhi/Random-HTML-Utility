@@ -3,719 +3,718 @@
  * @randomuserhi.github.io
  */
 
-"use strict";
+(function() {
+    "use strict";
 
-/**
- * @namespace _RHU (Symbol.for("RHU")), RHU
- * 
- * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
- *
- * TODO(randomuserhi): Implement a script loading scheme similar to MathJax that can use a config to choose which parts of RHU to get. 
- */
-(function (_RHU, RHU) 
-{
-    /**
-     * NOTE(randomuserhi): Because a lot of these functions refer to each other via their local name vs RHU or _RHU,
-     *                     they will function properly even when RHU.function is reassigned. They will not function properly
-     *                     if RHU.function.property is changed since the function object is still referenced.
-     */
+    // TODO(randomuserhi): Config setting for performance (record timings)
+    // TODO(randomuserhi): Documentation
+    // TODO(randomuserhi): Splitting up key parts and custom compiler to merge them
 
-    /**  
-     * @func                                    Gets a specific DOM element from web page by its ID
-     * @param id{string}                        ID of element
-     * @param clearID{boolean:optional(true)}   If false, will not remove the ID attribute from html element, otherwise will clear ID attribute
-     * @return{HTMLElement}                     Element grabbed by its id
-     */
-    let getElementById = function(id, clearID = true)
-    {
-        let el = document.getElementById(id);
-        if (clearID) el.removeAttribute("id");
-        return el;
+    // Core sub-library for functionality pre-RHU
+    let core = {
+        exists: function(obj)
+        {
+            return obj !== null && obj !== undefined;    
+        },
+        parseOptions: function(template, opt)
+        {
+            if (!this.exists(opt)) return template;
+            if (!this.exists(template)) return template;
+            
+            let result = template;
+            Object.assign(result, opt);
+            return result;
+        },
+        dependencies: function(_opt = {})
+        {
+            let opt = {
+                hard: [], 
+                soft: [],
+                trace: undefined
+            };
+            this.parseOptions(opt, _opt);
+
+            let check = (items) => {
+                let has = [];
+                let missing = [];
+                // TODO(randomuserhi): Handle duplicate paths
+                for (let path of items)
+                {
+                    let traversal = path.split(".");
+                    let obj = window;
+                    for (; traversal.length !== 0 && this.exists(obj); obj = obj[traversal.shift()]) {
+                        // Not needed body, since for loop handles traversal
+                    }
+                    if (this.exists(obj))
+                        has.push(path);
+                    else
+                        missing.push(path);
+                }
+                return {
+                    has: has,
+                    missing: missing
+                };
+            };
+
+            let hard = check(opt.hard);
+            let soft = check(opt.soft);
+
+            // TODO(randomuserhi): Returns dependencies that were available at the moment of module execution
+            //                     Since the dependencies that are actually available at the current point in time
+            //                     may change (soft dependencies), use RHU.exists to determine if it exists or not. 
+            return {
+                hard: hard,
+                soft: soft,
+                trace: opt.trace
+            };
+        },
+        path: {
+            // Adapted from: https://stackoverflow.com/a/55142565/9642458
+            join: function(...paths)
+            {
+                //NOTE(randomuserhi): Assumes '/' seperator, errors will occure when '\' is used.
+                const separator = '/'; 
+                paths = paths.map((part, index) => {
+                    if (index) 
+                        part = part.replace(new RegExp('^' + separator), '');
+                    if (index !== paths.length - 1) 
+                        part = part.replace(new RegExp(separator + '$'), '');
+                    return part;
+                });
+                return paths.join(separator);
+            },
+            // NOTE(randomuserhi): Uses POSIX standard, so '/file' is an absolute path.
+            isAbsolute: function(path)
+            {
+                return /^([a-z]+:)?[\\/]/i.test(path);
+            }
+        }
     };
 
-    /**
-     * @func                    Checks whether an object exists.
-     * @param   obj{Object}     Object to check.
-     * @return  {Boolean}       True if the object is not null or undefined, otherwise false.
-     */
-    let exists = function(obj)
+    // Check for dependencies
     {
-        return obj !== null && obj !== undefined;
-    };
-
-    /**
-     * @func                                        Parses an incomplete set of properties for options.
-     * @param   template{Object}                    Complete set of options to parse into.
-     * @param   opt{Object}                         Incomplete set of options to parse from.
-     * @param   inplace{Boolean:optional(true)}     If true, parses into `template` inplace, otherwise returns a new object.
-     * @return  {Object}                            Complete set of options given by `opt`.
-     */
-    let parseOptions = function(template, opt, inplace = true)
-    {
-        if (!exists(opt)) return template;
-        if (!exists(template)) return template;
-        
-        let result = template;
-        if (!inplace) result = clone(template);
-        // NOTE(randomuserhi): Object.assign as opposed to assign method defined in RHU
-        //                     is because we want a soft copy (ignoring getters and setters)
-        //                     RHU copies everything including getters and setters
-        Object.assign(result, opt);
-        return result;
+        let result = core.dependencies({
+            hard: [
+                "document.createElement",
+                "document.head",
+                "document.createTextNode",
+                "window.Function",
+                "Map",
+                "Reflect"
+            ]
+        });
+        if (result.hard.missing.length !== 0)
+        {
+            let msg = `RHU was unable to import due to missing dependencies.`;
+            if (core.exists(result.trace))
+                msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
+            for (let dependency of result.hard.missing)
+            {
+                msg += (`\n\tMissing '${dependency}'`);
+            }
+            console.error(msg);
+        }
     }
 
-    /**
-     * @func                                        Get the properties for a given object.
-     * @param   obj{Object}                         Object to get properties of.
-     * @param   options{Object:optional(null)}      Options for the query:
-     *                                              - enumerable    :  true/false/undefined => gets enumerable properties
-     *                                              - configurable  :  true/false/undefined => gets configurable properties
-     *                                              - symbols       :  true/false/undefined => gets symbols
-     *                                              - hasOwn        :  true/false/undefined => gets properties that object owns
-     *                                              - writable      :  true/false/undefined => gets writeable properties
-     *                                              - get           :  true/false/undefined => gets get accessors
-     *                                              - set           :  true/false/undefined => gets set accessors
-     * @param   operation{Object}                   Function to call on each property queried.
-     * @return  {Map[String => _]}                  True if the object is not null or undefined, otherwise false.
-     */
-    let properties = function(obj, options = {}, operation = null)
     {
-        if (!exists(obj)) throw TypeError("Cannot get properties of 'null' or 'undefined'.");
-
-        let opt = {
-            enumerable: undefined,
-            configurable: undefined,
-            symbols: undefined,
-            hasOwn: undefined,
-            writable: undefined,
-            get: undefined,
-            set: undefined
-        }
-        for (let key in opt) if (exists(options[key])) opt[key] = options[key];
-
-        /** 
-         * NOTE(randomuserhi): In the event that Map() is not supported:
-         *                     Can use an object {} and then do `properties[descriptor] = undefined`,
-         *                     then use `for (let key in properties)` to return an array of properties.
-         */
-        let properties = new Map();
-        let iterate = function(props, descriptors)
+        // Initialize RHU
+        if (window.RHU)
         {
-            for (let p of props)
+            console.warn("Overwriting global RHU...");
+        }
+        
+        window.RHU = {};
+        let RHU = window.RHU;
+
+        // Meta
+        RHU.version = "1.0.0";
+
+        // Load config into core
+        // TODO(randomuserhi): Proper error handling on the eval command to say config loaded incorrectly or something
+        {
+            let loaded;
+            
+            let scripts = document.getElementsByTagName("script");
+            for (let s of scripts) 
             {
-                let descriptor = descriptors[p];
-                let valid = true;
-                
-                if (opt.enumerable && descriptor.enumerable !== opt.enumerable) valid = false;
-                if (opt.configurable && descriptor.configurable !== opt.configurable) valid = false;
-                if (opt.writable && descriptor.writable !== opt.writable) valid = false;
-                if (opt.get === false && descriptor.get) valid = false;
-                else if (opt.get === true && !descriptor.get) valid = false;
-                if (opt.set === false && descriptor.set) valid = false;
-                else if (opt.set === true && !descriptor.set) valid = false;
-
-                if (valid) 
+                var type = String(s.type).replace(/ /g, "");
+                if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) 
                 {
-                    if (!properties.has(p) && exists(operation))
-                        operation(curr, p);
+                    s.type += ";executed=true";
+                    loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
+                }
+            }
 
-                    // NOTE(randomuserhi): Can only obtain values for properties that are not getters / setters
-                    //                     due to illegal invocation
-                    let value = undefined;
-                    if (exists(descriptors[p].value))
-                        value = descriptors[p].value;
-                    properties.set(p, value);
+            let RHU = {
+                config: {}
+            };
+            core.parseOptions(RHU, loaded);
+            core.config = {
+                root: undefined,
+                extensions: [],
+                modules: [],
+                includes: {}
+            };
+            core.parseOptions(core.config, RHU.config);
+        }
+
+        // Dynamic script loader
+        (function($)
+        {
+            let config = core.config;
+            let root = {
+                location: config.root,
+                script: "",
+                params: {}
+            };
+
+            // Get root location if unable to load from config
+            if (core.exists(document.currentScript))
+            {
+                if (!core.exists(root.location))
+                {
+                    let s = document.currentScript;
+                    root.location = s.src.match(/(.*)[/\\]/)[1] || "";
+                    root.script = s.innerHTML;
+                    let params = (new URL(s.src)).searchParams;
+                    for (let key of params.keys())
+                    {
+                        root.params[key] = params.get(key);
+                    }
+                }
+            }
+            else console.warn("Unable to find script element."); // NOTE(randomuserhi): Not sure if this is a fatal error or not...
+
+            $.loader = {
+                timeout: 15 * 1000,
+                head: document.head,
+                root: Object.assign({
+                    path: function(path)
+                    {
+                        return core.path.join(this.location, path);
+                    }
+                }, root),
+                JS: function(path, options, callback)
+                {
+                    let handler = {
+                        extension: undefined,
+                        module: undefined
+                    };
+                    core.parseOptions(handler, options);
+
+                    if (core.exists(handler.module) && core.exists(handler.extension))
+                    {
+                        console.error("Cannot load item that is both an x-module and a module.");
+                        return;
+                    }
+
+                    let script = document.createElement("script");
+                    script.type = "text/javascript";
+                    script.src = path;
+                    let handled = false;
+                    script.onload = function()
+                    {
+                        handled = true;
+                        if (core.exists(callback)) callback(true);
+                    };
+                    let onerror = function()
+                    {
+                        if (handled) return;
+                        if (core.exists(handler.module))
+                            console.error(`Unable to find module '${handler.module}'.`);
+                        else if (core.exists(handler.extension))
+                            console.error(`Unable to find x-module '${handler.extension}'.`);
+                        else
+                            console.error(`Unable to load script: [RHU]/${path}`);
+                        handled = true;
+                        if (core.exists(callback)) callback(false);
+                    };
+                    script.onerror = onerror;
+                    setTimeout(onerror, this.timeout);
+                    
+                    this.head.append(script);
+                }
+            };
+        })(core); //not sure if I should expose it on RHU or leave it on local core implementation
+
+        // Event Handler
+        {
+            // create a node for handling events with EventTarget
+            let node = document.createTextNode(null);
+            let addEventListener = node.addEventListener.bind(node);
+            RHU.addEventListener = function (type, listener, options) {
+                addEventListener(type, (e) => { listener(e.detail); }, options);
+            };
+            RHU.removeEventListener = node.removeEventListener.bind(node);
+            RHU.dispatchEvent = node.dispatchEvent.bind(node);
+        }
+
+        // Core
+        {
+            RHU.exists = function(obj)
+            {
+                return obj !== null && obj !== undefined;
+            };
+
+            RHU.properties = function(obj, options = {}, operation = null)
+            {
+                if (!RHU.exists(obj)) throw TypeError("Cannot get properties of 'null' or 'undefined'.");
+
+                let opt = {
+                    enumerable: undefined,
+                    configurable: undefined,
+                    symbols: undefined,
+                    hasOwn: undefined,
+                    writable: undefined,
+                    get: undefined,
+                    set: undefined
+                };
+                RHU.parseOptions(opt, options);
+
+                /** 
+                 * NOTE(randomuserhi): In the event that Map() is not supported:
+                 *                     Can use an object {} and then do `properties[descriptor] = undefined`,
+                 *                     then use `for (let key in properties)` to return an array of properties.
+                 */
+                let properties = new Map();
+                let iterate = function(props, descriptors)
+                {
+                    for (let p of props)
+                    {
+                        let descriptor = descriptors[p];
+                        let valid = true;
+                        
+                        if (opt.enumerable && descriptor.enumerable !== opt.enumerable) valid = false;
+                        if (opt.configurable && descriptor.configurable !== opt.configurable) valid = false;
+                        if (opt.writable && descriptor.writable !== opt.writable) valid = false;
+                        if (opt.get === false && descriptor.get) valid = false;
+                        else if (opt.get === true && !descriptor.get) valid = false;
+                        if (opt.set === false && descriptor.set) valid = false;
+                        else if (opt.set === true && !descriptor.set) valid = false;
+
+                        if (valid) 
+                        {
+                            if (!properties.has(p))
+                            {
+                                if (RHU.exists(operation)) operation(curr, p);
+                                properties.set(p, descriptors[p]);
+                            }
+                        }
+                    }
+                };
+                
+                /**
+                 * NOTE(randomuserhi): Reflect.ownKeys() gets both symbols and non-symbols so it may be worth using that
+                 *                     when symbols is undefined
+                 */
+
+                let curr = obj;
+                do
+                {
+                    let descriptors = Object.getOwnPropertyDescriptors(curr);
+                    
+                    if (!RHU.exists(opt.symbols) || opt.symbols === false)
+                    {
+                        let props = Object.getOwnPropertyNames(curr);
+                        iterate(props, descriptors);
+                    }
+                    
+                    if (!RHU.exists(opt.symbols) || opt.symbols === true)
+                    {
+                        let props = Object.getOwnPropertySymbols(curr);
+                        iterate(props, descriptors);
+                    }
+                } while((curr = Object.getPrototypeOf(curr)) && !opt.hasOwn);
+                
+                return properties;
+            };
+
+            RHU.defineProperty = function(obj, p, o, options = {})
+            {
+                let opt = {
+                    replace: false,
+                    warn: false,
+                    err: false
+                };
+                for (let key in opt) if (RHU.exists(options[key])) opt[key] = options[key];
+
+                if (opt.replace || !RHU.properties(obj, { hasOwn: true }).has(p))
+                {
+                    delete obj[p];  // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'.
+                                    //                     Also will not cause issues with inherited properties as `delete` only removes own properties.    
+                    Object.defineProperty(obj, p, o);
+                    return true;
+                }
+                if (opt.warn) console.warn(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
+                if (opt.err) console.error(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
+                return false;
+            };
+
+            RHU.definePublicProperty = function(obj, p, o, options = {})
+            {
+                let opt = {
+                    writable: true,
+                    enumerable: true
+                };
+                return RHU.defineProperty(obj, p, Object.assign(opt, o), options);
+            };
+
+            RHU.definePublicAccessor = function(obj, p, o, options = {})
+            {
+                let opt = {
+                    configurable: true,
+                    enumerable: true
+                };
+                return RHU.defineProperty(obj, p, Object.assign(opt, o), options);
+            };
+
+            RHU.defineProperties = function(obj, p, options = {})
+            {
+                for (let key of RHU.properties(p, { hasOwn: true }).keys())
+                {
+                    if (Object.hasOwnProperty.call(p, key))
+                    {
+                        RHU.defineProperty(obj, key, p[key], options);
+                    }
+                }
+            };
+
+            RHU.definePublicProperties = function(obj, p, options = {})
+            {
+                let opt = function()
+                {
+                    this.configurable = true;
+                    this.writable = true;
+                    this.enumerable = true;
+                };
+                for (let key of RHU.properties(p, { hasOwn: true }).keys())
+                {
+                    if (Object.hasOwnProperty.call(p, key))
+                    {
+                        let o = Object.assign(new opt(), p[key]);
+                        RHU.defineProperty(obj, key, o, options);
+                    }
+                }
+            };
+
+            RHU.definePublicAccessors = function(obj, p, options = {})
+            {
+                let opt = function()
+                {
+                    this.configurable = true;
+                    this.enumerable = true;
+                };
+                for (let key of RHU.properties(p, { hasOwn: true }).keys())
+                {
+                    if (Object.hasOwnProperty.call(p, key))
+                    {
+                        let o = Object.assign(new opt(), p[key]);
+                        RHU.defineProperty(obj, key, o, options);
+                    }
+                }
+            };
+
+            RHU.assign = function(target, source, options = { replace: true })
+            {
+                if (target === source) return target;
+                RHU.defineProperties(target, Object.getOwnPropertyDescriptors(source), options);
+                return target;
+            };
+
+            RHU.delete = function(object, preserve = null)
+            {
+                if (object === preserve) return;
+
+                /**
+                 * Since preserve uses hasOwnProperty, inherited properties of preserve are not preserved:
+                 * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties
+                 *
+                 * Since traversing and deleting a prototype can effect other objects, we do not recursively delete
+                 * through the prototype.
+                 *
+                 * TODO(randomuserhi): Option to skip properties that are non-configurable (aka cannot be deleted).
+                 *                     Right now we just throw an error.
+                 */
+                RHU.properties(object, { hasOwn: true }, (obj, prop) => {
+                    if (!RHU.exists(preserve) || !RHU.properties(preserve, { hasOwn: true }).has(prop))
+                        delete obj[prop];
+                });
+            };
+
+            RHU.clone = function(object, prototype = null)
+            {
+                /** 
+                 * NOTE(randomuserhi): Performs a shallow clone => references inside the cloned object will be the same
+                 *                     as original.
+                 */
+                if (RHU.exists(prototype)) return RHU.assign(Object.create(prototype), object);
+                else return RHU.assign(Object.create(Object.getPrototypeOf(object)), object);
+            };
+
+            RHU.redefine = function (object, prototype, preserve = null) 
+            {
+                /**
+                 * NOTE(randomuserhi): redefines an objects type (prototype), removing old values, but does not 
+                 *                     call the new types constructor.
+                 */
+                RHU.deleteProperties(object, preserve);
+                Object.setPrototypeOf(object, prototype);
+                return object;
+            };
+
+            RHU.isConstructor = function(func) 
+            {
+                try 
+                {
+                    Reflect.construct(String, [], func);
+                } 
+                catch (e) 
+                {
+                    return false;
+                }
+                return true;
+            };
+
+            RHU.inherit = function(child, base)
+            {
+                if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`); 
+
+                Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
+                Object.setPrototypeOf(child, base); // Inherit static properties
+            };
+
+            RHU.reflectConstruct = function(child, base, constructor)
+            {
+                if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`);
+
+                return function(newTarget, args = [])
+                {
+                    if (RHU.exists(newTarget))
+                    {
+                        let obj = Reflect.construct(base, args, child);
+                        constructor.call(obj, ...args);
+                        return obj;
+                    }
+                    else constructor.call(this, ...args);
+                };
+            };
+
+            RHU.parseOptions = function(template, opt, inplace = true)
+            {
+                if (!RHU.exists(opt)) return template;
+                if (!RHU.exists(template)) return template;
+                
+                let result = template;
+                if (!inplace) result = RHU.clone(template);
+                // NOTE(randomuserhi): Object.assign as opposed to assign method defined in RHU
+                //                     is because we want a soft copy (ignoring getters and setters)
+                //                     RHU copies everything including getters and setters
+                Object.assign(result, opt);
+                return result;
+            };
+
+            RHU.clearAttributes = function(element)
+            {
+                while(element.attributes.length > 0) element.removeAttribute(element.attributes[0].name);
+            };
+
+            RHU.getElementById = function(id, clearID = true)
+            {
+                let el = document.getElementById(id);
+                if (clearID) el.removeAttribute("id");
+                return el;
+            };
+        }
+
+        // Load scripts and manage dependencies
+        {
+            core.readyState = "loading";
+            RHU.definePublicAccessor(RHU, "readyState", {
+                get: function() { return core.readyState; }
+            });
+            core.imports = []; // List of imports in order of execution
+            RHU.definePublicAccessor(RHU, "imports", {
+                get: function() { return [...core.imports]; }
+            });
+
+            let config = core.config;
+            let loader = core.loader;
+            let extensions = new Map();
+            let modules = new Map();
+            let includes = new Map();
+            
+            let watching = [];
+
+            // TODO(randomuserhi): cleanup code, handleSoft here is kinda tacked on
+            let execute = function(item, callback, handleSoft = true, logging = false)
+            {
+                let result = core.dependencies(item.dependencies);
+                if (result.hard.missing.length === 0 && (handleSoft && result.soft.missing.length === 0))
+                {
+                    core.imports.push({
+                        module: item.dependencies.module,
+                        trace: core.exists(result.trace) ? result.trace.stack.split("\n")[1] : undefined
+                    });
+                    callback(result);
+                    return true;
+                }
+                else if (logging)
+                {
+                    let msg = `could not loaded as not all hard dependencies were found.`;
+                    if (core.exists(result.trace))
+                        msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
+                    for (let dependency of result.hard.missing)
+                    {
+                        msg += (`\n\tMissing '${dependency}'`);
+                    }
+
+                    if (core.exists(item.dependencies.module))
+                        console.warn(`Module, '${item.dependencies.module}', ${msg}`);
+                    else
+                        console.warn(`Unknown module ${msg}`);
+                }
+                return false;
+            };
+
+            let onload = function(success, handle)
+            {
+                if (success)
+                {
+                    let old = watching;
+                    watching = [];
+                    for (let item of old)
+                    {
+                        if (!execute(item, item.callback))
+                            watching.push(item);
+                    }
+                }
+
+                let handler = {
+                    extension: undefined,
+                    module: undefined
+                };
+                core.parseOptions(handler, handle);
+
+                if (core.exists(handler.extension) && core.exists(handler.module))
+                {
+                    console.error("Cannot handle loading of item that is both an x-module and a module.");
+                    return;
+                }
+
+                if (core.exists(handler.extension))
+                    extensions.delete(handler.extension);
+                else if (core.exists(handler.module))
+                    modules.delete(handler.module);
+
+                if (extensions.size === 0 && modules.size === 0)
+                    oncomplete();
+            };
+
+            let oncomplete = function()
+            {
+                core.readyState = "complete";
+            
+                // Attempt to reconcile remaining modules and dependencies
+                { // First handle dependencies that are fully accepted (no missing hard AND soft dependencies)
+                    let oldLen = watching.length;
+                    do
+                    {
+                        oldLen = watching.length;
+
+                        let old = watching;
+                        watching = [];
+                        for (let item of old)
+                            if (!execute(item, item.callback))
+                                watching.push(item);
+                    } while(oldLen !== watching.length);
+                }
+                { // Handle dependencies that are accepted (missing soft dependencies)
+                    let oldLen = watching.length;
+                    do
+                    {
+                        oldLen = watching.length;
+
+                        let old = watching;
+                        watching = [];
+                        for (let item of old)
+                            if (!execute(item, item.callback, false))
+                                watching.push(item);
+                    } while(oldLen !== watching.length);
+                }
+
+                // print modules that failed to reconcile
+                for (let item of watching)
+                    execute(item, item.callback, true);
+
+                // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
+                //                     so callback.special accesses window["callback.special"]
+                if (core.exists(core.loader.root.params.load))
+                    if (core.exists(window[core.loader.root.params.load]))
+                        window[core.loader.root.params.load]();
+                    else console.error(`Callback for 'load' event called '${core.loader.root.params.load}' does not exist.`);
+                RHU.dispatchEvent(new CustomEvent("load"));
+            };
+
+            RHU.module = function(dependencies, callback)
+            {
+                if (core.readyState !== "complete")
+                {
+                    watching.push({
+                        dependencies: dependencies,
+                        callback: callback
+                    });
+                }
+                else execute(dependencies, callback, true);
+            };
+
+            for (let extension of config.extensions)
+            {
+                if (typeof extension === "string" && extension)
+                    extensions.set(extension);
+            }
+            for (let module of config.modules)
+            {
+                if (typeof module === "string" && module)
+                    modules.set(module);
+            }
+            for (let path in config.includes)
+            {
+                if (typeof path !== "string" || path === "") continue;
+
+                let isAbsolute = core.path.isAbsolute(path);
+                for (let include of config.includes[path])
+                {
+                    if (typeof include !== "string" || include === "") continue;
+
+                    if (isAbsolute)
+                        includes.set(core.path.join(path, `${include}.js`), include);
+                    else
+                        includes.set(loader.root.path(core.path.join(path, `${include}.js`)), include);
+                }
+            }
+            
+            if (extensions.size === 0 && modules.size === 0 && includes.size === 0)
+                oncomplete();
+            else
+            {
+                for (let extension of extensions.keys())
+                    loader.JS(loader.root.path(core.path.join("extensions", `${extension}.js`)), { extension: extension }, (success) => { onload(success, { extension : extension }); });
+                for (let module of modules.keys())
+                    loader.JS(loader.root.path(core.path.join("modules", `${module}.js`)), { module: module }, (success) => { onload(success, { module: module }); });
+                for (let include of includes.keys())
+                {
+                    let module = includes.get(include);
+                    loader.JS(include, { module: module }, (success) => { onload(success, { module: module }); });
                 }
             }
         }
-        
-        /**
-         * NOTE(randomuserhi): Reflect.ownKeys() gets both symbols and non-symbols so it may be worth using that
-         *                     when symbols is undefined
-         */
 
-        let curr = obj;
-        do
-        {
-            let descriptors = Object.getOwnPropertyDescriptors(curr);
-            
-            if (!exists(opt.symbols) || opt.symbols === false)
-            {
-                let props = Object.getOwnPropertyNames(curr);
-                iterate(props, descriptors);
-            }
-            
-            if (!exists(opt.symbols) || opt.symbols === true)
-            {
-                let props = Object.getOwnPropertySymbols(curr);
-                iterate(props, descriptors);
-            }
-        } while((curr = Object.getPrototypeOf(curr)) && !opt.hasOwn)
-        
-        return properties;
-    };
-
-    /**
-     * @func                                    Defines a property with descriptor on target object
-     * @param   obj{Object}                     Object to assign property to.
-     * @param   p{String}                       Name of property.
-     * @param   o{Object}                       Property descriptor (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty)
-     * @param   options{Object:optional({})}    Options for the descriptor:
-     *                                          - replace  :  true/false => If true, replace property if it is already defined.
-     *                                          - warn     :  true/false => If unable to define property, log a warning.
-     *                                          - err      :  true/false => If unable to define a property, throw an error.
-     * @return  {Boolean}                       True if property was successfully defined, otherwise false.
-     */
-    let defineProperty = function(obj, p, o, options = {})
-    {
-        let opt = {
-            replace: false,
-            warn: false,
-            err: false
-        };
-        for (let key in opt) if (exists(options[key])) opt[key] = options[key];
-
-        if (opt.replace || !properties(obj, { hasOwn: true }).has(p))
-        {
-            delete obj[p]; // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'.
-                           //                     Also will not cause issues with inherited properties as `delete` only removes own properties.    
-            Object.defineProperty(obj, p, o);
-            return true;
-        }
-        if (opt.warn) console.warn(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
-        if (opt.err) console.error(`Failed to define property '${p}', it already exists. Try 'replace: true'`);
-        return false;
-    };
-
-    /**
-     * @func                                    Defines a property with descriptor on target object with { writable: true, enumerable: true } by default.
-     * @param   obj{Object}                     Object to assign property to.
-     * @param   p{String}                       Name of property.
-     * @param   o{Object}                       Property descriptor (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty)
-     * @param   options{Object:optional({})}    Options for the descriptor:
-     *                                          - replace  :  true/false => If true, replace property if it is already defined.
-     *                                          - warn     :  true/false => If unable to define property, log a warning.
-     *                                          - err      :  true/false => If unable to define a property, throw an error.
-     * @return  {Boolean}                       True if property was successfully defined, otherwise false.
-     */
-    let definePublicProperty = function(obj, p, o, options = {})
-    {
-        let opt = {
-            writable: true,
-            enumerable: true
-        };
-        return defineProperty(obj, p, Object.assign(opt, o), options);
-    };
-
-    /**
-     * @func                                    Defines a property with descriptor on target object with { configurable: true, enumerable: true } by default.
-     * @param   obj{Object}                     Object to assign property to.
-     * @param   p{String}                       Name of property.
-     * @param   o{Object}                       Property descriptor (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty)
-     * @param   options{Object:optional({})}    Options for the descriptor:
-     *                                          - replace  :  true/false => If true, replace property if it is already defined.
-     *                                          - warn     :  true/false => If unable to define property, log a warning.
-     *                                          - err      :  true/false => If unable to define a property, throw an error.
-     * @return  {Boolean}                       True if property was successfully defined, otherwise false.
-     */
-    let definePublicAccessor = function(obj, p, o, options = {})
-    {
-        let opt = {
-            configurable: true,
-            enumerable: true
-        };
-        return defineProperty(obj, p, Object.assign(opt, o), options);
-    };
-
-    /**
-     * @func                                    Defines multiple properties with descriptors on target object.
-     * @param   obj{Object}                     Object to assign property to.
-     * @param   p{String}                       Property descriptors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperties
-     * @param   options{Object:optional({})}    Options for the descriptor:
-     *                                          - replace  :  true/false => If true, replace property if it is already defined.
-     *                                          - warn     :  true/false => If unable to define property, log a warning.
-     *                                          - err      :  true/false => If unable to define a property, throw an error.
-     */
-    let defineProperties = function(obj, p, options = {})
-    {
-        for (let key of properties(p, { hasOwn: true }).keys())
-        {
-            if (Object.hasOwnProperty.call(p, key))
-            {
-                defineProperty(obj, key, p[key], options);
-            }
-        }
-    };
-
-    /**
-     * @func                                    Defines multiple properties with descriptors on target object with { writable: true, enumerable: true } by default.
-     * @param   obj{Object}                     Object to assign property to.
-     * @param   p{String}                       Property descriptors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperties
-     * @param   options{Object:optional({})}    Options for the descriptor:
-     *                                          - replace  :  true/false => If true, replace property if it is already defined.
-     *                                          - warn     :  true/false => If unable to define property, log a warning.
-     *                                          - err      :  true/false => If unable to define a property, throw an error.
-     */
-    let definePublicProperties = function(obj, p, options = {})
-    {
-        let opt = function()
-        {
-            this.configurable = true;
-            this.writable = true;
-            this.enumerable = true;
-        };
-        for (let key of properties(p, { hasOwn: true }).keys())
-        {
-            if (Object.hasOwnProperty.call(p, key))
-            {
-                let o = Object.assign(new opt(), p[key]);
-                defineProperty(obj, key, o, options);
-            }
-        }
-    };
-
-    /**
-     * @func                                    Defines multiple properties with descriptors on target object with { configurable: true, enumerable: true } by default.
-     * @param   obj{Object}                     Object to assign property to.
-     * @param   p{String}                       Property descriptors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperties
-     * @param   options{Object:optional({})}    Options for the descriptor:
-     *                                          - replace  :  true/false => If true, replace property if it is already defined.
-     *                                          - warn     :  true/false => If unable to define property, log a warning.
-     *                                          - err      :  true/false => If unable to define a property, throw an error.
-     */
-    let definePublicAccessors = function(obj, p, options = {})
-    {
-        let opt = function()
-        {
-            this.configurable = true;
-            this.enumerable = true;
-        };
-        for (let key of properties(p, { hasOwn: true }).keys())
-        {
-            if (Object.hasOwnProperty.call(p, key))
-            {
-                let o = Object.assign(new opt(), p[key]);
-                defineProperty(obj, key, o, options);
-            }
-        }
-    };
-
-    /**
-     * @func                                                   Assigns a source object's properties to a target
-     * @param   target{Object}                                 Object to assign properties to.
-     * @param   source{String}                                 Source object to get properties from.
-     * @param   options{Object:optional({ replace: true })}    Options for the assignment:
-     *                                                         - replace  :  true/false => If true, replace property if it is already defined.
-     *                                                         - warn     :  true/false => If unable to define property, log a warning.
-     *                                                         - err      :  true/false => If unable to define a property, throw an error.
-     * @return  {Object}                                       target after assignment
-     */
-    let assign = function(target, source, options = { replace: true })
-    {
-        if (target === source) return target;
-        defineProperties(target, Object.getOwnPropertyDescriptors(source), options);
-        return target;
-    };
-
-    /**
-     * @func                                        Deletes all owned properties from an object.
-     * @param   object{Object}                      Object to delete properties from.
-     * @param   preserve{Object:optional(null)}     Object containing properties to not delete.
-     */
-    let deleteProperties = function(object, preserve = null)
-    {
-        if (object === preserve) return;
-
-        /**
-         * Since preserve uses hasOwnProperty, inherited properties of preserve are not preserved:
-         * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties
-         *
-         * Since traversing and deleting a prototype can effect other objects, we do not recursively delete
-         * through the prototype.
-         *
-         * TODO(randomuserhi): Option to skip properties that are non-configurable (aka cannot be deleted).
-         *                     Right now we just throw an error.
-         */
-        properties(object, { hasOwn: true }, (obj, prop) => {
-            if (!exists(preserve) || !properties(preserve, { hasOwn: true }).has(prop))
-                delete obj[prop];
-        });
-    };
-
-    /**
-     * @func                                        Perform a shallow copy of an object.
-     * @param   object{Object}                      Object to copy
-     * @param   prototype{Object:optional(null)}    Prototype of cloned object.
-     * @return  {Object}                            Cloned object.
-     */
-    let clone = function(object, prototype = null)
-    {
-        /** 
-         * NOTE(randomuserhi): Performs a shallow clone => references inside the cloned object will be the same
-         *                     as original.
-         */
-        if (exists(prototype)) return assign(Object.create(prototype), object);
-        else return assign(Object.create(Object.getPrototypeOf(object)), object);
-    };
-
-    /**
-     * @func                                        Delete target objects owned properties and set prototype.
-     * @param   object{Object}                      Object to redefine.
-     * @param   prototype{Object}                   Prototype to switch to.
-     * @param   preserve{Object:optional(null)}     Properties to not delete whilst redefining.
-     * @return  {Object}                            Redefined object.
-     */
-    let redefine = function (object, prototype, preserve = null) 
-    {
-        /**
-         * NOTE(randomuserhi): redefines an objects type (prototype), removing old values, but does not 
-         *                     call the new types constructor.
-         */
-        deleteProperties(object, preserve);
-        Object.setPrototypeOf(object, prototype);
-        return object;
-    };
-
-    /**
-     * @func                    Checks if an object can be used as a constructor.
-     * @param   object{Object}  Object to check.
-     * @return  {Boolean}       True if object can be used as constructor, otherwise false.
-     *
-     * https://stackoverflow.com/a/46759625/9642458
-     * NOTE(randomuserhi): Will fail for construtable functions that error on new.target != null, such as
-     *                     Symbol, in which it will return false despite new Symbol() throwing error.
-     */
-    let isConstructor = function (func) 
-    {
-        try 
-        {
-            Reflect.construct(String, [], func);
-        } 
-        catch (e) 
-        {
-            return false;
-        }
-        return true;
+        // RHU is ready, but not yet loaded content
+        // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
+        //                     so callback.special accesses window["callback.special"]
+        if (core.exists(core.loader.root.params.ready))
+            if (core.exists(window[core.loader.root.params.ready]))
+                window[core.loader.root.params.ready]();
+            else console.error(`Callback for 'ready' event called '${core.loader.root.params.ready}' does not exist.`);
     }
-
-    /**
-     * @func                        Makes a child class inherit from a base class.
-     * @param   child{Function}     Child class.
-     * @param   base{Function}      Base class.
-     * 
-     * NOTE(randomuserhi): Doesn't support inheritting objects, only function constructors.
-     */
-    let inherit = function(child, base)
-    {
-        if (!isConstructor(child) || !isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`); 
-
-        Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
-        Object.setPrototypeOf(child, base); // Inherit static properties
-    }
-
-    /**
-     * @func                            Construct an object via `Reflect.construct`. Useful for inheritting built-in types.
-     * @param   child{Function}         Child class.
-     * @param   base{Function}          Base class (Typically, the built-in type you are inheritting from).
-     * @param   constructor{Function}   Constructor for the child class.
-     *
-     * NOTE(randomuserhi): When inheritting from a base class that inherits from a built-in type you want reflectConstruct to 
-     *                     inherit from the built-in type rather than the base. This is because the child will contain the actual
-     *                     base class:
-     *
-     *                     ```js
-     *
-     *                     // Base class inheriting from built-in type Map
-     *                     let _baseConstructor = function()
-     *                     {
-     *                         console.log("base constructor!");
-     *                     };
-     *                     let _baseReflect = RHU.reflectConstruct(Base, Map, _baseConstructor);
-     *                     let Base = function() { return _baseReflect.call(this, new.target); }
-     *                     RHU.inherit(Base, Map); // regular inheritance pattern to built-in Map class
-     *                     
-     *                     // Child class inheriting from base
-     *                     let _childConstructor = function()
-     *                     {
-     *                         Base.call(this); // Call super constructor
-     *                         console.log("child constructor!");
-     *                     };
-     *                     // Notice how we still reflect inherit from Map despite Child inheritting from Base
-     *                     let _childReflect = RHU.reflectConstruct(Child, Map, _childConstructor);
-     *                     let Child = function() { return _childReflect.call(this, new.target); }
-     *                     RHU.inherit(Child, Base); // regular inheritance pattern to Base class
-     *
-     *                     ```
-     */
-    let reflectConstruct = function(child, base, constructor)
-    {
-        return function(newTarget, args = [])
-        {
-            if (exists(newTarget))
-            {
-                let obj = Reflect.construct(base, args, child);
-                constructor.call(obj, ...args);
-                return obj;
-            }
-            else constructor.call(this, ...args);
-        };
-    }
-
-    /**
-     * @func    Removes all attributes from an element.
-     */
-    let clearAttributes = function(element)
-    {
-        while(element.attributes.length > 0) element.removeAttribute(element.attributes[0].name);
-    }
-
-    /** ------------------------------------------------------------------------------------------------------
-     * NOTE(randomuserhi): Define accessors between local functions (completely hidden), 
-     *                     _RHU (private access) and RHU (public access)
-     */
-
-    defineProperties(_RHU, {
-        isConstructor: {
-            value: isConstructor
-        }
-    })
-
-    definePublicProperties(_RHU, {
-        blankImg: {
-            enumerable: false,
-            value: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
-        },
-
-        parseOptions: {
-            enumerable: false,
-            value: parseOptions
-        },
-
-        getElementById: {
-            enumerable: false,
-            value: getElementById
-        },
-
-        defineProperty: {
-            enumerable: false,
-            value: defineProperty 
-        },
-        definePublicProperty: {
-            enumerable: false,
-            value: definePublicProperty
-        },
-        definePublicAccessor: {
-            enumerable: false,
-            value: definePublicAccessor
-        },
-        defineProperties: {
-            enumerable: false,
-            value: defineProperties
-        },
-        definePublicProperties: {
-            enumerable: false,
-            value: definePublicProperties
-        },
-        definePublicAccessors: {
-            enumerable: false,
-            value: definePublicAccessors
-        },
-
-        delete: {
-            enumerable: false,
-            value: deleteProperties
-        },
-
-        assign: {
-            enumerable: false,
-            value: assign
-        },
-
-        clone: {
-            enumerable: false,
-            value: clone
-        },
-
-        redefine: {
-            enumerable: false,
-            value: redefine
-        },
-
-        properties: {
-            enumerable: false,
-            value: properties
-        },
-
-        exists: {
-            enumerable: false,
-            value: exists
-        },
-
-        inherit: {
-            enumerable: false,
-            value: inherit
-        },
-
-        reflectConstruct: {
-            enumerable: false,
-            value: reflectConstruct
-        },
-
-        clearAttributes: {
-            enumerable: false,
-            value: clearAttributes
-        }
-    });
-
-    definePublicAccessors(RHU, {
-        blankImg: {
-            get() { return _RHU.blankImg; }
-        },
-
-        parseOptions: {
-            get() { return _RHU.parseOptions; }
-        },
-
-        getElementById: {
-            get() { return _RHU.getElementById; }
-        },
-
-        defineProperty: { 
-            get() { return _RHU.defineProperty; }
-        },
-        definePublicProperty: { 
-            get() { return _RHU.definePublicProperty; }
-        },
-        definePublicAccessor: {
-            get() { return _RHU.definePublicAccessor; }
-        },
-        defineProperties: {
-            get() { return _RHU.defineProperties; }
-        },
-        definePublicProperties: {
-            get() { return _RHU.definePublicProperties; }
-        },
-        definePublicAccessors: {
-            get() { return _RHU.definePublicAccessors; }
-        },
-
-        delete: {
-            get() { return _RHU.delete; }
-        },
-
-        assign: {
-            get() { return _RHU.assign; }
-        },
-
-        clone: {
-            get() { return _RHU.clone; }
-        },
-
-        redefine: {
-            get() { return _RHU.redefine; }
-        },
-
-        properties: {
-            get() { return _RHU.properties; }
-        },
-
-        exists : {
-            get() { return _RHU.exists; }
-        },
-
-        inherit : {
-            get() { return _RHU.inherit; }
-        },
-
-        reflectConstruct: {
-            get() { return _RHU.reflectConstruct; }
-        },
-
-        clearAttributes: {
-            get() { return _RHU.clearAttributes; }
-        }
-    });
-
-})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})),
-   (window["RHU"] || (window["RHU"] = {})));
-
-/**
- * @namespace _RHU (Symbol.for("RHU")), RHU
- * 
- * NOTE(randomuserhi): _RHU (Symbol.for("RHU")) is the internal library hidden from user, whereas RHU is the public interface.
- */
-(function (_RHU, RHU) 
-{
-    /**
-     * @property domParser{DOMParser} Stores an instance of a DOMParser for parsing.
-     */
-    let domParser = new DOMParser();
-
-    /** ------------------------------------------------------------------------------------------------------
-     * NOTE(randomuserhi): Define accessors between local functions (completely hidden), 
-     *                     _RHU (private access) and RHU (public access)
-     */
-
-    _RHU.definePublicProperties(_RHU, {
-        domParser: { 
-            enumerable: false,
-            value: domParser
-        }
-    });
-
-    _RHU.definePublicAccessors(RHU, {
-        domParser: { 
-            get() { return _RHU.domParser; }
-        }
-    });
-
-    /** ------------------------------------------------------------------------------------------------------
-     * NOTE(randomuserhi): Declare some global symbols for access to specific private properties.
-     *                     Symbols are used as they are completely abstracted away from the user, and act
-     *                     as a form of name mangling to prevent name-collision.
-     */
-
-    /**
-     * Local property `_symbols` to store symbols
-     */
-    let _symbols = {};
-    _RHU.defineProperties(_symbols, {
-        /**
-         * @symbol{_instance} Used when determining what object to grab from an element when processing it.
-         */
-        _instance: {
-            value: Symbol("rhu instance")
-        }
-    });
-
-    /**
-     * Hook local property `_symbols` to _RHU
-     */
-    _RHU.defineProperties(_RHU, {
-        /**
-         * @symbol{_globalSymbols} Stores global symbols to be accessed by other scripts.
-         */
-        _globalSymbols: {
-            value: _symbols
-        }
-    })
-
-    /**
-     * Add a new instance property to Node.prototype so when accessing any DOM Node,
-     * the instance can be grabbed.
-     *
-     * NOTE(randomuserhi): This is an overridable accessor.
-     */
-    _RHU.defineProperties(Node.prototype, {
-        [_symbols._instance]: {
-            get() { return this; }
-        },
-        instance: {
-            configurable: true,
-            enumerable: true,
-            get() { return this[_symbols._instance]; }
-        }
-    });
-
-})((window[Symbol.for("RHU")] || (window[Symbol.for("RHU")] = {})), // Internal library that can only be accessed via Symbol.for("RHU")
-   (window["RHU"] || (window["RHU"] = {}))); // Public interfact for library
+})();

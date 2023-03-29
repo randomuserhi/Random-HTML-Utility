@@ -2,8 +2,12 @@
  * RHU - Random HTML Utility
  * @randomuserhi.github.io
  */
-
+ 
 "use strict";
+
+if (window[Symbol.for("RHU")] === undefined ||
+    window[Symbol.for("RHU")] === null)
+    throw new Error("Missing RHU dependency.");
 
 /**
  * @namespace _RHU (Symbol.for("RHU")), RHU
