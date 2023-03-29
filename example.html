@@ -15,7 +15,7 @@
 		<!--<script src="RHU v2/tests/RHU.js"></script>-->
 	</head>
 	<body>
-		<div id="target" rhu-macro="woah" rhu-loc="woah">
+		<div id="target" rhu-macro="woah">
 		</div>
 		<rhu-macro rhu-type="woah"></rhu-macro>
 
@@ -24,12 +24,18 @@
 				RHU.Localisation.setSchema({"woah": {"innerHTML":"craze"}});
 			});
 
-			RHU.module({ module: "internal", trace: new Error(), hard: ["RHU.Macro"] }, function(e) {
+			RHU.module({ module: "internal", trace: new Error(), hard: ["RHU.Macro", "RHU.Localisation"] }, function(e) {
 				let willGetUpdated = document.createElement("div");
 				willGetUpdated.setAttribute("rhu-macro", "woah");
 
-				new RHU.Macro(function() {}, "asd",
-					/*HTML*/`<td>boomer</td><!--woah-->crazy`,
+				new RHU.Macro(function() {
+					RHU.Localisation.addEventListener("change", (e) => {
+						this.nice.innerHTML = e["woah"].innerHTML;
+					});
+					if (RHU.exists(RHU.Localisation.schema))
+						this.nice.innerHTML = RHU.Localisation.schema["woah"].innerHTML;
+				}, "asd",
+					/*HTML*/`<div rhu-id="nice"></div><div rhu-loc="woah">boomer</div><!--woah-->crazy`,
 					{ element: /*HTML*/`<div></div>`, floating: true });
 
 				new RHU.Macro(function() {}, "woah",

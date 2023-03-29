@@ -3,14 +3,19 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection"], soft: ["RHU.Macro"] }, function(e)
+    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection", "RHU.eventTarget"] }, function(e)
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
         if (RHU.exists(RHU.Localisation))
             console.warn("Overwriting RHU.Localisation...");
 
+        let symbols = {
+            constructed: Symbol("localisation constructed"),
+        };
+
         let Localisation = RHU.Localisation = {};
+        RHU.eventTarget(Localisation);
 
         // NOTE(randomuserhi): Store a reference to base functions that will be overridden
         let isElement = Object.prototype.isPrototypeOf.bind(HTMLElement.prototype);
@@ -34,13 +39,13 @@
         };
 
         RHU.definePublicAccessor(Element.prototype, "rhuLoc", {
-            get() 
+            get: function() 
             {
                 let attribute = Element_getAttribute(this, "rhu-loc"); 
                 if (RHU.exists(attribute)) return attribute;
                 else return undefined;
             },
-            set(value)
+            set: function(value)
             { 
                 Element_setAttribute(this, "rhu-loc", value);
                 Localisation.parse(this, currentSchema);
@@ -52,29 +57,39 @@
         {
             currentSchema = schema;
             for (let el of watching)
-                Localisation.parse(el, currentSchema);
+                Localisation.parse(el, currentSchema, true); // force reparse
+
+            Localisation.dispatchEvent(RHU.CustomEvent("change", currentSchema));
         };
+        RHU.definePublicAccessor(Localisation, "schema", {
+            get: function() { return currentSchema },
+            set: Localisation.setSchema
+        });
 
         let watching = new RHU.WeakCollection();
-        Localisation.parse = function(el, schema)
+        // TODO(randomuserhi): make force default true
+        // TODO(randomuserhi): change to accept a schema and element rhu-loc
+        //                     if no schema is provided, use current
+        Localisation.parse = function(el, schema, force = false)
         {
+            // Check if element is eligible for localisation (check hasOwn properties and that it has not been converted into a rhu-loc already)
+            // NOTE(randomuserhi): RHU-Macros are not eligible to be rhu-loc due to their destructive nature and vice versa,
+            //                     thus this error should be triggered if the element has properties (either from built-in or rhu-macro assigning them)
+            if (!Object.hasOwnProperty.call(el, symbols.constructed) && RHU.properties(el, { hasOwn: true }).size !== 0) 
+                throw new TypeError(`Element is not eligible to be used as a rhu-loc.`);
+
             if (Element_hasAttribute(el, "rhu-loc"))
             {
-                // NOTE(randomuserhi): Applying rhu-loc to a rhu-macro causes undefined behaviour due to
-                //                     the destructive nature of rhu-macro (deleting properties etc...)
-                // TODO(randomuserhi): Update to new dependency API where bug is fixed so 'e' can be used to check
-                //                     dependency instead of RHU.exists
-                //if (e.soft.has.includes("RHU.Macro") && Element_hasAttribute(el, "rhu-macro"))
-                if (RHU.exists(RHU.Macro) && Element_hasAttribute(el, "rhu-macro"))
-                {
-                    console.error("RHU Macros cannot have localisation applied to them.");
-                    watching.delete(el);
-                    return;
-                }
                 if (RHU.exists(schema))
                 {
                     let type = Element_getAttribute(el, "rhu-loc");
-                    RHU.parseOptions(el, schema[el.rhuLoc]);
+                    
+                    // Check if type has changed
+                    if (el[symbols.constructed] !== type || force)
+                    {
+                        RHU.parseOptions(el, schema[type]);
+                        el[symbols.constructed] = type;
+                    }
                 }
 
                 watching.add(el);
@@ -91,6 +106,14 @@
 
             // Initialize observer
             Localisation.observe(document);
+        };
+
+        let recursiveParse = function(node)
+        {
+            if (isElement(node) && Element_hasAttribute(node, "rhu-loc"))
+                Localisation.parse(node, currentSchema);
+            for (let child of node.childNodes)
+                recursiveParse(child);
         };
 
         // Setup mutation observer to detect localisation elements being created
@@ -129,14 +152,7 @@
                 case "childList":
                     {
                         for (let node of mutation.addedNodes)
-                        {
-                            // Check if the node is a HTMLElement (TextNodes or CharacterData won't have getAttribute)
-                            if (isElement(node))
-                            {
-                                let type = Element_getAttribute(node, "rhu-loc");
-                                if (RHU.exists(type)) Localisation.parse(node, currentSchema);
-                            }
-                        }
+                            recursiveParse(node);
                     }
                     break;
                 }

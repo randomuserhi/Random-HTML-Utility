@@ -23,10 +23,10 @@
         };
 
         RHU.defineProperty(Node.prototype, symbols.macro, {
-            get() { return this; }
+            get: function() { return this; }
         });
         RHU.definePublicAccessor(Node.prototype, "macro", {
-            get() { return this[symbols.macro]; }
+            get: function() { return this[symbols.macro]; }
         });
 
         // NOTE(randomuserhi): Store a reference to base functions that will be overridden
@@ -85,11 +85,8 @@
         };
 
         RHU.definePublicAccessor(Element.prototype, "rhuMacro", {
-            get() 
-            {
-                return Element_getAttribute(this, "rhu-macro"); 
-            },
-            set(value) 
+            get: function() { return Element_getAttribute(this, "rhu-macro"); },
+            set: function(value) 
             { 
                 Element_setAttribute(this, "rhu-macro", value);
                 Macro.parse(this, value);
@@ -161,6 +158,7 @@
         let parseStack = [];
         let watching = new Map(); // Stores active macros that are being watched
         Macro.watching = watching;
+        // TODO(randomuserhi): make force default true
         Macro.parse = function(element, type, force = false)
         {
             /**
@@ -359,7 +357,7 @@
                 RHU.defineProperties(element, {
                     [symbols.macro]: {
                         configurable: true,
-                        get() { return target; }
+                        get: function() { return target; }
                     }
                 });
             }
@@ -370,7 +368,7 @@
                 //if (typeof options.encapsulate !== "string") throw new TypeError("Option 'encapsulate' must be a string.");
                 checkProperty(options.encapsulate);
                 RHU.definePublicAccessor(proxy, options.encapsulate, {
-                    get() { return properties; }
+                    get: function() { return properties; }
                 });
             }
             else RHU.assign(proxy, properties);
@@ -448,6 +446,17 @@
             Macro.observe(document);
         };
 
+        let recursiveParse = function(node)
+        {
+            if (isElement(node) && Element_hasAttribute(node, "rhu-macro")) 
+            {
+                Macro.parse(node, Element_getAttribute(node, "rhu-macro"));
+                return;
+            }
+            for (let child of node.childNodes)
+                recursiveParse(child);
+        };
+
         // Setup mutation observer to detect macros being created
         let observer = new MutationObserver(function(mutationList) {
             /**
@@ -484,14 +493,7 @@
                 case "childList":
                     {
                         for (let node of mutation.addedNodes)
-                        {
-                            // Check if the node is a HTMLElement (TextNodes or CharacterData won't have getAttribute)
-                            if (isElement(node))
-                            {
-                                let type = Element_getAttribute(node, "rhu-macro");
-                                if (RHU.exists(type)) Macro.parse(node, type);
-                            }
-                        }
+                            recursiveParse(node);
                     }
                     break;
                 }

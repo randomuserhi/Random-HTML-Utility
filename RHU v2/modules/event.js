@@ -19,5 +19,10 @@
             target.removeEventListener = node.removeEventListener.bind(node);
             target.dispatchEvent = node.dispatchEvent.bind(node);
         };
+
+        RHU.CustomEvent = function(event, detail)
+        {
+            return new CustomEvent(event, { detail: detail });
+        };
     });
 })();

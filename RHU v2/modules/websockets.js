@@ -75,10 +75,10 @@
                 RHU.parseOptions(parsedParams, params);
                 this.ws = new webSocket(parsedParams.url, parsedParams.protocols);
             
-                this.ws.addEventListener("close", (e) => { this.dispatchEvent(new CustomEvent("close", { detail: e })); if (RHU.exists(this.onclose)) this.onclose(e); });
-                this.ws.addEventListener("error", (e) => { this.dispatchEvent(new CustomEvent("error", { detail: e })); if (RHU.exists(this.onerror)) this.onerror(e); });
-                this.ws.addEventListener("message", (e) => { this.dispatchEvent(new CustomEvent("message", { detail: e })); if (RHU.exists(this.onmessage)) this.onmessage(e); });
-                this.ws.addEventListener("open", (e) => { this.dispatchEvent(new CustomEvent("open", { detail: e })); if (RHU.exists(this.onopen)) this.onopen(e); });
+                this.ws.addEventListener("close", (e) => { this.dispatchEvent(RHU.CustomEvent("close", e)); if (RHU.exists(this.onclose)) this.onclose(e); });
+                this.ws.addEventListener("error", (e) => { this.dispatchEvent(RHU.CustomEvent("error", e)); if (RHU.exists(this.onerror)) this.onerror(e); });
+                this.ws.addEventListener("message", (e) => { this.dispatchEvent(RHU.CustomEvent("message", e)); if (RHU.exists(this.onmessage)) this.onmessage(e); });
+                this.ws.addEventListener("open", (e) => { this.dispatchEvent(RHU.CustomEvent("open", e)); if (RHU.exists(this.onopen)) this.onopen(e); });
             };
             construct.prototype.reconnect = function(...args)
             {
