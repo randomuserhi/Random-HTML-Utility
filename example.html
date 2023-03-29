@@ -20,6 +20,10 @@
 		<rhu-macro rhu-type="woah"></rhu-macro>
 
 		<script type="text/javascript">
+			RHU.module({ hard: ["RHU.Localisation"] }, function(e) {
+				RHU.Localisation.setSchema({"woah": {"innerHTML":"craze"}});
+			});
+
 			RHU.module({ module: "internal", trace: new Error(), hard: ["RHU.Macro"] }, function(e) {
 				let willGetUpdated = document.createElement("div");
 				willGetUpdated.setAttribute("rhu-macro", "woah");

@@ -9,6 +9,10 @@
     // TODO(randomuserhi): Config setting for performance (record timings)
     // TODO(randomuserhi): Documentation
     // TODO(randomuserhi): Splitting up key parts and custom compiler to merge them
+    // TODO(randomuserhi): Update dependency API entirely (needs a rewrite to properly handle soft dependencies)
+    //                     - BUG where a soft dependency isn't properly reconciled during oncomplete function
+    //                       - this is because the system doesn't understand that a soft dependency *will* get resolved
+    //                         on future includes.
 
     // Core sub-library for functionality pre-RHU
     let core = {
@@ -37,6 +41,7 @@
             let check = (items) => {
                 let has = [];
                 let missing = [];
+                // TODO(randomuserhi): Handle duplicate paths
                 for (let path of items)
                 {
                     let traversal = path.split(".");
@@ -611,6 +616,7 @@
                 core.readyState = "complete";
             
                 // Attempt to reconcile remaining modules and dependencies
+                // BUG: soft dependencies arnt managed properly
                 let oldLen = watching.length;
                 do
                 {

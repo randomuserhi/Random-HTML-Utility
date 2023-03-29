@@ -3,7 +3,7 @@
 
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection"] }, function()
+    RHU.module({ module: "x-rhu/localisation", trace: new Error(), hard: ["Map", "RHU.WeakCollection"], soft: ["RHU.Macro"] }, function(e)
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
@@ -11,10 +11,6 @@
             console.warn("Overwriting RHU.Localisation...");
 
         let Localisation = RHU.Localisation = {};
-
-        let symbols = {
-            constructed: Symbol("localisation constructed"),
-        };
 
         // NOTE(randomuserhi): Store a reference to base functions that will be overridden
         let isElement = Object.prototype.isPrototypeOf.bind(HTMLElement.prototype);
@@ -64,14 +60,21 @@
         {
             if (Element_hasAttribute(el, "rhu-loc"))
             {
+                // NOTE(randomuserhi): Applying rhu-loc to a rhu-macro causes undefined behaviour due to
+                //                     the destructive nature of rhu-macro (deleting properties etc...)
+                // TODO(randomuserhi): Update to new dependency API where bug is fixed so 'e' can be used to check
+                //                     dependency instead of RHU.exists
+                //if (e.soft.has.includes("RHU.Macro") && Element_hasAttribute(el, "rhu-macro"))
+                if (RHU.exists(RHU.Macro) && Element_hasAttribute(el, "rhu-macro"))
+                {
+                    console.error("RHU Macros cannot have localisation applied to them.");
+                    watching.delete(el);
+                    return;
+                }
                 if (RHU.exists(schema))
                 {
                     let type = Element_getAttribute(el, "rhu-loc");
-                    if (!RHU.exists(el[symbols.constructed]) || el[symbols.constructed] !== type)
-                    {
-                        RHU.parseOptions(el, schema[el.rhuLoc]);
-                        el[symbols.constructed] = type;
-                    }
+                    RHU.parseOptions(el, schema[el.rhuLoc]);
                 }
 
                 watching.add(el);
