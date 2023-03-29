@@ -20,7 +20,7 @@
 		<rhu-macro rhu-type="woah"></rhu-macro>
 
 		<script type="text/javascript">
-			RHU.module({ hard: ["RHU.Localisation"] }, function(e) {
+			RHU.module({ hard: ["RHU.Localisation"], trace: new Error() }, function(e) {
 				RHU.Localisation.setSchema({"woah": {"innerHTML":"craze"}});
 			});
 

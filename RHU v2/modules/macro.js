@@ -11,8 +11,6 @@
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module({ module: "rhu/macro", trace: new Error(), hard: ["Map", "XPathEvaluator", "RHU.WeakCollection"] }, function()
     {
-        console.log("macro");
-
         //TODO(randomuserhi): read from a config and enable performance logging etc...
 
         if (RHU.exists(RHU.Macro))

@@ -540,6 +540,10 @@
             RHU.definePublicAccessor(RHU, "readyState", {
                 get: function() { return core.readyState; }
             });
+            core.imports = [];
+            RHU.definePublicAccessor(RHU, "imports", {
+                get: function() { return [...core.imports]; }
+            });
 
             let config = core.config;
             let loader = core.loader;
@@ -555,13 +559,27 @@
                 let result = core.dependencies(item.dependencies);
                 if (result.hard.missing.length === 0 && (handleSoft && result.soft.missing.length === 0))
                 {
+                    if (core.exists(item.dependencies.module))
+                    {
+                        let msg = "";
+                        if (core.exists(result.trace))
+                            msg = `\n${result.trace.stack.split("\n")[1]}`;
+                        core.imports.push(`${item.dependencies.module}${msg}`);
+                    }
+                    else
+                    {
+                        let msg = "";
+                        if (core.exists(result.trace))
+                            msg = `\n${result.trace.stack.split("\n")[1]}`;
+                        core.imports.push(`Unknown module${msg}`);
+                    }
                     callback(result);
                     return true;
                 }
                 else if (logging)
                 {
                     let msg = `could not loaded as not all hard dependencies were found.`;
-                    if (RHU.exists(result.trace))
+                    if (core.exists(result.trace))
                         msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
                     for (let dependency of result.hard.missing)
                     {
@@ -585,9 +603,7 @@
                     for (let item of old)
                     {
                         let result = core.dependencies(item.dependencies);
-                        if (result.hard.missing.length === 0 && result.soft.missing.length === 0)
-                            item.callback(result);
-                        else
+                        if (!execute(item, item.callback))
                             watching.push(item);
                     }
                 }
