@@ -632,7 +632,7 @@
             let oncomplete = function()
             {
                 core.readyState = "complete";
-            
+
                 // Attempt to reconcile remaining modules and dependencies
                 { // First handle dependencies that are fully accepted (no missing hard AND soft dependencies)
                     let oldLen = watching.length;
@@ -663,7 +663,7 @@
 
                 // print modules that failed to reconcile
                 for (let item of watching)
-                    execute(item, item.callback, true);
+                    execute(item, item.callback, false, true);
 
                 // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
                 //                     so callback.special accesses window["callback.special"]
