@@ -3,8 +3,8 @@
 	<head>
 		<script type="text/x-rhu-config">
 		RHU.config = {
-			modules: ["macro", "event", "websockets", "rest", "weaks"],
-			extensions: ["rhu/blankImg", "rhu/localisation"],
+			modules: ["macro", "event", "websockets", "rest", "weak", "file"],
+			extensions: ["rhu/blankImg", "rhu/localisation", "rhu/bezier", "rhu/markdown"],
 			/*includes: {
 				"file:///D:/bruh": ["epic"],
 				"": ["woah"]
@@ -41,7 +41,7 @@
 				new RHU.Macro(function() {}, "woah",
 					/*HTML*/`<td>boomer</td><!--woah-->crazy<rhu-macro rhu-type="asd"></rhu-macro>`,
 					{ element: /*HTML*/`<div></div>` });
-			}, new Error());
+			});
 		</script>
 	</body>
 </html>
