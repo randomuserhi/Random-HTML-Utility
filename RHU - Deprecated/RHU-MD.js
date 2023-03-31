@@ -181,6 +181,7 @@ if (window[Symbol.for("RHU")] === undefined ||
 		    this._prev = null;
 		    this._next = null;
 		    this._sourcepos = sourcepos;
+		    // [ start: [line number, col number], end: [line number, col number] ]
 		    this._lastLineBlank = false;
 		    this._lastLineChecked = false;
 		    this._open = true;

@@ -287,7 +287,7 @@
                 RHU.parseOptions(opt, options);
 
                 /** 
-                 * NOTE(randomuserhi): In the event that Map() is not supported:
+                 * NOTE(randomuserhi): In the event that Set() is not supported:
                  *                     Can use an object {} and then do `properties[descriptor] = undefined`,
                  *                     then use `for (let key in properties)` to return an array of properties.
                  */
