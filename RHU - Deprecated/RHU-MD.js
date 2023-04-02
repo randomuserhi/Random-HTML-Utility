@@ -2414,17 +2414,18 @@ if (window[Symbol.for("RHU")] === undefined ||
 		            break;
 		        }
 
+		        // iterate over each block start condition
 		        var i = 0;
 		        while (i < startsLen) {
 		            var res = starts[i](this, container);
-		            if (res === 1) {
+		            if (res === 1) { // A new block is started
 		                container = this.tip;
 		                break;
-		            } else if (res === 2) {
+		            } else if (res === 2) { // A *leaf* is started
 		                container = this.tip;
-		                matchedLeaf = true;
+		                matchedLeaf = true; // exit while loop, since we matched a leaf => you can't have blocks inside of leafs so dont need to check for other block starts
 		                break;
-		            } else {
+		            } else { // nothing found, continue to check next block start condition
 		                i++;
 		            }
 		        }
