@@ -261,18 +261,28 @@
 
         let InlineParser = Markdown.InlineParser = function(schema)
         {
-            throw new Error("Not Implemented.");
+            //throw new Error("Not Implemented.");
         };
-        InlineParser.prototype.parse = function(input, meta)
+        InlineParser.prototype.parse = function(text, meta)
         {
             if (!RHU.exists(meta)) meta = {};
-            let doc = RHU.exists(meta.doc) ? meta.doc : new Document();
-            let lines = RHU.exists(meta.lines) ? meta.lines : input.split(re.newLine);
+            this.doc = RHU.exists(meta.doc) ? meta.doc : new Document();
+            this.reader = RHU.exists(meta.reader) ? meta.reader : new Reader(text);
+            this.stack = [this.doc]; // Block stack => top of the stack is the block you are currently inside
 
-            throw new Error("Not Implemented.");
+            //throw new Error("Not Implemented.");
 
-            return doc;
+            return this.doc;
         };
+
+        // TODO(randomuserhi): Testing => to be removed
+        {
+            let schema = {
+
+            };
+            let parser = new InlineParser(schema);
+            console.log(parser.parse("***bold** italics* ```code```"));
+        }
 
         /**
          * Block Parser => Takes block rules from schema and parses with them
@@ -284,18 +294,20 @@
         };
         Block.prototype.bind = function(parser)
         {
-            this.continue = parser.schema[this.type].continue.bind(this);
+            let definitions = parser.schema.definitions;
+
+            this.continue = definitions[this.type].continue.bind(this);
             
-            if (RHU.exists(parser.schema[this.type].init))
-                this.init = parser.schema[this.type].init.bind(this);
-            if (RHU.exists(parser.schema[this.type].close))
-                this.finalize = parser.schema[this.type].close.bind(this);
+            if (RHU.exists(definitions[this.type].init))
+                this.init = definitions[this.type].init.bind(this);
+            if (RHU.exists(definitions[this.type].close))
+                this.finalize = definitions[this.type].close.bind(this);
 
             let properties = ["acceptsLines", "acceptsBlocks", "allowLazyContinuation", "allowInlineParsing"];
             for (let prop of properties)
             {
-                if (RHU.exists(parser.schema[this.type][prop])) 
-                    this[prop] = parser.schema[this.type][prop];
+                if (RHU.exists(definitions[this.type][prop])) 
+                    this[prop] = definitions[this.type][prop];
             }
             return this;
         };
@@ -383,7 +395,12 @@
                 allowLazyContinuation: true,
                 allowInlineParsing: true
             };
-            this.schema[paragraphBlock] = RHU.parseOptions(paragraph, schema[paragraphBlock]);
+            this.schema.definitions[paragraphBlock] = RHU.parseOptions(paragraph, schema.definitions[paragraphBlock]);
+            this.schema.types = this.schema.types.filter((t) => {
+                if (t === paragraphBlock)
+                    console.warn("Paragraph block cannot be part of the Types list for schema.");
+                return t !== paragraphBlock
+            });
 
             this.Block = (type, sourceRef = undefined) => {
                 return new Block(type, sourceRef).bind(this);
@@ -449,10 +466,10 @@
                 let blockAdded = false;
                 // NOTE(randomuserhi): This doesnt iterate over symbols so paragraph definition isn't
                 //                     checked, which is what we want.
-                for (let type in this.schema)
+                for (let type of this.schema.types)
                 {
                     let meta = {};
-                    if (this.schema[type].start.call(meta, this.reader))
+                    if (this.schema.definitions[type].start.call(meta, this.reader))
                     {
                         let block = this.Block(type);
                         this.addBlock(block, stack);
@@ -538,29 +555,34 @@
 
         {
             let schema = {
-                "header": {
-                    start: function(reader)
-                    {
-                        if (reader.peek() === "#")
+                types: ["header"], // Important cause it also declares precedence
+                definitions: {
+                    "header": {
+                        // TODO(randomuserhi): May need to pass container to handle things like setex headers
+                        //                     Probably requires caller to pass stack or something into this start function
+                        start: function(reader)
                         {
-                            this.count = 1;
-                            return true;
-                        }
-                        return false;
-                    },
-                    continue: function(reader)
-                    {
-                        /*if (reader.peek() === "#")
+                            if (reader.peek() === "#")
+                            {
+                                this.count = 1;
+                                return true;
+                            }
+                            return false;
+                        },
+                        continue: function(reader)
                         {
-                            reader.read(); // consume to get block to continue, otherwise block start will occure again
-                            return Block.MATCH;
-                        }
-                        return Block.NO_MATCH;*/
-                        return Block.NO_MATCH;
-                    },
-                    acceptsBlocks: false,
-                    acceptsLines: true,
-                    allowLazyContinuation: false
+                            /*if (reader.peek() === "#")
+                            {
+                                reader.read(); // consume to get block to continue, otherwise block start will occure again
+                                return Block.MATCH;
+                            }
+                            return Block.NO_MATCH;*/
+                            return Block.NO_MATCH;
+                        },
+                        acceptsBlocks: false,
+                        acceptsLines: true,
+                        allowLazyContinuation: false
+                    }
                 }
             };
             let test = new BlockParser(schema);
