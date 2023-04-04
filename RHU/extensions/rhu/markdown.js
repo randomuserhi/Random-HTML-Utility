@@ -68,9 +68,7 @@
         };
         let Reader = function(text, options = defaultReaderOpt)
         {
-            this.options = {
-                tabSize: 4
-            };
+            this.options = defaultReaderOpt;
             RHU.parseOptions(this.options, options);
             this.text = text;
             // Standardise new line all to \n
@@ -127,34 +125,44 @@
                 }
             }
         });
-        Reader.prototype.peek = function()
+        Reader.prototype.peek = function(length = 1)
         {
-            let c = this.text[this.head.i];
-            if (!RHU.exists(c)) return null;
-            return c;
+            let res = "";
+            for (let i = 0; i < length; ++i)
+            {
+                let c = this.text[this.head.i];
+                if (!RHU.exists(c)) break;
+                res += c;
+            }
+            return res;
         };
-        Reader.prototype.read = function()
+        Reader.prototype.read = function(length = 1)
         {
-            let c = this.text[this.head.i];
-            if (!RHU.exists(c)) return null;
-            ++this.head.i;
-            if (re.newLine.test(c))
+            let res = "";
+            for (let i = 0; i < length; ++i)
             {
-                ++this.head.ln;
-                this.head.col = 0;
-                this.head.idx = 0;
+                let c = this.text[this.head.i];
+                if (!RHU.exists(c)) break;
+                res += c;
+                ++this.head.i;
+                if (re.newLine.test(c))
+                {
+                    ++this.head.ln;
+                    this.head.col = 0;
+                    this.head.idx = 0;
+                }
+                else if (re.tab.test(c))
+                {
+                    ++this.head.idx;
+                    this.head.col += this.options.tabSize - (this.head.col % this.options.tabSize);
+                }
+                else
+                {
+                    ++this.head.idx;
+                    ++this.head.col;
+                }
             }
-            else if (re.tab.test(c))
-            {
-                ++this.head.idx;
-                this.head.col += this.options.tabSize - (this.head.col % this.options.tabSize);
-            }
-            else
-            {
-                ++this.head.idx;
-                ++this.head.col;
-            }
-            return c; 
+            return res; 
         };
         Reader.prototype.readToEndLine = function()
         {
@@ -174,39 +182,44 @@
                 else this.read();
             };
         };
-
-        let documentBlock = Symbol("Document Block");
-        let paragraphBlock = Markdown.paragraphBlock = Symbol("Paragraph Block");
-        let Node = function(type, sourceRef = undefined)
+        // If re matches at current position in the subject, advance
+        // position in subject and return the match; otherwise return null.
+        Reader.prototype.match = function(re)
         {
-            this.type = type;
+            let match = re.exec(this.text.slice(this.head.i));
+            if (match === null) return null;
+            this.read(match.index + match[0].length);
+            return match[0];
+        };
+
+        let _Node = function(name, sourceRef = undefined)
+        {
+            this.name = name;
             this.sourceRef = sourceRef;
             this.children = [];
-
-            this.content = "";
         };
-        Node.prototype.first = function()
-        {
-            return first(this.children);
-        };
-        Node.prototype.last = function()
-        {
-            return last(this.children);
-        };
-        Node.prototype.push = function(...args)
+        RHU.definePublicAccessors(_Node.prototype, {
+            first: {
+                get: function() { return first(this.children); }
+            },
+            last: {
+                get: function() { return last(this.children); }
+            }
+        });
+        _Node.prototype.push = function(...args)
         {
             return this.children.push(...args);
         };
-        Node.prototype.addLine = function(line)
+        _Node.prototype.is = function(constructor)
         {
-            // TODO(randomuserhi): Add line to this.content and handle tabs / indents approapriately
-            this.content += line; // Test line => to be removed.
-            console.warn("Not Implemented.");
+            // TODO(randomuserhi): Maybe test if object is a constructor RHU.isConstructor?
+            return Object.prototype.isPrototypeOf.call(constructor.prototype, this);
         };
 
+        let documentBlock = Symbol("Document Block");
         let Document = function()
         {
-            Node.call(this, documentBlock);
+            _Node.call(this, documentBlock);
             this.sourceRef = new SourceRef(new SourcePos());
         };
         Document.prototype.close = function()
@@ -222,7 +235,7 @@
         Document.prototype.acceptsBlocks = true;
         Document.prototype.allowLazyContinuation = false;
         Document.prototype.allowInlineParsing = false;
-        RHU.inherit(Document, Node);
+        RHU.inherit(Document, _Node);
 
         /**
          * Schema
@@ -257,59 +270,155 @@
 
         /**
          * Inline Parser => Takes inline rules from schema and parses with them
+         *
+         * NOTE(randomuserhi): Inline refers to inside blocks. Inline blocks are refered to as
+         *                     Nodes to differentiate them from blocks.
          */
 
-        let InlineParser = Markdown.InlineParser = function(schema)
+        let Node = function(name = "Node", sourceRef = undefined)
         {
-            //throw new Error("Not Implemented.");
-        };
-        InlineParser.prototype.parse = function(text, meta)
-        {
-            if (!RHU.exists(meta)) meta = {};
-            this.doc = RHU.exists(meta.doc) ? meta.doc : new Document();
-            this.reader = RHU.exists(meta.reader) ? meta.reader : new Reader(text);
-            this.stack = [this.doc]; // Block stack => top of the stack is the block you are currently inside
+            _Node.call(this, name, sourceRef);
+        }
+        RHU.inherit(Node, _Node);
+        RHU.definePublicAccessor(Markdown, "Node", {
+            get: function() { return Node; }
+        });
 
-            //throw new Error("Not Implemented.");
+        let textNode = Symbol("Text Node");
+        let TextNode = function()
+        {
+            Node.call(this, textNode);
+
+            this.text = "";
+        };
+        TextNode.prototype.addText = function(text)
+        {
+            this.text += text;
+        };
+        RHU.inherit(TextNode, Node);
+
+        let InlineParser = Markdown.InlineParser = function(schema, options = undefined)
+        {
+            this.schema = schema;
+
+            this.options = {
+            };
+            Object.assign(this.options, defaultReaderOpt);
+            RHU.parseOptions(this.options, options);
+
+            // Set default text node
+            this.TextNode = TextNode;
+            if (RHU.exists(this.schema.nodes[textNode]))
+                this.TextNode = this.schema.nodes[textNode];
+            
+            this.schema.types = this.schema.types.filter((t) => {
+                if (t === textNode)
+                    console.warn("Text Node cannot be part of the Types list for schema.");
+                return t !== textNode;
+            });
+        };
+        InlineParser.prototype.addNode = function(node)
+        {
+            // TODO(randomuserhi): Set sourceRef of node based on this.reader
+            last(this.stack).push(node)
+            this.stack.push(node);
+        };
+        InlineParser.prototype.parse = function(text, doc = undefined)
+        {
+            this.doc = RHU.exists(doc) ? doc : new Document();
+            this.reader = new Reader(text, this.options);
+            this.stack = [this.doc]; // Node stack => top of the stack is the node you are currently inside
+
+            // NOTE(randomuserhi): infinite loops can be caused if schema
+            //                     fails to consume characters to get the reader to continue
+            //                     We don't check or error out in case it is done with intention
+            //                     by the schema designer. 
+            let c;
+            let run = ""; // stores a run of ongoing characters that are not matched
+            while ((c = this.reader.peek()) !== "")
+            {
+                let noMatch = true;
+                let node = last(this.stack); // Store the node/block we are in prior to adding new nodes from schema
+                for (let type of this.schema.types)
+                {
+                    // TODO(randomuserhi): Test of .call vs .bind in constructor then call here
+                    if (this.schema.nodes[type].match.call(this))
+                    {
+                        // Append the run of ongoing characters to last node/block we were in as a text node
+                        //
+                        // Has to be done to the last node we were in rather than current since the
+                        // buffer of ongoing text is not within the new node schema may have created.
+                        if (run !== "")
+                        {
+                            let text = new this.TextNode();
+                            text.addText(run);
+                            run = "";
+                            node.push(text);
+                        }
+                        node = last(this.stack);
+                        noMatch = false;
+                    }
+                }
+                // If no matches were made by the schema, append character to buffer and continue. 
+                if (noMatch)
+                    run += this.reader.read();
+            };
+            // If we still have ongoing characters in the buffer, append them to the node we are in as a text node 
+            if (run !== "")
+            {
+                let text = new this.TextNode();
+                text.addText(run);
+                run = null;
+                last(this.stack).push(text);
+            }
 
             return this.doc;
         };
 
         // TODO(randomuserhi): Testing => to be removed
         {
-            let schema = {
+            let emphasisNode = function()
+            {
+                Node.call(this, "emphasisNode");
+            };
+            emphasisNode.match = function()
+            {
+                if (this.reader.peek() === "*")
+                {
+                    this.reader.read();
+                    return true;
+                }
+                return false;
+            };
 
+            let schema = {
+                types: ["emphasis"], // Important cause it also defines precedence order
+                nodes: {
+                    "emphasis": emphasisNode
+                }
             };
             let parser = new InlineParser(schema);
             console.log(parser.parse("***bold** italics* ```code```"));
+            // NOTE(randomuserhi):
+            // ~~~
+            // ...
+            // ~~~
+            // is a code block, but ~~text~~ is strikethrough
         }
 
         /**
          * Block Parser => Takes block rules from schema and parses with them
          */
 
-        let Block = function(type, sourceRef = undefined) 
+        let Block = function(name = "Block", sourceRef = undefined) 
         {
-            Node.call(this, type, sourceRef);
-        };
-        Block.prototype.bind = function(parser)
-        {
-            let definitions = parser.schema.definitions;
+            _Node.call(this, name, sourceRef);
 
-            this.continue = definitions[this.type].continue.bind(this);
-            
-            if (RHU.exists(definitions[this.type].init))
-                this.init = definitions[this.type].init.bind(this);
-            if (RHU.exists(definitions[this.type].close))
-                this.finalize = definitions[this.type].close.bind(this);
-
-            let properties = ["acceptsLines", "acceptsBlocks", "allowLazyContinuation", "allowInlineParsing"];
-            for (let prop of properties)
-            {
-                if (RHU.exists(definitions[this.type][prop])) 
-                    this[prop] = definitions[this.type][prop];
-            }
-            return this;
+            this.raw = "";
+            this.acceptsLines = true;
+            this.acceptsBlocks = true;
+            this.allowLazyContinuation = true;
+            this.allowInlineParsing = true;
         };
         Block.prototype.close = function()
         {
@@ -321,20 +430,28 @@
 
             if (RHU.exists(this.finalize)) this.finalize();
         };
-        Block.prototype.addLine = function(line)
+        Block.prototype.addText = function(text)
         {
-            if (this.acceptsLines) 
-                Node.prototype.addLine.call(this, line);
+            // TODO(randomuserhi): Account for tab, new line etc...
+            this.raw += text;
         };
-        Block.prototype.init = function(meta) 
-        { 
-            Object.assign(this, meta);
+        RHU.inherit(Block, _Node);
+        RHU.definePublicAccessor(Markdown, "Block", {
+            get: function() { return Block; }
+        });
+
+        let paragraphBlock = Symbol("Paragraph Block");
+        let ParagraphBlock = function()
+        {
+            Block.call(this, paragraphBlock);
         };
-        Block.prototype.acceptsLines = true;
-        Block.prototype.acceptsBlocks = true;
-        Block.prototype.allowLazyContinuation = true;
-        Block.prototype.allowInlineParsing = true;
-        RHU.inherit(Block, Node);
+        ParagraphBlock.prototype.continue = function(reader) 
+        {
+            if (re.blank.test(reader.peek()))
+                return Block.NO_MATCH;
+            return Block.MATCH;
+        };
+        RHU.inherit(ParagraphBlock, Block);
 
         /**
          * NOTE(randomuserhi): There are 2 types of blocks:
@@ -361,50 +478,25 @@
         Block.MATCH = 1;
         Block.NO_MATCH = 2;
 
-        Markdown.Block = {};
-        RHU.definePublicAccessors(Markdown.Block, {
-            START: {
-                get: function() { return Block.START; }
-            },
-            END: {
-                get: function() { return Block.END; }
-            },
-            MATCH: {
-                get: function() { return Block.MATCH; }
-            },
-            NO_MATCH: {
-                get: function() { return Block.NO_MATCH; }
-            }
-        });
-
-        let BlockParser = Markdown.BlockParser = function(schema)
+        let BlockParser = Markdown.BlockParser = function(schema, options = undefined)
         {
             this.schema = schema;
 
-            // Add default paragraph block to schema
-            // TODO(randomuserhi): Add ability to override `close` method for handling things like reference definitions
-            let paragraph = {
-                continue: function(reader) 
-                {
-                    if (re.blank.test(reader.peek()))
-                        return Block.NO_MATCH;
-                    return Block.MATCH;
-                },
-                acceptsBlocks: true,
-                acceptsLines: true,
-                allowLazyContinuation: true,
-                allowInlineParsing: true
+            this.options = {
             };
-            this.schema.definitions[paragraphBlock] = RHU.parseOptions(paragraph, schema.definitions[paragraphBlock]);
+            Object.assign(this.options, defaultReaderOpt);
+            RHU.parseOptions(this.options, options);
+
+            // Set default paragraph block
+            this.ParagraphBlock = ParagraphBlock;
+            if (RHU.exists(this.schema.blocks[paragraphBlock]))
+                this.ParagraphBlock = this.schema.blocks[paragraphBlock];
+
             this.schema.types = this.schema.types.filter((t) => {
                 if (t === paragraphBlock)
                     console.warn("Paragraph block cannot be part of the Types list for schema.");
-                return t !== paragraphBlock
+                return t !== paragraphBlock;
             });
-
-            this.Block = (type, sourceRef = undefined) => {
-                return new Block(type, sourceRef).bind(this);
-            };
         };
         BlockParser.prototype.addBlock = function(block)
         {
@@ -449,6 +541,11 @@
             let stack = [...this.stack];
             this.stack.splice(slice);
 
+            // NOTE(randomuserhi): infinite loops can be caused if schema
+            //                     fails to consume characters to get the reader to continue
+            //                     (since characters are not consumed, the same block can continously be started)
+            //                     We don't check or error out in case it is done with intention
+            //                     by the schema designer.
             while(last(this.stack).acceptsBlocks)
             {
                 // TODO(randomuserhi): Implement this?? => Need a way of recognising special characters from schema
@@ -465,7 +562,8 @@
                 let blockAdded = false;
                 for (let type of this.schema.types)
                 {
-                    if (this.schema.definitions[type].start.call(this, type))
+                    // TODO(randomuserhi): Test of .call vs .bind in constructor then call here
+                    if (this.schema.blocks[type].start.call(this))
                     {
                         blockAdded = true;
                         break;
@@ -492,7 +590,7 @@
                 this.stack = stack;
 
                 // lazy paragraph continuation
-                last(this.stack).addLine(this.reader.readToEndLine());
+                last(this.stack).addText(this.reader.readToEndLine());
             }
             else // Not lazy continuation
             {
@@ -502,7 +600,7 @@
                 
                 if (last(this.stack).acceptsLines) 
                 {
-                    last(this.stack).addLine(this.reader.readToEndLine());
+                    last(this.stack).addText(this.reader.readToEndLine());
                     /* TODO(randomuserhi): Move this into HTML block Block.END condition
                     // if HtmlBlock, check for end condition
                     if (
@@ -523,17 +621,16 @@
                     if (!re.blank.test(line)) // Check that the line to add isn't blank
                     {
                         // create paragraph container for line
-                        this.addBlock(this.Block(paragraphBlock));
-                        last(this.stack).addLine(line);
+                        this.addBlock(new this.ParagraphBlock());
+                        last(this.stack).addText(line);
                     }
                 }
             }
         };
-        BlockParser.prototype.parse = function(text, meta = undefined)
+        BlockParser.prototype.parse = function(text, doc = undefined)
         {
-            if (!RHU.exists(meta)) meta = {};
-            this.doc = RHU.exists(meta.doc) ? meta.doc : new Document();
-            this.reader = RHU.exists(meta.reader) ? meta.reader : new Reader(text);
+            this.doc = RHU.exists(doc) ? doc : new Document();
+            this.reader = new Reader(text, this.options);
             this.stack = [this.doc]; // Block stack => top of the stack is the block you are currently inside
 
             // parse logic
@@ -548,40 +645,50 @@
         };
 
         {
+            console.log("Testing block parser");
+            // NOTE(randomuserhi): Information, such as for refMap, can be written to the doc node aka `this.doc`
+            let HeaderBlock = function(sourceRef = undefined)
+            {
+                Markdown.Block.call(this, "header", sourceRef);
+
+                this.acceptsBlocks = false;
+                this.acceptsLines = true;
+                this.allowLazyContinuation = false;
+            };
+            HeaderBlock.start = function()
+            {
+                if (this.reader.peek() === "#")
+                {
+                    this.reader.read(); // consume letter
+                    this.reader.nextNonSpace();
+                    let block = new HeaderBlock();
+                    this.addBlock(block);
+                    return true;
+                }
+                return false;
+            };
+            HeaderBlock.prototype.continue = function(reader)
+            {
+                /*if (reader.peek() === "#")
+                {
+                    reader.read(); // consume to get block to continue, otherwise block start will occure again
+                    return Block.MATCH;
+                }
+                return Block.NO_MATCH;*/
+                return Block.NO_MATCH;
+            };
+            RHU.inherit(HeaderBlock, Markdown.Block);
             let schema = {
                 types: ["header"], // Important cause it also declares precedence
-                definitions: {
-                    "header": {
-                        start: function(type)
-                        {
-                            if (this.reader.peek() === "#")
-                            {
-                                this.reader.read(); // consume letter
-                                this.reader.nextNonSpace();
-                                let block = this.Block(type);
-                                this.addBlock(block);
-                                return true;
-                            }
-                            return false;
-                        },
-                        continue: function(reader)
-                        {
-                            /*if (reader.peek() === "#")
-                            {
-                                reader.read(); // consume to get block to continue, otherwise block start will occure again
-                                return Block.MATCH;
-                            }
-                            return Block.NO_MATCH;*/
-                            return Block.NO_MATCH;
-                        },
-                        acceptsBlocks: false,
-                        acceptsLines: true,
-                        allowLazyContinuation: false
-                    }
+                blocks: {
+                    "header": HeaderBlock
                 }
             };
             let test = new BlockParser(schema);
-            console.log(test.parse("# well\n***this** is* a test:\n\nnice!\n\n\ncrazy"));
+            let ast = test.parse("# well\n***this** is* a test:\n\nnice!\n\n\ncrazy");
+            console.log(ast);
+            console.log(ast.first.is(HeaderBlock));
+            console.log(ast.last.is(ParagraphBlock));
         }
 
         /**
