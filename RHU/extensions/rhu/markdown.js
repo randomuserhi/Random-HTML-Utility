@@ -166,7 +166,7 @@
             this.head.idx = 0;
             return line.slice(idx);
         };
-        Reader.prototype.readNextNonSpace = function()
+        Reader.prototype.nextNonSpace = function()
         {
             let c;
             while(RHU.exists(c = this.peek())) {
@@ -406,15 +406,14 @@
                 return new Block(type, sourceRef).bind(this);
             };
         };
-        BlockParser.prototype.addBlock = function(block, stack = undefined)
+        BlockParser.prototype.addBlock = function(block)
         {
             // TODO(randomuserhi): Set sourceRef of block based on this.reader
             // TODO(randomuserhi): Account for canContain => function that returns true if the current block (last(stack))
             //                                               accepts the block being added.
             //                                               If not, close the block and attempt to add again on parent
-            let s = !RHU.exists(stack) ? this.stack : stack;
-            last(s).push(block)
-            s.push(block);
+            last(this.stack).push(block)
+            this.stack.push(block);
         };
         BlockParser.prototype.parseLine = function(line)
         {
@@ -423,7 +422,7 @@
                 line = line.replace(/\0/g, "\uFFFD");
             }
 
-            this.reader.readNextNonSpace();
+            this.reader.nextNonSpace();
 
             // Check which blocks in stack are still matched
             let slice = 0; //slice contains the index of the block that failed to match
@@ -446,11 +445,11 @@
                 }
                 if(noMatch) break;
             }
-            // Create a new stack that contains the correctly matched items
-            // We don't perform any updates to the actual stack in case this is a lazy continuation
-            let stack = [...this.stack].splice(0, slice);
+            // Create a copy of the stack incase this line is part of a lazy continuation
+            let stack = [...this.stack];
+            this.stack.splice(slice);
 
-            while(last(stack).acceptsBlocks)
+            while(last(this.stack).acceptsBlocks)
             {
                 // TODO(randomuserhi): Implement this?? => Need a way of recognising special characters from schema
                 // this is a little performance optimization:
@@ -464,16 +463,10 @@
 
                 // Iterate over each blocks start condition
                 let blockAdded = false;
-                // NOTE(randomuserhi): This doesnt iterate over symbols so paragraph definition isn't
-                //                     checked, which is what we want.
                 for (let type of this.schema.types)
                 {
-                    let meta = {};
-                    if (this.schema.definitions[type].start.call(meta, this.reader))
+                    if (this.schema.definitions[type].start.call(this, type))
                     {
-                        let block = this.Block(type);
-                        this.addBlock(block, stack);
-                        block.init(meta);
                         blockAdded = true;
                         break;
                     }
@@ -492,20 +485,21 @@
             //                                       as before then how can we have a lazy continuation? (We are simply continuing
             //                                       the block as normal if we were still inside the same block)
             // `!re.blank.test(this.reader.peek())` => checks if the text isn't blank
-            // `last(this.stack).allowLazyContinuation()` => check if the block allows lazy continuation
-            if (last(this.stack) !== last(stack) && !re.blank.test(this.reader.peek()) && last(this.stack).allowLazyContinuation) 
+            // `last(stack).allowLazyContinuation()` => check if the block allows lazy continuation
+            if (last(this.stack) !== last(stack) && !re.blank.test(this.reader.peek()) && last(stack).allowLazyContinuation) 
             {
+                // Reset stack as the line was part of a lazy continuation
+                this.stack = stack;
+
                 // lazy paragraph continuation
                 last(this.stack).addLine(this.reader.readToEndLine());
             }
             else // Not lazy continuation
             {
                 // Close unmatched blocks from stack
-                for (let i = slice; i < this.stack.length; ++i)
-                    this.stack[i].close();
-                // Update stack now that we have confirmed it is not a lazy continuation
-                this.stack = stack;
-
+                for (let i = slice; i < stack.length; ++i)
+                    stack[i].close();
+                
                 if (last(this.stack).acceptsLines) 
                 {
                     last(this.stack).addLine(this.reader.readToEndLine());
@@ -558,13 +552,14 @@
                 types: ["header"], // Important cause it also declares precedence
                 definitions: {
                     "header": {
-                        // TODO(randomuserhi): May need to pass container to handle things like setex headers
-                        //                     Probably requires caller to pass stack or something into this start function
-                        start: function(reader)
+                        start: function(type)
                         {
-                            if (reader.peek() === "#")
+                            if (this.reader.peek() === "#")
                             {
-                                this.count = 1;
+                                this.reader.read(); // consume letter
+                                this.reader.nextNonSpace();
+                                let block = this.Block(type);
+                                this.addBlock(block);
                                 return true;
                             }
                             return false;
