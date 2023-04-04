@@ -308,14 +308,8 @@
 
             // Set default text node
             this.TextNode = TextNode;
-            if (RHU.exists(this.schema.nodes[textNode]))
-                this.TextNode = this.schema.nodes[textNode];
-            
-            this.schema.types = this.schema.types.filter((t) => {
-                if (t === textNode)
-                    console.warn("Text Node cannot be part of the Types list for schema.");
-                return t !== textNode;
-            });
+            if (RHU.exists(this.schema[textNode]))
+                this.TextNode = this.schema[textNode];
         };
         InlineParser.prototype.addNode = function(node)
         {
@@ -339,10 +333,10 @@
             {
                 let noMatch = true;
                 let node = last(this.stack); // Store the node/block we are in prior to adding new nodes from schema
-                for (let type of this.schema.types)
+                for (let match of this.schema.matches)
                 {
                     // TODO(randomuserhi): Test of .call vs .bind in constructor then call here
-                    if (this.schema.nodes[type].match.call(this))
+                    if (match.call(this))
                     {
                         // Append the run of ongoing characters to last node/block we were in as a text node
                         //
@@ -381,21 +375,19 @@
             {
                 Node.call(this, "emphasisNode");
             };
-            emphasisNode.match = function()
-            {
-                if (this.reader.peek() === "*")
-                {
-                    this.reader.read();
-                    return true;
-                }
-                return false;
-            };
 
             let schema = {
-                types: ["emphasis"], // Important cause it also defines precedence order
-                nodes: {
-                    "emphasis": emphasisNode
-                }
+                matches: [
+                    function asterisk()
+                    {
+                        if (this.reader.peek() === "*")
+                        {
+                            this.reader.read();
+                            return true;
+                        }
+                        return false;
+                    }
+                ]
             };
             let parser = new InlineParser(schema);
             console.log(parser.parse("***bold** italics* ```code```"));
