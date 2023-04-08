@@ -472,7 +472,21 @@
 
         let BlockParser = Markdown.BlockParser = function(schema, options = undefined)
         {
-            this.schema = schema;
+            let blocks = schema.blocks.filter((t) => {
+                if (t === paragraphBlock)
+                    console.warn("Paragraph block cannot be part of the Types list for schema.");
+                return t !== paragraphBlock;
+            });
+
+            this.schema = [];
+            for (let i = 0; i < blocks.length; ++i)
+            {
+                this.schema.push({
+                    block: blocks[i],
+                    order: i
+                });
+            }
+            this.schema.sort((a, b) => a.precedence - b.precedence);
 
             this.options = {
             };
@@ -481,14 +495,8 @@
 
             // Set default paragraph block
             this.ParagraphBlock = ParagraphBlock;
-            if (RHU.exists(this.schema.blocks[paragraphBlock]))
-                this.ParagraphBlock = this.schema.blocks[paragraphBlock];
-
-            this.schema.types = this.schema.types.filter((t) => {
-                if (t === paragraphBlock)
-                    console.warn("Paragraph block cannot be part of the Types list for schema.");
-                return t !== paragraphBlock;
-            });
+            if (RHU.exists(this.schema[paragraphBlock]))
+                this.ParagraphBlock = this.schema[paragraphBlock];
         };
         BlockParser.prototype.addBlock = function(block)
         {
@@ -499,6 +507,7 @@
             last(this.stack).push(block)
             this.stack.push(block);
         };
+        // TODO(randomuserhi): handle multiple matches => precedence and tie break
         BlockParser.prototype.parseLine = function(line)
         {
             // replace NUL characters for security
@@ -551,20 +560,51 @@
                 }*/
 
                 // Iterate over each blocks start condition
-                let blockAdded = false;
-                for (let type of this.schema.types)
+                // TODO(randomuserhi): Allow multiple start conditions => choose based on precedence + tie break
+                // TODO(randomuserhi): This creates a infinite loop => FIX
+                let matches = [];
+                for (let i = 0; i < this.schema.length; ++i)
                 {
+                    let block = this.schema[i].block;
+                    let order = this.schema[i].order;
                     // TODO(randomuserhi): Test of .call vs .bind in constructor then call here
-                    if (this.schema.blocks[type].start.call(this))
+                    if (block.match.call(this))
                     {
-                        blockAdded = true;
-                        break;
+                        matches.push(block);
+                        
+                        // If next block is not of same precedence, we can stop.
+                        if (this.schema.length === 1 || 
+                            (i + 1 < this.schema.length &&
+                             block.precedence !== this.schema[i + 1].block.precedence))
+                        {
+                            // If only 1 match occured then early out
+                            if (matches.length === 1)
+                                block.start.call(this);
+                            
+                            break;
+                        }
                     }
                 }
 
+                console.log(matches);
+
                 // No blocks were added, proceed
-                if (!blockAdded)
+                if (!matches.length === 0)
                     break;
+                else if (matches.length > 1) // Handle multiple matches
+                {
+                    // Sort by tie break and order if tie break isn't available 
+                    matches.sort((a, b) => {
+                        let aq = RHU.exists(a.block.quality) ? a.block.quality() : -1;
+                        let bq = RHU.exists(b.block.quality) ? b.block.quality() : -1;
+                        // TODO(randomuserhi): check if this order is correct
+                        if (aq === bq) return a.order - b.order;
+                        else return aq - bq; 
+                    });
+
+                    // Choose best match
+                    matches[0].start.call(this);
+                }
             }
 
             // What remains at the offset is a text line.  Add the text to the
@@ -647,17 +687,18 @@
                 this.acceptsLines = true;
                 this.allowLazyContinuation = false;
             };
+            HeaderBlock.precedence = undefined; // TODO(randomuserhi): Implement => order of precendence
+            HeaderBlock.quality = function() {}; // TODO(randomuserhi): precedence tie break value
+            HeaderBlock.match = function() 
+            {
+                return this.reader.peek() === "#";
+            };
             HeaderBlock.start = function()
             {
-                if (this.reader.peek() === "#")
-                {
-                    this.reader.read(); // consume letter
-                    this.reader.nextNonSpace();
-                    let block = new HeaderBlock();
-                    this.addBlock(block);
-                    return true;
-                }
-                return false;
+                this.reader.read(); // consume letter
+                this.reader.nextNonSpace();
+                let block = new HeaderBlock();
+                this.addBlock(block);
             };
             HeaderBlock.prototype.continue = function(reader)
             {
@@ -670,11 +711,17 @@
                 return Block.NO_MATCH;
             };
             RHU.inherit(HeaderBlock, Markdown.Block);
+            // TODO(randomuserhi): New schema => simpler
+            //                     - order in array is default precedence, otherwise precedence value is used
+            //                     - on parser init
+            //                       - sort array ordered by precedence and store another array that maps their position
+            //                         in the original array. (So that the position can be used when tie break and precedence
+            //                         are equal). Since two items cannot be same position in original array, if that is equal
+            //                         throw unreachable error.
             let schema = {
-                types: ["header"], // Important cause it also declares precedence
-                blocks: {
-                    "header": HeaderBlock
-                }
+                blocks: [
+                    HeaderBlock
+                ]
             };
             let test = new BlockParser(schema);
             let ast = test.parse("# well\n***this** is* a test:\n\nnice!\n\n\ncrazy");
