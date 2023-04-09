@@ -149,6 +149,11 @@
             return template.content;
         };
 
+        // TODO(randomuserhi): We can make this more efficient by creating a weakmap of types to their prototypes
+        //                     so that we can assign those chains from the cached map and not need to create duplicate chains
+        //                     E.g say you have 100 macros of type "test". They all have the same prototype but the actual objects of each
+        //                         is different (to prevent overwriting prototypes of the original definition). However these 100 macros
+        //                         can use the same prototype chain meaning we only need to have 1 clone of the original definition instead of 100 
         let clonePrototypeChain = function(prototype, last)
         {
             let next = Object.getPrototypeOf(prototype);
@@ -197,10 +202,10 @@
 
             parseStack.push(type);
 
-            // get prototype of element
-            let proto = element[symbols.prototype];
-            // get old type of element
+            // get old type of element, prior to purging old properties
             let oldType = element[symbols.constructed];
+            // get prototype of element, prior to purging old properties
+            let proto = element[symbols.prototype];
 
             // Clear old element properties
             RHU.delete(element);
@@ -228,9 +233,11 @@
             else
             { 
                 // Handle inheritance
-                
-                // get HTML prototype
-                if (!RHU.exists(proto)) proto = Object.getPrototypeOf(target);
+                if (!RHU.exists(proto))
+                    proto = element[symbols.prototype] = Object.getPrototypeOf(element);
+                else 
+                    element[symbols.prototype] = proto;
+
                 /**
                  * Create a clone of the chain and inherit from it. A clone has to be created to avoid editting the original prototype.
                  *

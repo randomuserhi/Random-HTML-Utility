@@ -275,6 +275,9 @@
          *                     Nodes to differentiate them from blocks.
          */
 
+        // TODO(randomuserhi): rewrite to schema discussed on discord using node, precedence etc
+        //                     - essentially merging simple markdown and commonmark techniques
+
         let Node = function(name = "Node", sourceRef = undefined)
         {
             _Node.call(this, name, sourceRef);
@@ -596,7 +599,7 @@
                         let bq = RHU.exists(b.block.quality) ? b.block.quality() : -1;
                         // TODO(randomuserhi): check if this order is correct
                         if (aq === bq) return a.order - b.order;
-                        else return aq - bq; 
+                        else return bq - aq; // sort by largest quality score
                     });
 
                     // Choose best match
