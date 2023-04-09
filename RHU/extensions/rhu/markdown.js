@@ -561,7 +561,6 @@
 
                 // Iterate over each blocks start condition
                 // TODO(randomuserhi): Allow multiple start conditions => choose based on precedence + tie break
-                // TODO(randomuserhi): This creates a infinite loop => FIX
                 let matches = [];
                 for (let i = 0; i < this.schema.length; ++i)
                 {
@@ -586,10 +585,8 @@
                     }
                 }
 
-                console.log(matches);
-
                 // No blocks were added, proceed
-                if (!matches.length === 0)
+                if (matches.length === 0)
                     break;
                 else if (matches.length > 1) // Handle multiple matches
                 {
