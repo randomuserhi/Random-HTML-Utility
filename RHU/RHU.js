@@ -271,7 +271,7 @@
                 return obj !== null && obj !== undefined;
             };
 
-            RHU.properties = function(obj, options = {}, operation = null)
+            RHU.properties = function(obj, options = {}, operation = undefined)
             {
                 if (!RHU.exists(obj)) throw TypeError("Cannot get properties of 'null' or 'undefined'.");
 
@@ -436,7 +436,7 @@
                 return target;
             };
 
-            RHU.delete = function(object, preserve = null)
+            RHU.delete = function(object, preserve = undefined)
             {
                 if (object === preserve) return;
 
@@ -456,7 +456,7 @@
                 });
             };
 
-            RHU.clone = function(object, prototype = null)
+            RHU.clone = function(object, prototype = undefined)
             {
                 /** 
                  * NOTE(randomuserhi): Performs a shallow clone => references inside the cloned object will be the same
@@ -466,7 +466,7 @@
                 else return RHU.assign(Object.create(Object.getPrototypeOf(object)), object);
             };
 
-            RHU.redefine = function (object, prototype, preserve = null) 
+            RHU.redefine = function (object, prototype, preserve = undefined) 
             {
                 /**
                  * NOTE(randomuserhi): redefines an objects type (prototype), removing old values, but does not 

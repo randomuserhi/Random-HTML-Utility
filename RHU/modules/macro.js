@@ -118,7 +118,8 @@
                 constructor: object,
                 type: type,
                 source: source,
-                options: opt
+                options: opt,
+                protoCache: new RHU.WeakRefMap() // Used by the parser for performance
             });
 
             // parse macros currently of said type
@@ -138,7 +139,8 @@
                 strict: false,
                 encapsulate: undefined,
                 content: undefined
-            }
+            },
+            protoCache: new RHU.WeakRefMap()
         };
 
         let xPathEvaluator = new XPathEvaluator();
@@ -161,12 +163,7 @@
             if (next === Object.prototype) return RHU.clone(prototype, last);
             return RHU.clone(prototype, clonePrototypeChain(next, last));
         };
-
-        //{ proto -> other proto -> other proto } -> HTMLElement
-
-        // NOTE(randomuserhi): Map to weak references
-        let prototypeCache = new RHU.WeakRefMap();
-
+        
         let parseStack = [];
         let watching = new Map(); // Stores active macros that are being watched
         Macro.watching = watching;
@@ -260,7 +257,22 @@
                  *                     The downside to this approach over setPrototypeOf is the inability to call parent methods since obv they dont exist
                  *                     in the prototype.
                  */
-                proxy = Object.create(clonePrototypeChain(constructor.prototype, proto));
+
+                // load cached cloned prototypes for performance
+                let protoCache = definition.protoCache;
+                let cachedProto = protoCache.get(proto);
+                if (RHU.exists(cachedProto))
+                {
+                    //console.log(`${definition === defaultDefinition ? "undefined" : type} cached: ${proto}`);
+                    proxy = Object.create(cachedProto);
+                }
+                else
+                {
+                    //console.log(`${definition === defaultDefinition ? "undefined" : type} not cached: ${proto}`);
+                    let clonedProto = clonePrototypeChain(constructor.prototype, proto);
+                    protoCache.set(proto, clonedProto);
+                    proxy = Object.create(clonedProto);
+                }
                 Object.setPrototypeOf(target, proxy);
 
                 // NOTE(randomuserhi): Alternate method that does not use setPrototypeOf in the event of performance

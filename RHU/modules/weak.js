@@ -7,6 +7,7 @@
         
         let Map_set = Map.prototype.set;
         let Map_keys = Map.prototype.keys;
+        let Map_get = Map.prototype.get;
 
         let _WeakRefMapConstructor = function() 
         {
@@ -29,11 +30,19 @@
             this._registry.register(value, key);
             return Map_set.call(this, key, new WeakRef(value));
         };
+        RHU.WeakRefMap.prototype.get = function(key)
+        {
+            let raw = Map_get.call(this, key);
+            if (!RHU.exists(raw)) return undefined;
+            let value = raw.deref();
+            if (!RHU.exists(value)) return undefined;
+            return value;
+        };
         RHU.WeakRefMap.prototype.values = function* ()
         {
             for (let key of Map_keys.call(this))
             {
-                let value = this.get(key).deref();
+                let value = Map_get.call(this, key).deref();
                 if (RHU.exists(value)) yield value;
                 else this.delete(key);
             }
@@ -42,7 +51,7 @@
         {
             for (let key of Map_keys.call(this))
             {
-                let value = this.get(key).deref();
+                let value = Map_get.call(this, key).deref();
                 if (RHU.exists(value)) yield [ key, value ];
                 else this.delete(key);
             }
