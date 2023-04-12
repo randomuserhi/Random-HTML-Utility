@@ -442,6 +442,8 @@
              *                     
              *                     Thus the only potential fix would be to allow the user to control when this initial load call is made
              *                     such that they can call it after they defined all their macros.
+             *                     - This can be implemented by using rhu-config, just expose config options on load so modules can access
+             *                       them and read them.
              */
 
             // Expand <rhu-macro> tags into their original macros
