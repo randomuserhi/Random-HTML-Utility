@@ -13,6 +13,11 @@
     {
         //TODO(randomuserhi): read from a config and enable performance logging etc...
         //TODO(randomuserhi): documentation
+        //TODO(randomuserhi): Implement a way to create a macro from HTML definition
+        //                    so you can RHU.Macro.fromHTML(element) and it will generate a macro definition
+        //                    including nested definitions with proper error handling.
+        //                    This is useful to handle macros that only exist one time (like a navbar)
+        //                    - Maybe in this case fromHTML() shouldnt create a defintion and just return a 1 time macro object
 
         if (RHU.exists(RHU.Macro))
             console.warn("Overwriting RHU.Macro...");
