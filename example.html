@@ -4,7 +4,7 @@
 		<script type="text/x-rhu-config">
 		RHU.config = {
 			modules: ["macro", "event", "websockets", "rest", "weak", "file"],
-			extensions: ["rhu/layout", "rhu/blankImg", "rhu/localisation", "rhu/bezier", "rhu/markdown"],
+			extensions: ["rhu/layout", "rhu/anim", "rhu/blankImg", "rhu/localisation", "rhu/bezier", "rhu/markdown"],
 			/*includes: {
 				"file:///D:/bruh": ["epic"],
 				"": ["woah"]
@@ -20,6 +20,19 @@
 		<script type="text/javascript">
 			RHU.module({ hard: ["RHU.Localisation"], trace: new Error() }, function(e) {
 				RHU.Localisation.setSchema({"woah": {"innerHTML":"craze"}});
+			});
+
+			RHU.module({ module: "Testing weak module", trace: new Error(), hard: ["RHU.WeakCollection", "RHU.WeakRefMap"] }, function()
+			{
+				window.testWeakCollection = new RHU.WeakCollection();
+				window.testWeakRefMap = new RHU.WeakRefMap();
+				function a()
+				{
+				    let b = {};
+				    testWeakCollection.add(b);
+				    testWeakRefMap.set("crazy", b);
+				}
+				a();
 			});
 
 			RHU.module({ module: "internal", trace: new Error(), hard: ["RHU.Macro", "RHU.Localisation", "RHU.Layout"] }, function(e) {

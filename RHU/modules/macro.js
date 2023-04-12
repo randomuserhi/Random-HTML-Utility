@@ -96,7 +96,6 @@
 
         let Macro = RHU.Macro = function(object, type, source = "", options)
         {
-            if (new.target === undefined) throw new TypeError("Constructor Macro requires 'new'.");
             if (type == "") throw new SyntaxError("'type' cannot be blank.");
             if (typeof type !== "string") throw new TypeError("'type' must be a string.");
             if (typeof source !== "string") throw new TypeError("'source' must be a string.");
@@ -127,6 +126,8 @@
             if (RHU.exists(update))
                 for (let el of update)
                     Macro.parse(el, type, true);
+
+            return undefined;
         };
         let templates = new Map();
         let defaultDefinition = {
@@ -160,6 +161,11 @@
             if (next === Object.prototype) return RHU.clone(prototype, last);
             return RHU.clone(prototype, clonePrototypeChain(next, last));
         };
+
+        //{ proto -> other proto -> other proto } -> HTMLElement
+
+        // NOTE(randomuserhi): Map to weak references
+        let prototypeCache = new RHU.WeakRefMap();
 
         let parseStack = [];
         let watching = new Map(); // Stores active macros that are being watched
@@ -538,7 +544,7 @@
         };
         if (document.readyState === "loading") 
             document.addEventListener("DOMContentLoaded", onDocumentLoad);
-        // Document may have loaded already since the script is declared as defer, in this case just call onload
+        // Document may have loaded already if the script is declared as defer, in this case just call onload
         else 
             onDocumentLoad();
     });

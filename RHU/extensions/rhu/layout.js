@@ -109,7 +109,7 @@
         {
             if (this.bindMap.has(anchor))
                 this.clear(anchor)    
-            this.bindMap.set(anchor, new Bind(this, target, anchor, opt));   
+            this.bindMap.set(anchor, new Bind(this, target, anchor, opt));
         };
         Layout.prototype.clear = function(anchor)
         {
@@ -120,6 +120,6 @@
             }
         };
 
-        bindLoop();
+        bindLoop(); // start the animation loop handling binds
     });
 })();
