@@ -152,11 +152,6 @@
             return template.content;
         };
 
-        // TODO(randomuserhi): We can make this more efficient by creating a weakmap of types to their prototypes
-        //                     so that we can assign those chains from the cached map and not need to create duplicate chains
-        //                     E.g say you have 100 macros of type "test". They all have the same prototype but the actual objects of each
-        //                         is different (to prevent overwriting prototypes of the original definition). However these 100 macros
-        //                         can use the same prototype chain meaning we only need to have 1 clone of the original definition instead of 100 
         let clonePrototypeChain = function(prototype, last)
         {
             let next = Object.getPrototypeOf(prototype);
