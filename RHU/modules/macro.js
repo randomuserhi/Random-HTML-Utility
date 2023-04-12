@@ -432,6 +432,18 @@
 
         let load = function()
         {
+            /**
+             * NOTE(randomuserhi): Due to definitions not being loaded at the time of this parsing stage,
+             *                     the outer hull of elements will be incorrectly parsed, and since re-parsing doesn't alter the
+             *                     outer hull, they will not be generated correctly. This can be seen by using a <rhu-macro> tag
+             *                     and then trying to set outer hull properties in definition post load.
+             *                     It is not reasonable to fix this via regular means due to how the outer hull element should not be
+             *                     overwritten and how undefined types work.
+             *                     
+             *                     Thus the only potential fix would be to allow the user to control when this initial load call is made
+             *                     such that they can call it after they defined all their macros.
+             */
+
             // Expand <rhu-macro> tags into their original macros
             // TODO(randomuserhi): consider using a custom element to convert <rhu-macro>, also allows for document.createElement();
             // NOTE(randomuserhi): this expansion is the same as done in _parse, consider
@@ -448,7 +460,6 @@
 
                 let doc = Macro.parseDomString(options.element);
                 let macro = doc.children[0];
-                if (!RHU.exists(macro)) macro = doc.children[0];
                 if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
                 else
                 {
