@@ -5,6 +5,8 @@
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module({ module: "x-rhu/layout", trace: new Error(), hard: ["RHU.Macro", "RHU.WeakCollection"] }, function()
     {
+        // NOTE(randomuserhi): API is used for situations where media-queries are unable to give you the layout differences that you need.
+
         if (RHU.exists(RHU.Layout))
             console.warn("Overwriting RHU.Layout...");
 
