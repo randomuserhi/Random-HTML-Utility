@@ -25,21 +25,21 @@
             }
         });
 
-        let ws = RHU.reflectConstruct(WebSocket, function(url, protocols = [])
-        {
-            /**
-             * @property{public}    queue{List[String]}     List of enqueued messages to be sent.   
-             */
+        let ws = RHU.reflectConstruct(WebSocket, function ws(url, protocols = [])
+            {
+                /**
+                 * @property{public}    queue{List[String]}     List of enqueued messages to be sent.   
+                 */
 
-            this.queue = [];
+                this.queue = [];
 
-            this.addEventListener("open", () => {
-                // Send messages in queue, NOTE(randomuserhi): A simple for loop can be used, but this
-                //                                             just shows shift() function exists :)
-                while (this.queue.length) 
-                    WebSocket.prototype.send.call(this, this.queue.shift());
+                this.addEventListener("open", () => {
+                    // Send messages in queue, NOTE(randomuserhi): A simple for loop can be used, but this
+                    //                                             just shows shift() function exists :)
+                    while (this.queue.length) 
+                        WebSocket.prototype.send.call(this, this.queue.shift());
+                });
             });
-        });
         ws.prototype.send = function(data)
         {
             if (this.readyState === RHU.WebSockets.OPEN)
