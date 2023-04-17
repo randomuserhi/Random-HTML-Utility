@@ -506,17 +506,17 @@
                 let args = argnames;
                 if (!RHU.exists(args))
                 {
-                    let args = ["...args"];
+                    args = ["...args"];
 
                     let STRIP_COMMENTS = /((\/\/.*$)|(\/\*.*\*\/))/mg;
                     let funcString = constructor.toString().replace(STRIP_COMMENTS, "");
                     if (funcString.indexOf("function") === 0)
                     {
                         let s = funcString.substring("function".length).trimStart();
-                        let args = s.substring(s.indexOf("("), s.indexOf(")"))
-                                    .split(",")
-                                    .map((a) => a.trim())
-                                    .filter((c) => c !== "");
+                        args = s.substring(s.indexOf("("), s.indexOf(")"))
+                                .split(",")
+                                .map((a) => a.trim())
+                                .filter((c) => c !== "");
                     }
                 }
 
