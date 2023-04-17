@@ -498,20 +498,45 @@
                 Object.setPrototypeOf(child, base); // Inherit static properties
             };
 
-            RHU.reflectConstruct = function(child, base, constructor)
+            RHU.reflectConstruct = function(base, constructor, argnames = undefined)
             {
-                if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`);
+                if (!RHU.isConstructor(base)) throw new TypeError(`'constructor' and 'base' must be object constructors.`);
 
-                return function(newTarget, args = [])
+                // Get arguments from constructor or from provided argnames
+                let args = argnames;
+                if (!RHU.exists(args))
+                {
+                    let args = ["...args"];
+
+                    let STRIP_COMMENTS = /((\/\/.*$)|(\/\*.*\*\/))/mg;
+                    let funcString = constructor.toString().replace(STRIP_COMMENTS, "");
+                    if (funcString.indexOf("function") === 0)
+                    {
+                        let s = funcString.substring("function".length).trimStart();
+                        let args = s.substring(s.indexOf("("), s.indexOf(")"))
+                                    .split(",")
+                                    .map((a) => a.trim())
+                                    .filter((c) => c !== "");
+                    }
+                }
+
+                // Create function definition with provided signature
+                let definition = new Function(args, `return definition.__reflect__.call(this, new.target, [${args.join(",")}]);`);
+
+                // NOTE(randomuserhi): Careful with naming conflicts since JS may add __constructor__ as a standard function property
+                definition.__constructor__ = constructor;
+                definition.__reflect__ = function(newTarget, args = [])
                 {
                     if (RHU.exists(newTarget))
                     {
-                        let obj = Reflect.construct(base, args, child);
-                        constructor.call(obj, ...args);
+                        let obj = Reflect.construct(base, args, definition);
+                        definition.__constructor__.call(obj, ...args);
                         return obj;
                     }
-                    else constructor.call(this, ...args);
+                    else definition.__constructor__.call(this, ...args);
                 };
+
+                return definition; 
             };
 
             RHU.parseOptions = function(template, opt, inplace = true)

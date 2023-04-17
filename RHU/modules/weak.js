@@ -9,8 +9,7 @@
         let Map_keys = Map.prototype.keys;
         let Map_get = Map.prototype.get;
 
-        RHU.WeakRefMap = function() { return RHU.WeakRefMap.__reflect__.call(this, new.target, []); };
-        RHU.WeakRefMap.__constructor__ = function()
+        RHU.WeakRefMap = RHU.reflectConstruct(Map, function()
         {
             // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
             //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
@@ -23,8 +22,7 @@
             this._registry = new FinalizationRegistry((key) => {
                 this.delete(key);
             });
-        };
-        RHU.WeakRefMap.__reflect__ = RHU.reflectConstruct(RHU.WeakRefMap, Map, RHU.WeakRefMap.__constructor__);
+        });
         RHU.WeakRefMap.prototype.set = function(key, value)
         {
             this._registry.register(value, key);
@@ -61,8 +59,7 @@
         let WeakSet_add = WeakSet.prototype.add;
         let WeakSet_delete = WeakSet.prototype.delete;
 
-        RHU.WeakCollection = function() { return RHU.WeakCollection.__reflect__.call(this, new.target, []); };
-        RHU.WeakCollection.__constructor__ = function()
+        RHU.WeakCollection = RHU.reflectConstruct(WeakSet, function()
         {
             this._collection = [];
             // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
@@ -78,8 +75,7 @@
                     return RHU.exists(i.deref()); 
                 });
             });
-        };
-        RHU.WeakCollection.__reflect__ = RHU.reflectConstruct(RHU.WeakCollection, WeakSet, RHU.WeakCollection.__constructor__);
+        });
         RHU.WeakCollection.prototype.add = function(...items)
         {
             for (let item of items)

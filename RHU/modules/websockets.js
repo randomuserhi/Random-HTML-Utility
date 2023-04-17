@@ -25,8 +25,7 @@
             }
         });
 
-        let ws = function(url, protocols = []) { return ws.__reflect__.call(this, new.target, [ url, protocols ]); };
-        ws.__constructor__ = function(url, protocols = [])
+        let ws = RHU.reflectConstruct(WebSocket, function(url, protocols = [])
         {
             /**
              * @property{public}    queue{List[String]}     List of enqueued messages to be sent.   
@@ -40,8 +39,7 @@
                 while (this.queue.length) 
                     WebSocket.prototype.send.call(this, this.queue.shift());
             });
-        };
-        ws.__reflect__ = RHU.reflectConstruct(ws, WebSocket, ws.__constructor__);
+        });
         ws.prototype.send = function(data)
         {
             if (this.readyState === RHU.WebSockets.OPEN)
