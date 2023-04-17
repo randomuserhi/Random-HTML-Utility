@@ -498,17 +498,9 @@
                 Object.setPrototypeOf(child, base); // Inherit static properties
             };
 
-            RHU.reflectConstruct = function(base, constructor, opt)
+            RHU.reflectConstruct = function(base, name, constructor, argnames = undefined)
             {
                 if (!RHU.isConstructor(base)) throw new TypeError(`'constructor' and 'base' must be object constructors.`);
-
-                let options = {
-                    name: undefined,
-                    argnames: undefined
-                };
-                RHU.parseOptions(options, opt);
-                let name = options.name;
-                let argnames = options.argnames;
 
                 // Get arguments from constructor or from provided argnames
                 let args = argnames;
@@ -533,9 +525,17 @@
                 let argstr = args.join(",");
                 if (!RHU.exists(name))
                     name = constructor.name;
-                name.replace(/[ .\t\r\n]/g, "_");
+                name.replace(/[ \t\r\n]/g, "");
                 if (name === "") name = "__ReflectConstruct__";
-                eval(`{ let ${name} = function(${argstr}) { return definition.__reflect__.call(this, new.target, [${argstr}]); }; definition = ${name}; }`);
+                let parts = name.split(".").filter(c => c !== "");
+                let evalStr = "{ let ";
+                for (let i = 0; i < parts.length - 1; ++i)
+                {
+                    let part = parts[i];
+                    evalStr += `${part} = {}; ${part}.`;
+                }
+                evalStr += `${parts[parts.length - 1]} = function(${argstr}) { return definition.__reflect__.call(this, new.target, [${argstr}]); }; definition = ${parts.join(".")} }`;
+                eval(evalStr);
 
                 if (!RHU.exists(definition))
                 {

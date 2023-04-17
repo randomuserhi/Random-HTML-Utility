@@ -25,7 +25,7 @@
             }
         });
 
-        let ws = RHU.reflectConstruct(WebSocket, function ws(url, protocols = [])
+        let ws = RHU.reflectConstruct(WebSocket, "RHU.ws", function(url, protocols = [])
             {
                 /**
                  * @property{public}    queue{List[String]}     List of enqueued messages to be sent.   
