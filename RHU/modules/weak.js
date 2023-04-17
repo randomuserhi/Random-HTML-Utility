@@ -10,19 +10,19 @@
         let Map_get = Map.prototype.get;
 
         RHU.WeakRefMap = RHU.reflectConstruct(Map, "WeakRefMap", function()
-            {
-                // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
-                //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
-                //                     collection only occures on deletion / iteration of the collection which can
-                //                     cause huge memory consumption as the collection of WeakRef grows.
-                //                     - The version that runs without FinalizationRegistry, if it is moved, to a soft
-                //                       dependency, would simply run a setTimeout loop which will filter the collection every
-                //                       30 seconds or something (or do analysis on how frequent its used to determine how often)
-                //                       cleanup is required.
-                this._registry = new FinalizationRegistry((key) => {
-                    this.delete(key);
-                });
+        {
+            // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
+            //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
+            //                     collection only occures on deletion / iteration of the collection which can
+            //                     cause huge memory consumption as the collection of WeakRef grows.
+            //                     - The version that runs without FinalizationRegistry, if it is moved, to a soft
+            //                       dependency, would simply run a setTimeout loop which will filter the collection every
+            //                       30 seconds or something (or do analysis on how frequent its used to determine how often)
+            //                       cleanup is required.
+            this._registry = new FinalizationRegistry((key) => {
+                this.delete(key);
             });
+        });
         RHU.WeakRefMap.prototype.set = function(key, value)
         {
             this._registry.register(value, key);
@@ -60,22 +60,22 @@
         let WeakSet_delete = WeakSet.prototype.delete;
 
         RHU.WeakCollection = RHU.reflectConstruct(WeakSet, "RHU.WeakCollection", function()
-            {
-                this._collection = [];
-                // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
-                //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
-                //                     collection only occures on deletion / iteration of the collection which can
-                //                     cause huge memory consumption as the collection of WeakRef grows.
-                //                     - The version that runs without FinalizationRegistry, if it is moved, to a soft
-                //                       dependency, would simply run a setTimeout loop which will filter the collection every
-                //                       30 seconds or something (or do analysis on how frequent its used to determine how often)
-                //                       cleanup is required.
-                this._registry = new FinalizationRegistry(() => {
-                    this._collection = this._collection.filter((i) => {
-                        return RHU.exists(i.deref()); 
-                    });
+        {
+            this._collection = [];
+            // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
+            //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
+            //                     collection only occures on deletion / iteration of the collection which can
+            //                     cause huge memory consumption as the collection of WeakRef grows.
+            //                     - The version that runs without FinalizationRegistry, if it is moved, to a soft
+            //                       dependency, would simply run a setTimeout loop which will filter the collection every
+            //                       30 seconds or something (or do analysis on how frequent its used to determine how often)
+            //                       cleanup is required.
+            this._registry = new FinalizationRegistry(() => {
+                this._collection = this._collection.filter((i) => {
+                    return RHU.exists(i.deref()); 
                 });
             });
+        });
         RHU.WeakCollection.prototype.add = function(...items)
         {
             for (let item of items)

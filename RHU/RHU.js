@@ -514,9 +514,9 @@
                     {
                         let s = funcString.substring("function".length).trimStart();
                         args = s.substring(s.indexOf("(") + 1, s.indexOf(")"))
-                                .split(",")
-                                .map((a) => a.trim())
-                                .filter((c) => c !== "");
+                            .split(",")
+                            .map((a) => a.trim())
+                            .filter((c) => c !== "");
                     }
                 }
 

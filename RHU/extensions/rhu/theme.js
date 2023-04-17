@@ -4,7 +4,7 @@
     let RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("");
     RHU.module({ module: "x-rhu/theme", trace: new Error(), hard: [] }, function() {
-         if (RHU.exists(RHU.Theme))
+        if (RHU.exists(RHU.Theme))
             console.warn("Overwriting RHU.Theme...");
 
         let Theme = RHU.Theme = {};
