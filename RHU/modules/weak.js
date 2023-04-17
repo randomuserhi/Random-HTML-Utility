@@ -9,7 +9,8 @@
         let Map_keys = Map.prototype.keys;
         let Map_get = Map.prototype.get;
 
-        let _WeakRefMapConstructor = function() 
+        RHU.WeakRefMap = function() { return RHU.WeakRefMap.__reflect__.call(this, new.target, []); };
+        RHU.WeakRefMap.__constructor__ = function()
         {
             // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
             //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
@@ -23,8 +24,7 @@
                 this.delete(key);
             });
         };
-        RHU.WeakRefMap = function() { return _WeakRefMapReflect.call(this, new.target, []); };
-        let _WeakRefMapReflect = RHU.reflectConstruct(RHU.WeakRefMap, Map, _WeakRefMapConstructor);
+        RHU.WeakRefMap.__reflect__ = RHU.reflectConstruct(RHU.WeakRefMap, Map, RHU.WeakRefMap.__constructor__);
         RHU.WeakRefMap.prototype.set = function(key, value)
         {
             this._registry.register(value, key);
@@ -61,7 +61,8 @@
         let WeakSet_add = WeakSet.prototype.add;
         let WeakSet_delete = WeakSet.prototype.delete;
 
-        let _WeakCollectionConstructor = function()
+        RHU.WeakCollection = function() { return RHU.WeakCollection.__reflect__.call(this, new.target, []); };
+        RHU.WeakCollection.__constructor__ = function()
         {
             this._collection = [];
             // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
@@ -78,8 +79,7 @@
                 });
             });
         };
-        RHU.WeakCollection = function() { return _WeakCollectionReflect.call(this, new.target, []); };
-        let _WeakCollectionReflect = RHU.reflectConstruct(RHU.WeakCollection, WeakSet, _WeakCollectionConstructor);
+        RHU.WeakCollection.__reflect__ = RHU.reflectConstruct(RHU.WeakCollection, WeakSet, RHU.WeakCollection.__constructor__);
         RHU.WeakCollection.prototype.add = function(...items)
         {
             for (let item of items)
