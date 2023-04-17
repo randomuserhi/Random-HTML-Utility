@@ -683,14 +683,15 @@
 
             RHU.module = function(dependencies, callback)
             {
+                let item = {
+                    dependencies: dependencies,
+                    callback: callback
+                };
                 if (core.readyState !== "complete")
                 {
-                    watching.push({
-                        dependencies: dependencies,
-                        callback: callback
-                    });
+                    watching.push(item);
                 }
-                else execute(dependencies, callback, true);
+                else execute(item, item.callback, true, true);
             };
 
             for (let extension of config.extensions)
@@ -730,6 +731,7 @@
                 for (let include of includes.keys())
                 {
                     let module = includes.get(include);
+                    modules.add(module); // NOTE(randomuserhi): Add module to module set as includes are treated the same as modules (they are just parsed differently when adding to load queue)
                     loader.JS(include, { module: module }, (success) => { onload(success, { module: module }); });
                 }
             }
