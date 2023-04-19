@@ -40,6 +40,10 @@
                     WebSocket.prototype.send.call(this, this.queue.shift());
             });
         });
+        ws.__arguments__ = function(url, protocols = [])
+        {
+            return [url, protocols];
+        };
         ws.prototype.send = function(data)
         {
             if (this.readyState === RHU.WebSockets.OPEN)

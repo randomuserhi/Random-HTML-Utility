@@ -553,11 +553,15 @@
 
                 // NOTE(randomuserhi): Careful with naming conflicts since JS may add __constructor__ as a standard function property
                 definition.__constructor__ = constructor;
+                definition.__arguments__ = function()
+                {
+                    return [];
+                };
                 definition.__reflect__ = function(newTarget, args = [])
                 {
                     if (RHU.exists(newTarget))
                     {
-                        let obj = Reflect.construct(base, args, definition);
+                        let obj = Reflect.construct(base, definition.__arguments__(...args), definition);
                         definition.__constructor__.call(obj, ...args);
                         return obj;
                     }
