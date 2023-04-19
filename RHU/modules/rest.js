@@ -66,7 +66,7 @@
             }
         };
 
-        Rest.fetchJson = function(options)
+        Rest.fetchJSON = function(options)
         {
             let opt = {
                 url: undefined,
