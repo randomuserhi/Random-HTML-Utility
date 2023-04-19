@@ -40,7 +40,7 @@
                     WebSocket.prototype.send.call(this, this.queue.shift());
             });
         });
-        ws.__arguments__ = function(url, protocols = [])
+        ws.__args__ = function(url, protocols = [])
         {
             return [url, protocols];
         };
