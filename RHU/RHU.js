@@ -515,7 +515,12 @@
                         let s = funcString.substring("function".length).trimStart();
                         args = s.substring(s.indexOf("(") + 1, s.indexOf(")"))
                             .split(",")
-                            .map((a) => a.trim())
+                            .map((a) => {
+                                let clean = a.trim();
+                                // Remove optional assignment in parameters
+                                clean = clean.split(/[ =]/)[0];
+                                return clean;
+                            })
                             .filter((c) => c !== "");
                     }
                 }
