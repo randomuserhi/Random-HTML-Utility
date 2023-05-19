@@ -17,7 +17,88 @@
 	<body>
 		<rhu-macro rhu-type="layout"></rhu-macro>
 
+        <video controls>
+            <source src="https://www3.mp4upload.com/files/1/pu3rdqy0ijzye1/video.mp4" type="video/mp4">
+        </video>
+
 		<script type="text/javascript">
+			RHU.module({ hard: ["RHU.Rest"], trace: new Error() }, function(e) {
+				let request = RHU.Rest.fetch(
+					{
+						url: `https://api.openai.com/v1/models`,
+						fetch: { 
+							method: "GET",
+							headers: {
+								"Authorization": "Bearer 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",
+								"OpenAI-Organization": "org-3y7cOPT6W2m8ZuVUouJvfyUR"
+							},
+						},
+						parser: function() {
+						    return {
+						    	/*urlParams: {
+						    	},*/
+						    	/*body: {
+							    }*/
+						    }
+						},
+						callback: async function(resp)
+						{
+							if (resp.status == 200)
+							{
+								let json = await resp.json();
+					            return json;
+							}
+							else 
+							{
+								return null;
+							}
+						}
+					});
+
+				(async function() {
+					console.log(await request());
+				})();
+			});
+
+			RHU.module({ hard: ["RHU.Rest"], trace: new Error() }, function(e) {
+				let request = RHU.Rest.fetchJSON(
+					{
+						url: `https://api.openai.com/v1/chat/completions`,
+						fetch: { 
+							method: "POST",
+							headers: {
+								"Authorization": "Bearer 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",
+								"OpenAI-Organization": "org-3y7cOPT6W2m8ZuVUouJvfyUR"
+							},
+						},
+						parser: function() {
+						    return {
+						    	body: {
+									"model": "gpt-3.5-turbo",
+									"messages": [{"role": "user", "content": "Say this is a test!"}],
+									"temperature": 0.7
+								}
+						    }
+						},
+						callback: async function(resp)
+						{
+							if (resp.status == 200)
+							{
+								let json = await resp.json();
+					            return json;
+							}
+							else 
+							{
+								return null;
+							}
+						}
+					});
+
+				(async function() {
+					console.log(await request());
+				})();
+			});
+
 			RHU.module({ hard: ["RHU.Localisation"], trace: new Error() }, function(e) {
 				RHU.Localisation.setSchema({"woah": {"innerHTML":"craze"}});
 			});

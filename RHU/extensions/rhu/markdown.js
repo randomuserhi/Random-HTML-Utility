@@ -192,13 +192,13 @@
             return match[0];
         };
 
-        let _Node = function(name, sourceRef = undefined)
+        let __Node__ = function(name, sourceRef = undefined)
         {
             this.name = name;
             this.sourceRef = sourceRef;
             this.children = [];
         };
-        RHU.definePublicAccessors(_Node.prototype, {
+        RHU.definePublicAccessors(__Node__.prototype, {
             first: {
                 get: function() { return first(this.children); }
             },
@@ -206,20 +206,25 @@
                 get: function() { return last(this.children); }
             }
         });
-        _Node.prototype.push = function(...args)
+        __Node__.prototype.push = function(...args)
         {
             return this.children.push(...args);
         };
-        _Node.prototype.is = function(constructor)
+        __Node__.prototype.is = function(constructor)
         {
             // TODO(randomuserhi): Maybe test if object is a constructor RHU.isConstructor?
             return Object.prototype.isPrototypeOf.call(constructor.prototype, this);
+        };
+        __Node__.is = function(target, constructor)
+        {
+            if (target === constructor) return true;
+            return Object.prototype.isPrototypeOf.call(constructor, target);
         };
 
         let documentBlock = Symbol("Document Block");
         let Document = function()
         {
-            _Node.call(this, documentBlock);
+            __Node__.call(this, documentBlock);
             this.sourceRef = new SourceRef(new SourcePos());
         };
         Document.prototype.close = function()
@@ -231,11 +236,15 @@
         {
             return Block.MATCH;
         };
+        Document.prototype.canContain = function(block)
+        {
+            return true;
+        }
         Document.prototype.acceptsLines = false;
         Document.prototype.acceptsBlocks = true;
         Document.prototype.allowLazyContinuation = false;
         Document.prototype.allowInlineParsing = false;
-        RHU.inherit(Document, _Node);
+        RHU.inherit(Document, __Node__);
 
         /**
          * Schema
@@ -275,14 +284,11 @@
          *                     Nodes to differentiate them from blocks.
          */
 
-        // TODO(randomuserhi): rewrite to schema discussed on discord using node, precedence etc
-        //                     - essentially merging simple markdown and commonmark techniques
-
         let Node = function(name = "Node", sourceRef = undefined)
         {
-            _Node.call(this, name, sourceRef);
+            __Node__.call(this, name, sourceRef);
         }
-        RHU.inherit(Node, _Node);
+        RHU.inherit(Node, __Node__);
         RHU.definePublicAccessor(Markdown, "Node", {
             get: function() { return Node; }
         });
@@ -407,7 +413,7 @@
 
         let Block = function(name = "Block", sourceRef = undefined) 
         {
-            _Node.call(this, name, sourceRef);
+            __Node__.call(this, name, sourceRef);
 
             this.raw = "";
             this.acceptsLines = true;
@@ -427,18 +433,21 @@
         };
         Block.prototype.addText = function(text)
         {
-            // TODO(randomuserhi): Account for tab, new line etc...
+            // TODO(randomuserhi): Account for indentation, new line etc...
             this.raw += text;
         };
-        RHU.inherit(Block, _Node);
+        Block.prototype.canContain = function(block)
+        {
+            return true;
+        };
+        RHU.inherit(Block, __Node__);
         RHU.definePublicAccessor(Markdown, "Block", {
             get: function() { return Block; }
         });
 
-        let paragraphBlock = Symbol("Paragraph Block");
         let ParagraphBlock = function()
         {
-            Block.call(this, paragraphBlock);
+            Block.call(this, "paragraph");
         };
         ParagraphBlock.prototype.continue = function(reader) 
         {
@@ -446,7 +455,14 @@
                 return Block.NO_MATCH;
             return Block.MATCH;
         };
+        ParagraphBlock.prototype.canContain = function(block)
+        {
+            return false;
+        }
         RHU.inherit(ParagraphBlock, Block);
+        RHU.definePublicAccessor(Markdown, "ParagraphBlock", {
+            get: function() { return ParagraphBlock; }
+        });
 
         /**
          * NOTE(randomuserhi): There are 2 types of blocks:
@@ -475,42 +491,57 @@
 
         let BlockParser = Markdown.BlockParser = function(schema, options = undefined)
         {
+            // Set default paragraph block
+            this.ParagraphBlock = ParagraphBlock;
+            if (RHU.exists(schema.paragraph))
+                this.ParagraphBlock = schema.paragraph;
+
             let blocks = schema.blocks.filter((t) => {
-                if (t === paragraphBlock)
+                let isParagraphBlock = Block.is(t, this.ParagraphBlock);
+                if (isParagraphBlock)
                     console.warn("Paragraph block cannot be part of the Types list for schema.");
-                return t !== paragraphBlock;
+                return !isParagraphBlock;
             });
 
             this.schema = [];
             for (let i = 0; i < blocks.length; ++i)
             {
+                let block = blocks[i];
+
+                if (!RHU.exists(block.precedence))
+                    throw new Error(`Block '${block.name}' does not have an assigned precedence value.`);
+
                 this.schema.push({
-                    block: blocks[i],
+                    block: block,
                     order: i
                 });
             }
-            this.schema.sort((a, b) => a.precedence - b.precedence);
+            this.schema.sort((a, b) => {
+                return a.block.precedence - b.block.precedence;
+            });
 
             this.options = {
             };
             Object.assign(this.options, defaultReaderOpt);
             RHU.parseOptions(this.options, options);
-
-            // Set default paragraph block
-            this.ParagraphBlock = ParagraphBlock;
-            if (RHU.exists(this.schema[paragraphBlock]))
-                this.ParagraphBlock = this.schema[paragraphBlock];
         };
         BlockParser.prototype.addBlock = function(block)
         {
             // TODO(randomuserhi): Set sourceRef of block based on this.reader
-            // TODO(randomuserhi): Account for canContain => function that returns true if the current block (last(stack))
-            //                                               accepts the block being added.
-            //                                               If not, close the block and attempt to add again on parent
-            last(this.stack).push(block)
-            this.stack.push(block);
+            while (this.stack.length > 0)
+            {
+                let current = last(this.stack);
+                if (current.canContain(block))
+                {
+                    current.push(block)
+                    this.stack.push(block);
+                    return;
+                }
+                else
+                    this.stack.pop().close();
+            }
+            throw new Error("Unreachable");
         };
-        // TODO(randomuserhi): handle multiple matches => precedence and tie break
         BlockParser.prototype.parseLine = function(line)
         {
             // replace NUL characters for security
@@ -550,6 +581,7 @@
             //                     (since characters are not consumed, the same block can continously be started)
             //                     We don't check or error out in case it is done with intention
             //                     by the schema designer.
+            let matched = false;
             while(last(this.stack).acceptsBlocks)
             {
                 // TODO(randomuserhi): Implement this?? => Need a way of recognising special characters from schema
@@ -563,7 +595,6 @@
                 }*/
 
                 // Iterate over each blocks start condition
-                // TODO(randomuserhi): Allow multiple start conditions => choose based on precedence + tie break
                 let matches = [];
                 for (let i = 0; i < this.schema.length; ++i)
                 {
@@ -579,10 +610,6 @@
                             (i + 1 < this.schema.length &&
                              block.precedence !== this.schema[i + 1].block.precedence))
                         {
-                            // If only 1 match occured then early out
-                            if (matches.length === 1)
-                                block.start.call(this);
-                            
                             break;
                         }
                     }
@@ -591,19 +618,29 @@
                 // No blocks were added, proceed
                 if (matches.length === 0)
                     break;
-                else if (matches.length > 1) // Handle multiple matches
+                else
                 {
-                    // Sort by tie break and order if tie break isn't available 
-                    matches.sort((a, b) => {
-                        let aq = RHU.exists(a.block.quality) ? a.block.quality() : -1;
-                        let bq = RHU.exists(b.block.quality) ? b.block.quality() : -1;
-                        // TODO(randomuserhi): check if this order is correct
-                        if (aq === bq) return a.order - b.order;
-                        else return bq - aq; // sort by largest quality score
-                    });
+                    matched = true;
 
-                    // Choose best match
-                    matches[0].start.call(this);
+                    // If only 1 match occured then start block
+                    if (matches.length === 1)
+                    {
+                        matches[0].start.call(this);
+                    }
+                    else if (matches.length > 1) // Handle multiple matches
+                    {
+                        // Sort by tie break and order if tie break isn't available 
+                        matches.sort((a, b) => {
+                            let aq = RHU.exists(a.block.quality) ? a.block.quality() : -1;
+                            let bq = RHU.exists(b.block.quality) ? b.block.quality() : -1;
+                            // TODO(randomuserhi): check if this order is correct
+                            if (aq === bq) return a.order - b.order;
+                            else return bq - aq; // sort by largest quality score
+                        });
+
+                        // Choose best match
+                        matches[0].start.call(this);
+                    }
                 }
             }
 
@@ -611,12 +648,13 @@
             // appropriate container.
 
             // First check for a lazy paragraph continuation:
+            // `!matched` => check that we didn't match with a block. Blocks cannot lazily continue of another block
             // `last(this.stack) !== last(stack)` => checks if we have exited the block, as if we are still inside the same block
             //                                       as before then how can we have a lazy continuation? (We are simply continuing
             //                                       the block as normal if we were still inside the same block)
             // `!re.blank.test(this.reader.peek())` => checks if the text isn't blank
             // `last(stack).allowLazyContinuation()` => check if the block allows lazy continuation
-            if (last(this.stack) !== last(stack) && !re.blank.test(this.reader.peek()) && last(stack).allowLazyContinuation) 
+            if (!matched && last(this.stack) !== last(stack) && !re.blank.test(this.reader.peek()) && last(stack).allowLazyContinuation) 
             {
                 // Reset stack as the line was part of a lazy continuation
                 this.stack = stack;
@@ -629,7 +667,7 @@
                 // Close unmatched blocks from stack
                 for (let i = slice; i < stack.length; ++i)
                     stack[i].close();
-                
+
                 if (last(this.stack).acceptsLines) 
                 {
                     last(this.stack).addText(this.reader.readToEndLine());
@@ -687,8 +725,8 @@
                 this.acceptsLines = true;
                 this.allowLazyContinuation = false;
             };
-            HeaderBlock.precedence = undefined; // TODO(randomuserhi): Implement => order of precendence
-            HeaderBlock.quality = function() {}; // TODO(randomuserhi): precedence tie break value
+            HeaderBlock.precedence = 1;
+            HeaderBlock.quality = function() {};
             HeaderBlock.match = function() 
             {
                 return this.reader.peek() === "#";
@@ -711,23 +749,83 @@
                 return Block.NO_MATCH;
             };
             RHU.inherit(HeaderBlock, Markdown.Block);
-            // TODO(randomuserhi): New schema => simpler
-            //                     - order in array is default precedence, otherwise precedence value is used
-            //                     - on parser init
-            //                       - sort array ordered by precedence and store another array that maps their position
-            //                         in the original array. (So that the position can be used when tie break and precedence
-            //                         are equal). Since two items cannot be same position in original array, if that is equal
-            //                         throw unreachable error.
+
+            // TODO(randomuserhi): Make indent take into account number of spaces as well,
+            //                     handle indents inside of indents etc...
+            let IndentBlock = function(sourceRef = undefined)
+            {
+                Markdown.Block.call(this, "indent", sourceRef);
+
+                this.acceptsBlocks = true;
+                this.acceptsLines = false;
+            };
+            IndentBlock.precedence = 2;
+            IndentBlock.quality = function() {};
+            IndentBlock.match = function() 
+            {
+                return this.reader.peek() === "\t";
+            };
+            IndentBlock.start = function()
+            {
+                this.reader.read(); // consume letter
+                this.reader.nextNonSpace();
+                let block = new IndentBlock();
+                this.addBlock(block);
+            };
+            IndentBlock.prototype.continue = function(reader)
+            {
+                if (reader.peek() === "\t")
+                {
+                    reader.read(); // consume letter
+                    return Block.MATCH;
+                }
+                return Block.NO_MATCH;
+            };
+            RHU.inherit(IndentBlock, Markdown.Block);
+
+            let CodeBlock = function(sourceRef = undefined)
+            {
+                Markdown.Block.call(this, "code", sourceRef);
+
+                this.acceptsBlocks = false;
+                this.acceptsLines = true;
+                this.allowLazyContinuation = false;
+                this.allowInlineParsing = false;
+            };
+            CodeBlock.precedence = 3;
+            CodeBlock.quality = function() {};
+            CodeBlock.match = function() 
+            {
+                return this.reader.peek() === "`";
+            };
+            CodeBlock.start = function()
+            {
+                this.reader.read(); // consume letter
+                this.reader.nextNonSpace();
+                let block = new CodeBlock();
+                this.addBlock(block);
+            };
+            CodeBlock.prototype.continue = function(reader)
+            {
+                if (reader.peek() === "`")
+                {
+                    reader.read(); // consume letter
+                    return Block.NO_MATCH;
+                }
+                return Block.MATCH;
+            };
+            RHU.inherit(CodeBlock, Markdown.Block);
+
             let schema = {
                 blocks: [
-                    HeaderBlock
+                    HeaderBlock,
+                    IndentBlock, 
+                    CodeBlock
                 ]
             };
             let test = new BlockParser(schema);
-            let ast = test.parse("# well\n***this** is* a test:\n\nnice!\n\n\ncrazy");
+            let ast = test.parse("# well\n***this** is* a test:\n\n\tnice!\nindent!\n# cool\n`damnson\nwoah\ncrazy\n`\nreal stuff");
             console.log(ast);
-            console.log(ast.first.is(HeaderBlock));
-            console.log(ast.last.is(ParagraphBlock));
         }
 
         /**
