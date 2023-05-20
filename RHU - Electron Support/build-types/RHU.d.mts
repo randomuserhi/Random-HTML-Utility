@@ -1,2 +1,5 @@
-declare function RHU(): void;
-export default RHU;
+interface RHU {
+    test: string;
+}
+declare const RHU: RHU;
+export { RHU };

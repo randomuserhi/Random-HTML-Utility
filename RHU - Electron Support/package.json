@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "transpile": "./node_modules/.bin/tsc",
-    "build": "rimraf build/ && npm run transpile",
+    "build": "rimraf build/ && rimraf build-types/ && npm run transpile",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

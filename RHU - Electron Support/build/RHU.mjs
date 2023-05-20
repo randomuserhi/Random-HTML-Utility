@@ -1,5 +1,2 @@
-function RHU() {
-    console.log("crazy");
-}
-console.log("test");
-export default RHU;
+const RHU = { test: "hello" };
+export { RHU };

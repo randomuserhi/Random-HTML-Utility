@@ -1,8 +1,8 @@
-function RHU()
+interface RHU
 {
-    console.log("crazy");
+    test: string;
 }
 
-console.log("test");
+const RHU : RHU = { test: "hello" };
 
-export default RHU;
+export { RHU };
