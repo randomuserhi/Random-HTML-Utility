@@ -6,7 +6,7 @@ declare global
     {
         interface Core
         {
-            test: string
+            version: string
         }
     }
 

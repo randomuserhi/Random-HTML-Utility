@@ -21,6 +21,17 @@ declare global
             path: {
                 join(...paths: string[]): string,
                 isAbsolute(path: string): boolean
+            },
+
+            config: {
+                root: string,
+                extensions: string[],
+                modules: string[],
+                includes: Record<string, string>
+            },
+
+            loader: {
+
             }
         }
 

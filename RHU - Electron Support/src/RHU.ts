@@ -2,7 +2,7 @@
     
     // Core Implementation for initial import
     let core: Core.Core;
-    (function(core: Core.Core) {
+    (function() {
 
         core = {
             exists: function(object: any)
@@ -39,7 +39,7 @@
                         let traversal = path.split(".");
                         let obj = window;
                         for (; traversal.length !== 0 && this.exists(obj); obj = obj[traversal.shift()]) {
-                            // Not needed body, since for loop handles traversal
+                            // No body needed, since for loop handles traversal
                         }
                         if (this.exists(obj))
                             has.push(path);
@@ -54,10 +54,7 @@
     
                 let hard = check(opt.hard);
                 let soft = check(opt.soft);
-    
-                // TODO(randomuserhi): Returns dependencies that were available at the moment of module execution
-                //                     Since the dependencies that are actually available at the current point in time
-                //                     may change (soft dependencies), use RHU.exists to determine if it exists or not. 
+
                 return {
                     hard: hard,
                     soft: soft,
@@ -84,10 +81,12 @@
                 {
                     return /^([a-z]+:)?[\\/]/i.test(path);
                 }
-            }
+            },
+            config: undefined,
+            loader: undefined
         };
 
-    })(core);
+    })();
 
     // Check for dependencies
     let result = core.dependencies({
@@ -114,11 +113,79 @@
         return;
     }
 
+    // TODO(randomuserhi): refactor + cleanup + typescript the below sections
+
+    // Load config
+    (function() {
+
+        let loaded;
+            
+        let scripts = document.getElementsByTagName("script");
+        for (let s of scripts) 
+        {
+            var type = String(s.type).replace(/ /g, "");
+            if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) 
+            {
+                s.type += ";executed=true";
+                loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
+            }
+        }
+
+        let RHU = {
+            config: {}
+        };
+        core.parseOptions(RHU, loaded);
+        core.config = {
+            root: undefined,
+            extensions: [],
+            modules: [],
+            includes: {}
+        };
+        core.parseOptions(core.config, RHU.config);
+
+    })();
+
+    // Script loader
+    (function() {
+
+        let config = core.config;
+        let root = {
+            location: config.root,
+            script: "",
+            params: {}
+        };
+
+        // Get root location if unable to load from config
+        if (core.exists(document.currentScript))
+        {
+            if (!core.exists(root.location))
+            {
+                let s: HTMLScriptElement = document.currentScript as HTMLScriptElement;
+                root.location = s.src.match(/(.*)[/\\]/)[1] || "";
+                root.script = s.innerHTML;
+                let params = (new URL(s.src)).searchParams;
+                for (let key of params.keys())
+                {
+                    root.params[key] = params.get(key);
+                }
+            }
+        }
+        else console.warn("Unable to find script element."); // NOTE(randomuserhi): Not sure if this is a fatal error or not...
+
+        core.loader = {
+
+        };
+
+    })();
+
     // RHU implementation
     (function() {
 
-        window.RHU = {
-            test: ""
+        if (core.exists(window.RHU)) 
+            console.warn("Overwriting global RHU...");
+
+        let RHU = window.RHU = {
+            version: "1.0.0"
         };
 
     })();
