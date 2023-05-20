@@ -1,13 +1,18 @@
+// TODO(randomuserhi): documentation
+
 declare global
 {
-    interface RHU
+    namespace RHU
     {
-        test: string
+        interface Core
+        {
+            test: string
+        }
     }
 
     interface Window
     {
-        RHU: RHU
+        RHU: RHU.Core
     }
 }
 
