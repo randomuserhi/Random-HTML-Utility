@@ -48,7 +48,7 @@ declare global
 
         // NOTE(randomuserhi): Disabled, since 'name' is no longer needed with electron + typescript
         //reflectConstruct(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct,
-        
+
         reflectConstruct(base: Function, constructor: Function, argnames?: string[]): RHU.ReflectConstruct,
 
         clearAttributes(element: HTMLElement): void,
@@ -81,9 +81,9 @@ declare global
 
         export interface ReflectConstruct extends Function
         {
-            __reflect__: Function;
+            __reflect__(newTarget: unknown, args: any[]): unknown;
             __constructor__: Function;
-            __args__: Function;
+            __args__(...args: any[]): any[];
         }
     }
 

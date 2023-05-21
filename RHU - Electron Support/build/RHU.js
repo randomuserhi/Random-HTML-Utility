@@ -1,7 +1,6 @@
 (function () {
     const LOADING = "loading";
     const COMPLETE = "complete";
-    // Core Implementation for initial import
     let core;
     (function () {
         core = {
@@ -35,7 +34,6 @@
                         let traversal = path.split(".");
                         let obj = window;
                         for (; traversal.length !== 0 && core.exists(obj); obj = obj[traversal.shift()]) {
-                            // No body needed, since for loop handles traversal
                         }
                         if (core.exists(obj))
                             has.push(path);
@@ -56,9 +54,7 @@
                 };
             },
             path: {
-                // Adapted from: https://stackoverflow.com/a/55142565/9642458
                 join: function (...paths) {
-                    //NOTE(randomuserhi): Assumes '/' seperator, errors will occure when '\' is used.
                     const separator = "/";
                     paths = paths.map((part, index) => {
                         if (index)
@@ -69,7 +65,6 @@
                     });
                     return paths.join(separator);
                 },
-                // NOTE(randomuserhi): Uses POSIX standard, so '/file' is an absolute path.
                 isAbsolute: function (path) {
                     return /^([a-z]+:)?[\\/]/i.test(path);
                 }
@@ -79,7 +74,6 @@
             loader: undefined
         };
     })();
-    // Check for dependencies
     let result = core.dependencies({
         hard: [
             "document.createElement",
@@ -101,7 +95,6 @@
         console.error(msg);
         return;
     }
-    // Load config
     (function () {
         let loaded;
         let scripts = document.getElementsByTagName("script");
@@ -124,7 +117,6 @@
         };
         core.parseOptions(core.config, RHU.config);
     })();
-    // Initialize rest of core (script loader and root config)
     (function () {
         let config = core.config;
         let root = {
@@ -132,7 +124,6 @@
             script: "",
             params: {}
         };
-        // Get root location if unable to load from config
         if (core.exists(document.currentScript)) {
             if (!core.exists(root.location)) {
                 let s = document.currentScript;
@@ -145,8 +136,7 @@
             }
         }
         else
-            console.warn("Unable to find script element."); // NOTE(randomuserhi): Not sure if this is a fatal error or not...
-        // Create loader
+            console.warn("Unable to find script element.");
         core.loader = {
             timeout: 15 * 1000,
             head: document.head,
@@ -196,7 +186,6 @@
             }
         };
     })();
-    // RHU implementation
     (function () {
         if (core.exists(window.RHU))
             console.warn("Overwriting global RHU...");
@@ -208,7 +197,6 @@
             },
             readyState: LOADING,
             isMobile: function () {
-                // Courtesy of http://detectmobilebrowsers.com/
                 if (RHU.exists(navigator.userAgentData) && RHU.exists(navigator.userAgentData.mobile))
                     return navigator.userAgentData.mobile;
                 else
@@ -239,17 +227,11 @@
                     set: undefined
                 };
                 RHU.parseOptions(opt, options);
-                /**
-                 * NOTE(randomuserhi): In the event that Set() is not supported:
-                 *                     Can use an object {} and then do `properties[descriptor] = undefined`,
-                 *                     then use `for (let key in properties)` to return an array of properties.
-                 */
                 let properties = new Set();
                 let iterate = function (props, descriptors) {
                     for (let p of props) {
                         let descriptor = descriptors[p];
                         let valid = true;
-                        // TODO(randomuserhi): Fairly sure these conditions are incorrect, need double checking
                         if (opt.enumerable && descriptor.enumerable !== opt.enumerable)
                             valid = false;
                         if (opt.configurable && descriptor.configurable !== opt.configurable)
@@ -273,10 +255,6 @@
                         }
                     }
                 };
-                /**
-                 * NOTE(randomuserhi): Reflect.ownKeys() gets both symbols and non-symbols so it may be worth using that
-                 *                     when symbols is undefined
-                 */
                 let curr = object;
                 do {
                     let descriptors = Object.getOwnPropertyDescriptors(curr);
@@ -299,8 +277,7 @@
                 };
                 RHU.parseOptions(opt, flags);
                 if (opt.replace || !RHU.properties(object, { hasOwn: true }).has(property)) {
-                    delete object[property]; // NOTE(randomuserhi): Should throw an error in Strict Mode when trying to delete a property of 'configurable: false'.
-                    //                     Also will not cause issues with inherited properties as `delete` only removes own properties.    
+                    delete object[property];
                     Object.defineProperty(object, property, options);
                     return true;
                 }
@@ -365,26 +342,12 @@
             deleteProperties: function (object, preserve) {
                 if (object === preserve)
                     return;
-                /**
-                 * Since preserve uses hasOwnProperty, inherited properties of preserve are not preserved:
-                 * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Enumerability_and_ownership_of_properties
-                 *
-                 * Since traversing and deleting a prototype can effect other objects, we do not recursively delete
-                 * through the prototype.
-                 *
-                 * TODO(randomuserhi): Option to skip properties that are non-configurable (aka cannot be deleted).
-                 *                     Right now we just throw an error.
-                 */
                 RHU.properties(object, { hasOwn: true }, (obj, prop) => {
                     if (!RHU.exists(preserve) || !RHU.properties(preserve, { hasOwn: true }).has(prop))
                         delete obj[prop];
                 });
             },
             clone: function (object, prototype) {
-                /**
-                 * NOTE(randomuserhi): Performs a shallow clone => references inside the cloned object will be the same
-                 *                     as original.
-                 */
                 if (RHU.exists(prototype))
                     return RHU.assign(Object.create(prototype), object);
                 else
@@ -400,17 +363,10 @@
                 return true;
             },
             inherit: function (child, base) {
-                // NOTE(randomuserhi): Cause we are using typescript, we don't need this check.
-                //if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`); 
-                Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
-                Object.setPrototypeOf(child, base); // Inherit static properties
+                Object.setPrototypeOf(child.prototype, base.prototype);
+                Object.setPrototypeOf(child, base);
             },
-            // NOTE(randomuserhi): Disabled, since 'name' is no longer needed with electron + typescript
-            //reflectConstruct: function(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct
             reflectConstruct: function (base, constructor, argnames) {
-                // NOTE(randomuserhi): Cause we are using typescript, we don't need this check.
-                //if (!RHU.isConstructor(base)) throw new TypeError(`'constructor' and 'base' must be object constructors.`);
-                // Get arguments from constructor or from provided argnames
                 let args = argnames;
                 if (!RHU.exists(args)) {
                     args = ["...args"];
@@ -422,37 +378,18 @@
                             .split(",")
                             .map((a) => {
                             let clean = a.trim();
-                            // Remove optional assignment in parameters
                             clean = clean.split(/[ =]/)[0];
                             return clean;
                         })
                             .filter((c) => c !== "");
                     }
                 }
-                // Create function definition with provided signature
                 let definition;
-                // NOTE(randomuserhi): Disabled, since eval() is a security risk on electron + typescript can handle drawbacks of not having this implemented
-                /*let argstr = args.join(",");
-                if (!RHU.exists(name))
-                    name = constructor.name;
-                name.replace(/[ \t\r\n]/g, "");
-                if (name === "") name = "__ReflectConstruct__";
-                let parts = name.split(".").filter(c => c !== "");
-                let evalStr = "{ let ";
-                for (let i = 0; i < parts.length - 1; ++i)
-                {
-                    let part = parts[i];
-                    evalStr += `${part} = {}; ${part}.`;
-                }
-                evalStr += `${parts[parts.length - 1]} = function(${argstr}) { return definition.__reflect__.call(this, new.target, [${argstr}]); }; definition = ${parts.join(".")} }`;
-                eval(evalStr);*/
                 if (!RHU.exists(definition)) {
-                    console.warn("eval() call failed to create reflect constructor. Using fallback...");
                     definition = function (...args) {
                         return definition.__reflect__.call(this, new.target, args);
-                    }; // NOTE(randomuserhi): dodgy cast, but needs to be done so we can initially set the definition
+                    };
                 }
-                // NOTE(randomuserhi): Careful with naming conflicts since JS may add __constructor__ as a standard function property
                 definition.__constructor__ = constructor;
                 definition.__args__ = function () {
                     return [];
@@ -483,7 +420,6 @@
             get: function () { return core.readyState; }
         });
     })();
-    // Load external scripts and extensions whilst managing dependencies
     (function () {
     })();
 })();

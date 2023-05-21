@@ -552,8 +552,8 @@
 
                 if (!RHU.exists(definition))
                 {
-                    console.warn("eval() call failed to create reflect constructor. Using fallback...");
-                    definition = function(...args)
+                    //console.warn("eval() call failed to create reflect constructor. Using fallback...");
+                    definition = function(...args: any[]): unknown
                     {
                         return definition.__reflect__.call(this, new.target, args);
                     } as Function as RHU.ReflectConstruct; // NOTE(randomuserhi): dodgy cast, but needs to be done so we can initially set the definition
@@ -565,7 +565,7 @@
                 {
                     return [];
                 };
-                definition.__reflect__ = function(newTarget, args = [])
+                definition.__reflect__ = function(newTarget: unknown, args: any[] = []) : unknown
                 {
                     if (RHU.exists(newTarget))
                     {

@@ -25,12 +25,12 @@ declare global
                 err?: boolean
             }
         }
-
+        
         export interface ReflectConstruct extends Function
         {
-            __reflect__: Function;
+            __reflect__(newTarget: unknown, args: any[]): unknown;
             __constructor__: Function;
-            __args__: Function;
+            __args__(...args: any[]): any[];
         }
 
         var version: string;
