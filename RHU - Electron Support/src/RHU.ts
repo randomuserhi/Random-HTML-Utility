@@ -1,5 +1,8 @@
 (function() {
-    
+
+    const LOADING: string = "loading";
+    const COMPLETE: string = "complete";
+
     // Core Implementation for initial import
     let core: Core;
     (function() {
@@ -83,7 +86,7 @@
                 }
             },
 
-            readyState: Core.ReadyState.Loading,
+            readyState: LOADING,
             config: undefined,
             loader: undefined
         };
@@ -238,10 +241,15 @@
         if (core.exists(window.RHU)) 
             console.warn("Overwriting global RHU...");
 
-        let RHU: RHU_t = window.RHU = {
+        let RHU: RHU = window.RHU = {
             version: "1.0.0",
 
-            readyState: undefined,
+            ReadyState: {
+                Loading: LOADING,
+                Complete: COMPLETE
+            },
+
+            readyState: LOADING,
 
             isMobile: function(): boolean
             {
@@ -265,11 +273,11 @@
                 return result;
             },
 
-            properties: function(object: any, options: RHU_t.Properties.Options = {}, operation?: (object: any, property: PropertyKey) => void): Set<PropertyKey>
+            properties: function(object: any, options: RHU.Properties.Options = {}, operation?: (object: any, property: PropertyKey) => void): Set<PropertyKey>
             {
                 if (!RHU.exists(object)) throw TypeError("Cannot get properties of 'null' or 'undefined'.");
 
-                let opt: RHU_t.Properties.Options = {
+                let opt: RHU.Properties.Options = {
                     enumerable: undefined,
                     configurable: undefined,
                     symbols: undefined,
@@ -340,9 +348,9 @@
                 return properties;
             },
 
-            defineProperty: function(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU_t.Properties.Flags): boolean
+            defineProperty: function(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean
             {
-                let opt: RHU_t.Properties.Flags = {
+                let opt: RHU.Properties.Flags = {
                     replace: true,
                     warn: false,
                     err: false
@@ -360,7 +368,7 @@
                 if (opt.err) console.error(`Failed to define property '${property.toString()}', it already exists. Try 'replace: true'`);
                 return false;
             },
-            definePublicProperty: function(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU_t.Properties.Flags)
+            definePublicProperty: function(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags)
             {
                 let opt: PropertyDescriptor = {
                     writable: true,
@@ -368,7 +376,7 @@
                 };
                 return RHU.defineProperty(object, property, Object.assign(opt, options), flags);
             },
-            definePublicAccessor: function(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU_t.Properties.Flags)
+            definePublicAccessor: function(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags)
             {
                 let opt: PropertyDescriptor = {
                     configurable: true,
@@ -377,7 +385,7 @@
                 return RHU.defineProperty(object, property, Object.assign(opt, options), flags);
             },
 
-            defineProperties: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU_t.Properties.Flags)
+            defineProperties: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
             {
                 for (let key of RHU.properties(properties, { hasOwn: true }).keys())
                 {
@@ -387,7 +395,7 @@
                     }
                 }
             },
-            definePublicProperties: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU_t.Properties.Flags)
+            definePublicProperties: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
             {
                 interface opt
                 {
@@ -410,7 +418,7 @@
                     }
                 }
             },
-            definePublicAccessors: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU_t.Properties.Flags)
+            definePublicAccessors: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
             {
                 interface opt
                 {
@@ -433,14 +441,14 @@
                 }
             },
 
-            assign: function<T>(target: T, source: any, options?: RHU_t.Properties.Flags): T
+            assign: function<T>(target: T, source: any, options?: RHU.Properties.Flags): T
             {
                 if (target === source) return target;
                 RHU.defineProperties(target, Object.getOwnPropertyDescriptors(source), options);
                 return target;
             },
 
-            delete: function(object: any, preserve: {}): void
+            deleteProperties: function(object: any, preserve: {}): void
             {
                 if (object === preserve) return;
 
@@ -492,7 +500,7 @@
                 Object.setPrototypeOf(child, base); // Inherit static properties
             },
 
-            reflectConstruct: function(base: Function, name: string, constructor: Function, argnames?: string[]): RHU_t.ReflectConstruct
+            reflectConstruct: function(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct
             {
                 // NOTE(randomuserhi): Cause we are using typescript, we don't need this check.
                 //if (!RHU.isConstructor(base)) throw new TypeError(`'constructor' and 'base' must be object constructors.`);
@@ -521,7 +529,7 @@
                 }
 
                 // Create function definition with provided signature
-                let definition: RHU_t.ReflectConstruct;
+                let definition: RHU.ReflectConstruct;
                 let argstr = args.join(",");
                 if (!RHU.exists(name))
                     name = constructor.name;
@@ -543,7 +551,7 @@
                     definition = function(...args)
                     {
                         return definition.__reflect__.call(this, new.target, args);
-                    } as Function as RHU_t.ReflectConstruct; // NOTE(randomuserhi): dodgy cast, but needs to be done so we can initially set the definition
+                    } as Function as RHU.ReflectConstruct; // NOTE(randomuserhi): dodgy cast, but needs to be done so we can initially set the definition
                 }
 
                 // NOTE(randomuserhi): Careful with naming conflicts since JS may add __constructor__ as a standard function property

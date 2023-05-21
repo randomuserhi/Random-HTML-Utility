@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "transpile": "./node_modules/.bin/tsc",
-    "build": "rimraf build/ && rimraf build-types/ && npm run transpile",
+    "build": "rimraf build/ && npm run transpile",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "rimraf": "^5.0.1",
+    "copyfiles": "^2.4.1",
     "typescript": "^5.0.4"
   }
 }

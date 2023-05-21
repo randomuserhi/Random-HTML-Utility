@@ -1,13 +1,19 @@
 // TODO(randomuserhi): documentation
+// Types used for library code
 
 declare global
 {
-    export interface RHU_t
+    export interface RHU
     {
 
         version: string,
 
-        readyState: RHU_t.ReadyState,
+        ReadyState: {
+            Loading: string,
+            Complete: string
+        },
+
+        readyState: string,
 
         isMobile(): boolean,
 
@@ -15,23 +21,23 @@ declare global
 
         parseOptions<T>(template: T, options: any): T,
 
-        properties(object: any, options: RHU_t.Properties.Options, operation?: (object: any, property: PropertyKey) => void): Set<PropertyKey>,
+        properties(object: any, options: RHU.Properties.Options, operation?: (object: any, property: PropertyKey) => void): Set<PropertyKey>,
 
-        defineProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU_t.Properties.Flags): boolean,
+        defineProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean,
 
-        definePublicProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU_t.Properties.Flags): boolean,
+        definePublicProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean,
         
-        definePublicAccessor(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU_t.Properties.Flags): boolean,
+        definePublicAccessor(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean,
 
-        defineProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU_t.Properties.Flags): void,
+        defineProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void,
         
-        definePublicProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU_t.Properties.Flags): void,
+        definePublicProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void,
 
-        definePublicAccessors(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU_t.Properties.Flags): void,
+        definePublicAccessors(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void,
 
-        assign<T>(target: T, source: any, options?: RHU_t.Properties.Flags): T,
+        assign<T>(target: T, source: any, options?: RHU.Properties.Flags): T,
         
-        delete(object: any, preserve: {}): void,
+        deleteProperties(object: any, preserve: {}): void,
 
         clone<T extends object>(object: object, prototype: T) : T,
         clone<T extends object>(object: T) : T,
@@ -40,14 +46,14 @@ declare global
 
         inherit(child: Function, base: Function): void,
 
-        reflectConstruct(base: Function, name: string, constructor: Function, argnames?: string[]): RHU_t.ReflectConstruct,
+        reflectConstruct(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct,
 
         clearAttributes(element: HTMLElement): void,
 
         getElementById(id: string, clearID: boolean): HTMLElement
     }
 
-    namespace RHU_t
+    namespace RHU
     {
         namespace Properties
         {
@@ -70,12 +76,6 @@ declare global
             }
         }
 
-        export enum ReadyState
-        {
-            Loading = "loading",
-            Complete = "complete"
-        }
-
         export interface ReflectConstruct extends Function
         {
             __reflect__: Function;
@@ -86,7 +86,7 @@ declare global
 
     interface Window
     {
-        RHU: RHU_t
+        RHU: RHU
     }
 }
 

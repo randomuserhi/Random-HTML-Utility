@@ -1,4 +1,5 @@
 // TODO(randomuserhi): documentation
+// Types used for library code
 
 declare global
 {
@@ -23,7 +24,7 @@ declare global
             isAbsolute(path: string): boolean
         },
 
-        readyState: Core.ReadyState,
+        readyState: string,
 
         config: {
 
@@ -41,12 +42,6 @@ declare global
 
     namespace Core
     {
-        export enum ReadyState
-        {
-            Loading = "loading",
-            Complete = "complete"
-        }
-
         export interface Root
         {
 
