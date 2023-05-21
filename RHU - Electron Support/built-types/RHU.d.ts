@@ -39,7 +39,7 @@ declare global
         {
             Loading = "loading",
             Complete = "complete"
-        };
+        }
 
         var readyState: ReadyState;
 
@@ -74,7 +74,7 @@ declare global
 
         function inherit(child: Function, base: Function): void;
 
-        function reflectConstruct(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct;
+        function reflectConstruct(base: Function, constructor: Function, argnames?: string[]): RHU.ReflectConstruct;
 
         function clearAttributes(element: HTMLElement): void;
 

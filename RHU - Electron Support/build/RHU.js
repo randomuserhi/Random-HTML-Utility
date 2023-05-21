@@ -405,7 +405,9 @@
                 Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
                 Object.setPrototypeOf(child, base); // Inherit static properties
             },
-            reflectConstruct: function (base, name, constructor, argnames) {
+            // NOTE(randomuserhi): Disabled, since 'name' is no longer needed with electron + typescript
+            //reflectConstruct: function(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct
+            reflectConstruct: function (base, constructor, argnames) {
                 // NOTE(randomuserhi): Cause we are using typescript, we don't need this check.
                 //if (!RHU.isConstructor(base)) throw new TypeError(`'constructor' and 'base' must be object constructors.`);
                 // Get arguments from constructor or from provided argnames
@@ -429,20 +431,21 @@
                 }
                 // Create function definition with provided signature
                 let definition;
-                let argstr = args.join(",");
+                // NOTE(randomuserhi): Disabled, since eval() is a security risk on electron + typescript can handle drawbacks of not having this implemented
+                /*let argstr = args.join(",");
                 if (!RHU.exists(name))
                     name = constructor.name;
                 name.replace(/[ \t\r\n]/g, "");
-                if (name === "")
-                    name = "__ReflectConstruct__";
+                if (name === "") name = "__ReflectConstruct__";
                 let parts = name.split(".").filter(c => c !== "");
                 let evalStr = "{ let ";
-                for (let i = 0; i < parts.length - 1; ++i) {
+                for (let i = 0; i < parts.length - 1; ++i)
+                {
                     let part = parts[i];
                     evalStr += `${part} = {}; ${part}.`;
                 }
                 evalStr += `${parts[parts.length - 1]} = function(${argstr}) { return definition.__reflect__.call(this, new.target, [${argstr}]); }; definition = ${parts.join(".")} }`;
-                eval(evalStr);
+                eval(evalStr);*/
                 if (!RHU.exists(definition)) {
                     console.warn("eval() call failed to create reflect constructor. Using fallback...");
                     definition = function (...args) {

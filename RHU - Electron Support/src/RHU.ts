@@ -500,7 +500,10 @@
                 Object.setPrototypeOf(child, base); // Inherit static properties
             },
 
-            reflectConstruct: function(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct
+            // NOTE(randomuserhi): Disabled, since 'name' is no longer needed with electron + typescript
+            //reflectConstruct: function(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct
+            
+            reflectConstruct: function(base: Function, constructor: Function, argnames?: string[]): RHU.ReflectConstruct
             {
                 // NOTE(randomuserhi): Cause we are using typescript, we don't need this check.
                 //if (!RHU.isConstructor(base)) throw new TypeError(`'constructor' and 'base' must be object constructors.`);
@@ -530,7 +533,9 @@
 
                 // Create function definition with provided signature
                 let definition: RHU.ReflectConstruct;
-                let argstr = args.join(",");
+
+                // NOTE(randomuserhi): Disabled, since eval() is a security risk on electron + typescript can handle drawbacks of not having this implemented
+                /*let argstr = args.join(",");
                 if (!RHU.exists(name))
                     name = constructor.name;
                 name.replace(/[ \t\r\n]/g, "");
@@ -543,7 +548,7 @@
                     evalStr += `${part} = {}; ${part}.`;
                 }
                 evalStr += `${parts[parts.length - 1]} = function(${argstr}) { return definition.__reflect__.call(this, new.target, [${argstr}]); }; definition = ${parts.join(".")} }`;
-                eval(evalStr);
+                eval(evalStr);*/
 
                 if (!RHU.exists(definition))
                 {
