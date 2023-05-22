@@ -3,14 +3,20 @@
 
 declare global
 {
-    export interface RHU
+    export interface RHU extends RHU.EventTarget
     {
-
         version: string,
 
         ReadyState: {
             Loading: string,
             Complete: string
+        },
+
+        Module: {
+            Type: {
+                Module: string,
+                Extension: string
+            }
         },
 
         readyState: string,
@@ -53,11 +59,22 @@ declare global
 
         clearAttributes(element: HTMLElement): void,
 
-        getElementById(id: string, clearID: boolean): HTMLElement
+        getElementById(id: string, clearID: boolean): HTMLElement,
+
+        module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void
     }
 
     namespace RHU
     {
+        interface EventTarget
+        {
+            addEventListener(type: string, listener: (any) => void, options?: boolean | EventListenerOptions): void,
+
+            removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void,
+
+            dispatchEvent(event: CustomEvent): boolean
+        }
+
         namespace Properties
         {
             export interface Options
@@ -84,6 +101,33 @@ declare global
             __reflect__(newTarget: unknown, args: any[]): unknown;
             __constructor__: Function;
             __args__(...args: any[]): any[];
+        }
+
+        export interface Dependencies
+        {
+            hard?: string[];
+            soft?: string[];
+            trace?: Error;
+        }
+
+        export interface ResolvedDependency
+        {
+            has: string[],
+            missing: string[]
+        }
+
+        export interface ResolvedDependencies
+        {
+            hard: ResolvedDependency, 
+            soft: ResolvedDependency,
+            trace: Error
+        }
+
+        export interface Module extends RHU.Dependencies
+        {
+            name?: string;
+            type?: string;
+            callback?: (result: RHU.ResolvedDependencies) => void;
         }
     }
 

@@ -3,6 +3,9 @@
     const LOADING: string = "loading";
     const COMPLETE: string = "complete";
 
+    const MODULE: string = "module";
+    const EXTENSION: string = "x-module";
+
     // Core Implementation for initial import
     let core: Core;
     (function() {
@@ -21,7 +24,7 @@
                 Object.assign(result, opt);
                 return result;
             },
-            dependencies: function(options?: { hard?: string[], soft?: string[], trace?: Error }): Core.Dependencies
+            dependencies: function(options?: Core.Dependencies): Core.ResolvedDependencies
             {
                 let opt: { hard: string[], soft: string[], trace: Error } = {
                     hard: [], 
@@ -30,7 +33,7 @@
                 };
                 core.parseOptions(opt, options);
     
-                let check = (items: string[]): Core.Dependency => {
+                let check = (items: string[]): Core.ResolvedDependency => {
                     let has: string[] = [];
                     let missing: string[] = [];
                     let set: Record<string, boolean> = {};
@@ -88,7 +91,9 @@
 
             readyState: LOADING,
             config: undefined,
-            loader: undefined
+            loader: undefined,
+
+            moduleLoader: undefined
         };
 
     })();
@@ -121,7 +126,7 @@
     // Load config
     (function() {
 
-        let loaded: { config: {} };
+        let loaded: unknown;
             
         let scripts = document.getElementsByTagName("script");
         for (let s of scripts) 
@@ -130,21 +135,17 @@
             if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) 
             {
                 s.type += ";executed=true";
-                loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
+                loaded = JSON.parse(s.innerHTML);
             }
         }
 
-        let RHU = {
-            config: {}
-        };
-        core.parseOptions(RHU, loaded);
         core.config = {
             root: undefined,
             extensions: [],
             modules: [],
             includes: {}
         };
-        core.parseOptions(core.config, RHU.config);
+        core.parseOptions(core.config, loaded);
 
     })();
 
@@ -185,11 +186,11 @@
                     return core.path.join(this.location, path);
                 }
             }, root),
-            JS: function(this: Core.Loader, path: string, module: Core.Module, callback?: (successful: boolean) => void): boolean
+            JS: function(this: Core.Loader, path: string, module: Core.Module, callback?: (isSuccessful: boolean) => void): boolean
             {
                 let mod: Core.Module = {
                     name: undefined,
-                    type: Core.Module.Type.Module
+                    type: MODULE
                 };
                 core.parseOptions(mod, module);
 
@@ -244,6 +245,13 @@
         let RHU: RHU = window.RHU = {
             version: "1.0.0",
 
+            Module: {
+                Type: {
+                    Module: MODULE,
+                    Extension: EXTENSION
+                }
+            },
+
             ReadyState: {
                 Loading: LOADING,
                 Complete: COMPLETE
@@ -295,8 +303,8 @@
                  */
                 let properties = new Set<PropertyKey>();
                 let iterate = function
-                <Type extends keyof ({ [x: PropertyKey]: TypedPropertyDescriptor<any> } & { [x: PropertyKey]: PropertyDescriptor })>
-                (props: Type[], descriptors: { [x: PropertyKey]: TypedPropertyDescriptor<any> } & { [x: PropertyKey]: PropertyDescriptor }): void
+                <T extends keyof ({ [x: PropertyKey]: TypedPropertyDescriptor<any> } & { [x: PropertyKey]: PropertyDescriptor })>
+                (props: T[], descriptors: { [x: PropertyKey]: TypedPropertyDescriptor<any> } & { [x: PropertyKey]: PropertyDescriptor }): void
                 {
                     for (let p of props)
                     {
@@ -589,17 +597,202 @@
                 let el = document.getElementById(id);
                 if (clearID) el.removeAttribute("id");
                 return el;
-            }
+            },
+
+            module: undefined,
+
+            addEventListener: undefined,
+            removeEventListener: undefined,
+            dispatchEvent: undefined
         };
 
         RHU.definePublicAccessor(RHU, "readyState", {
             get: function() { return core.readyState; }
         });
 
+        // Event Handler:
+
+        // create a node for handling events with EventTarget
+        let node: Text = document.createTextNode(null);
+        let addEventListener: (type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => void
+         = node.addEventListener.bind(node);
+        RHU.addEventListener = function (type: string, listener: (any) => void, options?: boolean | EventListenerOptions): void {
+            addEventListener(type, (e: CustomEvent) => { listener(e.detail); }, options);
+        };
+        RHU.removeEventListener = node.removeEventListener.bind(node);
+        RHU.dispatchEvent = node.dispatchEvent.bind(node);
+
     })();
 
     // Load external scripts and extensions whilst managing dependencies
     (function() {
+
+        // Define core module loader
+        core.moduleLoader = {
+            importList: new Set<Core.ModuleLoader.Import>(),
+            watching: [],
+            imported: [],
+
+            execute: function(this: Core.ModuleLoader, module: RHU.Module): boolean
+            {
+                let result = core.dependencies(module);
+                if (result.hard.missing.length === 0)
+                {
+                    this.imported.push(module);
+                    module.callback(result);
+                    return true;
+                }
+                else
+                {
+                    let msg = `could not loaded as not all hard dependencies were found.`;
+                    if (core.exists(result.trace))
+                        msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
+                    for (let dependency of result.hard.missing)
+                    {
+                        msg += (`\n\tMissing '${dependency}'`);
+                    }
+
+                    if (core.exists(module.name))
+                        console.warn(`Module, '${module.name}', ${msg}`);
+                    else
+                        console.warn(`Unknown module ${msg}`);
+
+                    return false;
+                }
+            },
+
+            reconcile: function(this: Core.ModuleLoader, allowPartial: boolean = false): void
+            {
+                let oldLen = this.watching.length;
+                do
+                {
+                    oldLen = this.watching.length;
+
+                    let old = this.watching;
+                    this.watching = [];
+                    for (let module of old)
+                    {
+                        let result = core.dependencies(module);
+                        if (   (!allowPartial && (result.hard.missing.length === 0 && result.soft.missing.length === 0))
+                            || ( allowPartial &&  result.hard.missing.length === 0))
+                        {
+                            this.imported.push(module);
+                            module.callback(result);
+                        }
+                        else this.watching.push(module);
+                    }
+                } while(oldLen !== this.watching.length);
+            },
+
+            load: function(this: Core.ModuleLoader, module: RHU.Module): void
+            {
+                // If not ready, then push module to waiting list
+                if (core.readyState !== COMPLETE)
+                {
+                    this.watching.push(module);
+                }
+                // otherwise execute module
+                else this.execute(module);
+            },
+
+            onLoad: function(this: Core.ModuleLoader, isSuccessful: boolean, module: Core.ModuleLoader.Import): void
+            {
+                // If successful, attempt to load the module
+                if (isSuccessful) this.reconcile();
+
+                // Remove module from import list
+                this.importList.delete(module);
+
+                // On all imports finalized, run completion
+                if (this.importList.size === 0) this.onComplete();
+            },
+
+            onComplete: function()
+            {
+                core.readyState = COMPLETE;
+
+                // First handle dependencies that are fully accepted (no missing hard AND soft dependencies)
+                this.reconcile();
+                // Handle dependencies that are accepted (missing soft dependencies)
+                this.reconcile(true);
+
+                // Print modules that failed to reconcile
+                for (let module of this.watching) this.execute(module);
+
+                // Call load callback
+                // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
+                //                     so callback.special accesses window["callback.special"]
+                if (core.exists(core.loader.root.params.load))
+                    if (core.exists(window[core.loader.root.params.load]))
+                        window[core.loader.root.params.load]();
+                    else console.error(`Callback for 'load' event called '${core.loader.root.params.load}' does not exist.`);
+                
+                // Trigger load event
+                RHU.dispatchEvent(new CustomEvent("load"));
+            } 
+        };
+
+        // Define module function
+        let RHU: RHU = window.RHU;
+        RHU.module = function(module: RHU.Module, callback)
+        {
+            module.callback = callback;
+
+            // execute module
+            core.moduleLoader.load(module);
+        };
+
+        // 1) Obtain list of imports to load
+        for (let module of core.config.modules)
+        {
+            core.moduleLoader.importList.add({
+                path: core.loader.root.path(core.path.join("modules", `${module}.js`)),
+                name: module,
+                type: RHU.Module.Type.Module
+            });
+        }
+        for (let module of core.config.extensions)
+        {
+            core.moduleLoader.importList.add({
+                path: core.loader.root.path(core.path.join("modules", `${module}.js`)),
+                name: module,
+                type: RHU.Module.Type.Extension
+            });
+        }
+        for (let includePath in core.config.includes)
+        {
+            if (typeof includePath !== "string" || includePath === "") continue;
+
+            let isAbsolute = core.path.isAbsolute(includePath);
+            for (let module of core.config.includes[includePath])
+            {
+                if (typeof module !== "string" || module === "") continue;
+
+                let path: string;
+                if (isAbsolute) path = core.path.join(includePath, `${module}.js`);
+                else path = core.loader.root.path(core.path.join(includePath, `${module}.js`));
+            
+                core.moduleLoader.importList.add({
+                    path: path,
+                    name: module,
+                    type: RHU.Module.Type.Module
+                });
+            }
+        }
+
+        // Start importing modules
+        if (core.moduleLoader.importList.size === 0)
+            core.moduleLoader.onComplete();
+        else
+        {
+            for (let module of core.moduleLoader.importList)
+            {
+                core.loader.JS(module.path, {
+                    name: module.name,
+                    type: module.type
+                }, (isSuccessful: boolean) => core.moduleLoader.onLoad(isSuccessful, module));
+            }
+        }
 
     })();
 

@@ -5,17 +5,34 @@ declare global
 {
     export interface Core
     {
+        /**
+         * Checks if a given object is not `null` / `undefined`
+         *
+         * @param {any} object
+         * @returns {boolean} `true` if the object is not `null` / `undefined`, otherwise `false`
+         */
         exists(object: any) : boolean,
         
-        parseOptions<Type>(template: Type, opt: any): Type,
+        /**
+         * Parses destructured parameters into a given template.
+         * This operation is in-place and will overwrite `template` parameter.
+         * 
+         * @param {T} template 
+         * @param {any} options 
+         * @returns {T} returns the original template
+         */
+        parseOptions<T>(template: T, options: any): T,
         
         /**
-         * TODO(randomuserhi): document this function
+         * Checks what dependencies exist in a given dependency
          *
-         * @param options - some options idk
-         * @returns A dependency object
+         * @param {Core.Dependencies} options - Properties of the dependency
+         * @param {string[]} [options.hard] - Hard dependencies that are required
+         * @param {string[]} [options.soft] - Soft dependencies that are not necessarily required
+         * @param {Error} [options.trace] - Error trace for where the dependencies came from
+         * @returns {Core.ResolvedDependencies} A resolved dependency object
          */
-        dependencies(options?: { hard?: string[], soft?: string[], trace?: Error }): Core.Dependencies,
+        dependencies(options?: Core.Dependencies): Core.ResolvedDependencies,
 
         path: {
 
@@ -37,7 +54,9 @@ declare global
             includes: Record<string, string>
         },
 
-        loader: Core.Loader
+        loader: Core.Loader,
+
+        moduleLoader: Core.ModuleLoader
     }
 
     namespace Core
@@ -63,10 +82,47 @@ declare global
 
             root: Core.Root,
 
-            JS(path: string, module: Core.Module, callback?: () => void): boolean
+            JS(path: string, module: Core.Module, callback?: (isSuccessful: boolean) => void): boolean
         }
 
-        export interface Dependency
+        export interface ModuleLoader
+        {
+            importList: Set<ModuleLoader.Import>;
+            watching: RHU.Module[];
+            imported: RHU.Module[];
+
+            execute: (module: RHU.Module) => boolean;
+            
+            reconcile: (allowPartial?: boolean) => void;
+
+            load: (module: RHU.Module) => void;
+
+            onLoad: (isSuccessful: boolean, module: Core.ModuleLoader.Import) => void;
+
+            onComplete: () => void;
+        }
+
+        namespace ModuleLoader
+        {
+            export interface Import
+            {
+                path: string, 
+                name: string, 
+                type: string
+            }
+        }
+
+        export interface Dependencies
+        {
+
+            hard?: string[], 
+            
+            soft?: string[], 
+            
+            trace?: Error 
+        }
+
+        export interface ResolvedDependency
         {
 
             has: string[],
@@ -74,12 +130,12 @@ declare global
             missing: string[]
         }
 
-        export interface Dependencies
+        export interface ResolvedDependencies
         {
 
-            hard: Dependency, 
+            hard: ResolvedDependency, 
 
-            soft: Dependency,
+            soft: ResolvedDependency,
 
             trace: Error
         }
@@ -89,18 +145,7 @@ declare global
 
             name: string,
 
-            type?: Module.Type   
-        }
-
-        namespace Module
-        {
-            export enum Type 
-            {
-
-                Extension = "x-module",
-
-                Module = "module"
-            }
+            type?: string
         }
     }
 }

@@ -25,12 +25,47 @@ declare global
                 err?: boolean
             }
         }
+
+        namespace Module
+        {
+            enum Type
+            {
+                Module = "module",
+                Extension = "x-module"
+            }
+        }
         
         export interface ReflectConstruct extends Function
         {
             __reflect__(newTarget: unknown, args: any[]): unknown;
             __constructor__: Function;
             __args__(...args: any[]): any[];
+        }
+
+        export interface Dependencies
+        {
+            hard?: string[];
+            soft?: string[];
+            trace?: Error;
+        }
+
+        export interface ResolvedDependency
+        {
+            has: string[],
+            missing: string[]
+        }
+
+        export interface ResolvedDependencies
+        {
+            hard: ResolvedDependency, 
+            soft: ResolvedDependency,
+            trace: Error
+        }
+
+        export interface Module extends Dependencies
+        {
+            name?: string;
+            callback?: (result: RHU.ResolvedDependencies) => void;
         }
 
         var version: string;
@@ -42,6 +77,12 @@ declare global
         }
 
         var readyState: ReadyState;
+
+        function addEventListener(type: string, listener: (any) => void, options?: boolean | EventListenerOptions): void;
+
+        function removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;
+
+        function dispatchEvent(event: Event): boolean;
 
         function isMobile(): boolean;
 
@@ -79,6 +120,8 @@ declare global
         function clearAttributes(element: HTMLElement): void;
 
         function getElementById(id: string, clearID: boolean): HTMLElement;
+
+        function module(): void;
     }
 }
 

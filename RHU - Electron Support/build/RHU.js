@@ -1,6 +1,8 @@
 (function () {
     const LOADING = "loading";
     const COMPLETE = "complete";
+    const MODULE = "module";
+    const EXTENSION = "x-module";
     let core;
     (function () {
         core = {
@@ -71,7 +73,8 @@
             },
             readyState: LOADING,
             config: undefined,
-            loader: undefined
+            loader: undefined,
+            moduleLoader: undefined
         };
     })();
     let result = core.dependencies({
@@ -102,20 +105,16 @@
             let type = String(s.type).replace(/ /g, "");
             if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) {
                 s.type += ";executed=true";
-                loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
+                loaded = JSON.parse(s.innerHTML);
             }
         }
-        let RHU = {
-            config: {}
-        };
-        core.parseOptions(RHU, loaded);
         core.config = {
             root: undefined,
             extensions: [],
             modules: [],
             includes: {}
         };
-        core.parseOptions(core.config, RHU.config);
+        core.parseOptions(core.config, loaded);
     })();
     (function () {
         let config = core.config;
@@ -148,7 +147,7 @@
             JS: function (path, module, callback) {
                 let mod = {
                     name: undefined,
-                    type: Core.Module.Type.Module
+                    type: MODULE
                 };
                 core.parseOptions(mod, module);
                 if (!core.exists(mod.name)) {
@@ -191,6 +190,12 @@
             console.warn("Overwriting global RHU...");
         let RHU = window.RHU = {
             version: "1.0.0",
+            Module: {
+                Type: {
+                    Module: MODULE,
+                    Extension: EXTENSION
+                }
+            },
             ReadyState: {
                 Loading: LOADING,
                 Complete: COMPLETE
@@ -414,12 +419,142 @@
                 if (clearID)
                     el.removeAttribute("id");
                 return el;
-            }
+            },
+            module: undefined,
+            addEventListener: undefined,
+            removeEventListener: undefined,
+            dispatchEvent: undefined
         };
         RHU.definePublicAccessor(RHU, "readyState", {
             get: function () { return core.readyState; }
         });
+        let node = document.createTextNode(null);
+        let addEventListener = node.addEventListener.bind(node);
+        RHU.addEventListener = function (type, listener, options) {
+            addEventListener(type, (e) => { listener(e.detail); }, options);
+        };
+        RHU.removeEventListener = node.removeEventListener.bind(node);
+        RHU.dispatchEvent = node.dispatchEvent.bind(node);
     })();
     (function () {
+        core.moduleLoader = {
+            importList: new Set(),
+            watching: [],
+            imported: [],
+            execute: function (module) {
+                let result = core.dependencies(module);
+                if (result.hard.missing.length === 0) {
+                    this.imported.push(module);
+                    module.callback(result);
+                    return true;
+                }
+                else {
+                    let msg = `could not loaded as not all hard dependencies were found.`;
+                    if (core.exists(result.trace))
+                        msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
+                    for (let dependency of result.hard.missing) {
+                        msg += (`\n\tMissing '${dependency}'`);
+                    }
+                    if (core.exists(module.name))
+                        console.warn(`Module, '${module.name}', ${msg}`);
+                    else
+                        console.warn(`Unknown module ${msg}`);
+                    return false;
+                }
+            },
+            reconcile: function (allowPartial = false) {
+                let oldLen = this.watching.length;
+                do {
+                    oldLen = this.watching.length;
+                    let old = this.watching;
+                    this.watching = [];
+                    for (let module of old) {
+                        let result = core.dependencies(module);
+                        if ((!allowPartial && (result.hard.missing.length === 0 && result.soft.missing.length === 0))
+                            || (allowPartial && result.hard.missing.length === 0)) {
+                            this.imported.push(module);
+                            module.callback(result);
+                        }
+                        else
+                            this.watching.push(module);
+                    }
+                } while (oldLen !== this.watching.length);
+            },
+            load: function (module) {
+                if (core.readyState !== COMPLETE) {
+                    this.watching.push(module);
+                }
+                else
+                    this.execute(module);
+            },
+            onLoad: function (isSuccessful, module) {
+                if (isSuccessful)
+                    this.reconcile();
+                this.importList.delete(module);
+                if (this.importList.size === 0)
+                    this.onComplete();
+            },
+            onComplete: function () {
+                core.readyState = COMPLETE;
+                this.reconcile();
+                this.reconcile(true);
+                for (let module of this.watching)
+                    this.execute(module);
+                if (core.exists(core.loader.root.params.load))
+                    if (core.exists(window[core.loader.root.params.load]))
+                        window[core.loader.root.params.load]();
+                    else
+                        console.error(`Callback for 'load' event called '${core.loader.root.params.load}' does not exist.`);
+                RHU.dispatchEvent(new CustomEvent("load"));
+            }
+        };
+        let RHU = window.RHU;
+        RHU.module = function (module, callback) {
+            module.callback = callback;
+            core.moduleLoader.load(module);
+        };
+        for (let module of core.config.modules) {
+            core.moduleLoader.importList.add({
+                path: core.loader.root.path(core.path.join("modules", `${module}.js`)),
+                name: module,
+                type: RHU.Module.Type.Module
+            });
+        }
+        for (let module of core.config.extensions) {
+            core.moduleLoader.importList.add({
+                path: core.loader.root.path(core.path.join("modules", `${module}.js`)),
+                name: module,
+                type: RHU.Module.Type.Extension
+            });
+        }
+        for (let includePath in core.config.includes) {
+            if (typeof includePath !== "string" || includePath === "")
+                continue;
+            let isAbsolute = core.path.isAbsolute(includePath);
+            for (let module of core.config.includes[includePath]) {
+                if (typeof module !== "string" || module === "")
+                    continue;
+                let path;
+                if (isAbsolute)
+                    path = core.path.join(includePath, `${module}.js`);
+                else
+                    path = core.loader.root.path(core.path.join(includePath, `${module}.js`));
+                core.moduleLoader.importList.add({
+                    path: path,
+                    name: module,
+                    type: RHU.Module.Type.Module
+                });
+            }
+        }
+        if (core.moduleLoader.importList.size === 0)
+            core.moduleLoader.onComplete();
+        else {
+            for (let module of core.moduleLoader.importList) {
+                core.loader.JS(module.path, {
+                    name: module.name,
+                    type: module.type
+                }, (isSuccessful) => core.moduleLoader.onLoad(isSuccessful, module));
+            }
+        }
     })();
 })();
