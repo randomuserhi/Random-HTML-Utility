@@ -78,6 +78,8 @@ declare global
 
         var readyState: ReadyState;
 
+        var imports: RHU.Module[];
+
         function addEventListener(type: string, listener: (any) => void, options?: boolean | EventListenerOptions): void;
 
         function removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;

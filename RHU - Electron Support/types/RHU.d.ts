@@ -62,6 +62,8 @@ declare global
         getElementById(id: string, clearID: boolean): HTMLElement,
 
         module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void
+
+        imports: RHU.Module[]
     }
 
     namespace RHU

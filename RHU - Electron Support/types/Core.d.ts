@@ -91,6 +91,8 @@ declare global
             watching: RHU.Module[];
             imported: RHU.Module[];
 
+            run: (module: RHU.Module) => void;
+
             execute: (module: RHU.Module) => boolean;
             
             reconcile: (allowPartial?: boolean) => void;

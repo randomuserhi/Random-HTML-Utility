@@ -89,12 +89,8 @@
                 }
             },
 
-            readyState: LOADING,
-            config: undefined,
-            loader: undefined,
-
-            moduleLoader: undefined
-        };
+            readyState: LOADING
+        } as Core;
 
     })();
 
@@ -132,7 +128,7 @@
         for (let s of scripts) 
         {
             let type = String(s.type).replace(/ /g, "");
-            if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) 
+            if (type.match(/^json\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) 
             {
                 s.type += ";executed=true";
                 loaded = JSON.parse(s.innerHTML);
@@ -256,8 +252,6 @@
                 Loading: LOADING,
                 Complete: COMPLETE
             },
-
-            readyState: LOADING,
 
             isMobile: function(): boolean
             {
@@ -502,7 +496,8 @@
             inherit: function(child: Function, base: Function): void
             {
                 // NOTE(randomuserhi): Cause we are using typescript, we don't need this check.
-                //if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) throw new TypeError(`'child' and 'base' must be object constructors.`); 
+                //if (!RHU.isConstructor(child) || !RHU.isConstructor(base)) 
+                //    throw new TypeError(`'child' and 'base' must be object constructors.`); 
 
                 Object.setPrototypeOf(child.prototype, base.prototype); // Inherit instance properties
                 Object.setPrototypeOf(child, base); // Inherit static properties
@@ -597,14 +592,8 @@
                 let el = document.getElementById(id);
                 if (clearID) el.removeAttribute("id");
                 return el;
-            },
-
-            module: undefined,
-
-            addEventListener: undefined,
-            removeEventListener: undefined,
-            dispatchEvent: undefined
-        };
+            }
+        } as RHU;
 
         RHU.definePublicAccessor(RHU, "readyState", {
             get: function() { return core.readyState; }
@@ -633,13 +622,18 @@
             watching: [],
             imported: [],
 
+            run: function(this: Core.ModuleLoader, module: RHU.Module): void
+            {
+                module.callback(result);
+                this.imported.push(module);
+            },
+
             execute: function(this: Core.ModuleLoader, module: RHU.Module): boolean
             {
                 let result = core.dependencies(module);
                 if (result.hard.missing.length === 0)
                 {
-                    this.imported.push(module);
-                    module.callback(result);
+                    this.run(module);
                     return true;
                 }
                 else
@@ -676,8 +670,8 @@
                         if (   (!allowPartial && (result.hard.missing.length === 0 && result.soft.missing.length === 0))
                             || ( allowPartial &&  result.hard.missing.length === 0))
                         {
-                            this.imported.push(module);
                             module.callback(result);
+                            this.imported.push(module);
                         }
                         else this.watching.push(module);
                     }
@@ -732,7 +726,7 @@
             } 
         };
 
-        // Define module function
+        // Define module functions of RHU
         let RHU: RHU = window.RHU;
         RHU.module = function(module: RHU.Module, callback)
         {
@@ -741,6 +735,21 @@
             // execute module
             core.moduleLoader.load(module);
         };
+        RHU.definePublicAccessor(RHU, "imports", {
+            get: function(): RHU.Module[] { 
+                let obj: RHU.Module[] = [...core.moduleLoader.imported];
+                obj.toString = function(): string {
+                    let msg = "Imports in order of execution:";
+                    for (let module of obj)
+                    {
+                        msg += `\n${core.exists(module.name) ? module.name : "Unknown"}${core.exists(module.trace) ? "\n" 
+                            + module.trace.stack.split("\n")[1] : ""}`;
+                    }
+                    return msg;
+                };
+                return obj; 
+            }
+        });
 
         // 1) Obtain list of imports to load
         for (let module of core.config.modules)

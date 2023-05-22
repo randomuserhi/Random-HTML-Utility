@@ -44,7 +44,7 @@
         let Node_childNodes = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get);
         let Node_parentNode = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get);
 
-        HTMLDocument.prototype.createMacro = function(type)
+        Document.prototype.createMacro = function(type)
         {
             let definition = templates.get(type);
             if (!RHU.exists(definition)) definition = defaultDefinition;
@@ -61,7 +61,7 @@
             return el[symbols.macro];
         };
 
-        HTMLDocument.prototype.Macro = function(type, attributes)
+        Document.prototype.Macro = function(type, attributes)
         {
             let definition = templates.get(type);
             if (!RHU.exists(definition)) definition = defaultDefinition;
