@@ -144,7 +144,7 @@ declare global
 
         function getElementById(id: string, clearID: boolean): HTMLElement;
 
-        function module(): void;
+        function module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void;
     }
 }
 

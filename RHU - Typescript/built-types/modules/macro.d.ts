@@ -31,7 +31,26 @@ declare global
                 
                 content?: PropertyKey
             }
+
+            interface TemplateMap
+            {
+
+            }
         }
+    }
+
+    interface Document
+    {
+        
+        createMacro<T extends keyof RHU.Macro.TemplateMap>(type: T): RHU.Macro.TemplateMap[T],
+        
+        Macro(type: string, attributes: Record<string, string>): string
+    }
+
+    interface Element
+    {
+
+        rhuMacro: string
     }
 }
 

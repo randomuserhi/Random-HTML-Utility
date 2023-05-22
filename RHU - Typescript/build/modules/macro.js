@@ -137,7 +137,7 @@
         let parseStack = [];
         let watching = new Map();
         Macro.parse = function (element, type, force = false) {
-            if (element.tagName === "rhu-macro") {
+            if (element.tagName === "RHU-MACRO") {
                 let definition = templates.get(type);
                 if (!RHU.exists(definition))
                     return;

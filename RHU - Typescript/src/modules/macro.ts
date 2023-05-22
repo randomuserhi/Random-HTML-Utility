@@ -69,7 +69,7 @@
         Node_childNodes = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get);
         Node_parentNode = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get);
 
-        Document.prototype.createMacro = function(type: string): Element
+        Document.prototype.createMacro = function<T extends keyof RHU.Macro.TemplateMap>(type: string): RHU.Macro.TemplateMap[T]
         {
             let definition = templates.get(type);
             if (!RHU.exists(definition)) definition = defaultTemplate;
@@ -218,7 +218,7 @@
 
             // Check if element is <rhu-macro>, 
             // if it is then expand it to parse the element it represents
-            if (element.tagName === "rhu-macro")
+            if (element.tagName === "RHU-MACRO") // NOTE(randomuserhi): tagName is a string thats all upper case.
             {
                 let definition = templates.get(type);
 
