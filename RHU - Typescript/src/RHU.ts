@@ -135,13 +135,17 @@
             }
         }
 
+        let RHUConfig = {
+            config: {}
+        };
+        core.parseOptions(RHUConfig, loaded);
         core.config = {
             root: undefined,
             extensions: [],
             modules: [],
             includes: {}
         };
-        core.parseOptions(core.config, loaded);
+        core.parseOptions(core.config, RHUConfig);
 
     })();
 

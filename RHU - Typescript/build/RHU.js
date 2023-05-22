@@ -105,13 +105,17 @@
                 loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
             }
         }
+        let RHUConfig = {
+            config: {}
+        };
+        core.parseOptions(RHUConfig, loaded);
         core.config = {
             root: undefined,
             extensions: [],
             modules: [],
             includes: {}
         };
-        core.parseOptions(core.config, loaded);
+        core.parseOptions(core.config, RHUConfig);
     })();
     (function () {
         let config = core.config;
