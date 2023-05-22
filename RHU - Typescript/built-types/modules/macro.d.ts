@@ -1,16 +1,12 @@
 declare global
 {
-    interface RHU
-    {
-
-        Macro?: RHU.Macro
-    }
-
     namespace RHU
     {
+        var Macro: Macro
+
         interface Macro
         {
-            
+
             (constructor: Function, type: string, source: string, options: RHU.Macro.Options): void,
             
             parseDomString(str: string): DocumentFragment,
@@ -36,20 +32,6 @@ declare global
                 content?: PropertyKey
             }
         }
-    }
-
-    interface Document
-    {
-        
-        createMacro: (type: string) => Element,
-        
-        Macro: (type: string, attributes: Record<string, string>) => string
-    }
-
-    interface Element
-    {
-
-        rhuMacro: string
     }
 }
 

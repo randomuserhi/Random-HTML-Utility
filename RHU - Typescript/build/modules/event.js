@@ -3,7 +3,7 @@
     if (RHU === null || RHU === undefined)
         throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module({ name: "rhu/event", trace: new Error(), hard: [] }, function () {
-        if (RHU.exists(RHU.eventTarget))
+        if (RHU.exists(RHU.eventTarget) || RHU.exists(RHU.CustomEvent))
             console.warn("Overwriting RHU.EventTarget...");
         RHU.eventTarget = function (target) {
             let node = document.createTextNode(null);

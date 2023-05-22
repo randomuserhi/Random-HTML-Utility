@@ -71,10 +71,7 @@
                     return /^([a-z]+:)?[\\/]/i.test(path);
                 }
             },
-            readyState: LOADING,
-            config: undefined,
-            loader: undefined,
-            moduleLoader: undefined
+            readyState: LOADING
         };
     })();
     let result = core.dependencies({
@@ -103,7 +100,7 @@
         let scripts = document.getElementsByTagName("script");
         for (let s of scripts) {
             let type = String(s.type).replace(/ /g, "");
-            if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) {
+            if (type.match(/^json\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) {
                 s.type += ";executed=true";
                 loaded = JSON.parse(s.innerHTML);
             }
@@ -200,7 +197,6 @@
                 Loading: LOADING,
                 Complete: COMPLETE
             },
-            readyState: LOADING,
             isMobile: function () {
                 if (RHU.exists(navigator.userAgentData) && RHU.exists(navigator.userAgentData.mobile))
                     return navigator.userAgentData.mobile;
@@ -419,14 +415,13 @@
                 if (clearID)
                     el.removeAttribute("id");
                 return el;
-            },
-            module: undefined,
-            addEventListener: undefined,
-            removeEventListener: undefined,
-            dispatchEvent: undefined
+            }
         };
         RHU.definePublicAccessor(RHU, "readyState", {
             get: function () { return core.readyState; }
+        });
+        RHU.definePublicAccessor(RHU, "config", {
+            get: function () { return core.config; }
         });
         let node = document.createTextNode(null);
         let addEventListener = node.addEventListener.bind(node);
@@ -441,11 +436,14 @@
             importList: new Set(),
             watching: [],
             imported: [],
+            run: function (module) {
+                module.callback(result);
+                this.imported.push(module);
+            },
             execute: function (module) {
                 let result = core.dependencies(module);
                 if (result.hard.missing.length === 0) {
-                    this.imported.push(module);
-                    module.callback(result);
+                    this.run(module);
                     return true;
                 }
                 else {
@@ -472,8 +470,8 @@
                         let result = core.dependencies(module);
                         if ((!allowPartial && (result.hard.missing.length === 0 && result.soft.missing.length === 0))
                             || (allowPartial && result.hard.missing.length === 0)) {
-                            this.imported.push(module);
                             module.callback(result);
+                            this.imported.push(module);
                         }
                         else
                             this.watching.push(module);
@@ -513,6 +511,20 @@
             module.callback = callback;
             core.moduleLoader.load(module);
         };
+        RHU.definePublicAccessor(RHU, "imports", {
+            get: function () {
+                let obj = [...core.moduleLoader.imported];
+                obj.toString = function () {
+                    let msg = "Imports in order of execution:";
+                    for (let module of obj) {
+                        msg += `\n${core.exists(module.name) ? module.name : "Unknown"}${core.exists(module.trace) ? "\n"
+                            + module.trace.stack.split("\n")[1] : ""}`;
+                    }
+                    return msg;
+                };
+                return obj;
+            }
+        });
         for (let module of core.config.modules) {
             core.moduleLoader.importList.add({
                 path: core.loader.root.path(core.path.join("modules", `${module}.js`)),
