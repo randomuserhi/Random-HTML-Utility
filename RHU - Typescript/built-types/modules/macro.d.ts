@@ -32,10 +32,10 @@ declare global
                 content?: PropertyKey
             }
 
-            interface Constructor
+            interface Constructor<T extends Element = Element>
             {
-                (this: Element): void;
-                prototype: Element;
+                (this: T): void;
+                prototype: T;
             }
             
             interface TemplateMap
