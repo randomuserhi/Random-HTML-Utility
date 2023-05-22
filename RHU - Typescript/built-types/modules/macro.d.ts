@@ -32,6 +32,12 @@ declare global
                 content?: PropertyKey
             }
 
+            interface Constructor
+            {
+                (this: Element): void;
+                prototype: Element;
+            }
+            
             interface TemplateMap
             {
 
