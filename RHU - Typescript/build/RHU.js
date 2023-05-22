@@ -99,10 +99,10 @@
         let loaded;
         let scripts = document.getElementsByTagName("script");
         for (let s of scripts) {
-            let type = String(s.type).replace(/ /g, "");
-            if (type.match(/^json\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) {
+            var type = String(s.type).replace(/ /g, "");
+            if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) {
                 s.type += ";executed=true";
-                loaded = JSON.parse(s.innerHTML);
+                loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
             }
         }
         core.config = {
@@ -367,7 +367,7 @@
                 Object.setPrototypeOf(child.prototype, base.prototype);
                 Object.setPrototypeOf(child, base);
             },
-            reflectConstruct: function (base, constructor, argnames) {
+            reflectConstruct: function (base, name, constructor, argnames) {
                 let args = argnames;
                 if (!RHU.exists(args)) {
                     args = ["...args"];
@@ -386,7 +386,22 @@
                     }
                 }
                 let definition;
+                let argstr = args.join(",");
+                if (!RHU.exists(name))
+                    name = constructor.name;
+                name.replace(/[ \t\r\n]/g, "");
+                if (name === "")
+                    name = "__ReflectConstruct__";
+                let parts = name.split(".").filter(c => c !== "");
+                let evalStr = "{ let ";
+                for (let i = 0; i < parts.length - 1; ++i) {
+                    let part = parts[i];
+                    evalStr += `${part} = {}; ${part}.`;
+                }
+                evalStr += `${parts[parts.length - 1]} = function(${argstr}) { return definition.__reflect__.call(this, new.target, [${argstr}]); }; definition = ${parts.join(".")} }`;
+                eval(evalStr);
                 if (!RHU.exists(definition)) {
+                    console.warn("eval() call failed to create reflect constructor. Using fallback...");
                     definition = function (...args) {
                         return definition.__reflect__.call(this, new.target, args);
                     };

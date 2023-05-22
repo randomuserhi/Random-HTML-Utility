@@ -7,7 +7,7 @@
         let Map_keys = Map.prototype.keys;
         let Map_get = Map.prototype.get;
         let a = new Map();
-        RHU.WeakRefMap = RHU.reflectConstruct(Map, function () {
+        RHU.WeakRefMap = RHU.reflectConstruct(Map, "WeakRefMap", function () {
             this._registry = new FinalizationRegistry((key) => {
                 this.delete(key);
             });
@@ -46,7 +46,7 @@
         RHU.inherit(RHU.WeakRefMap, Map);
         let WeakSet_add = WeakSet.prototype.add;
         let WeakSet_delete = WeakSet.prototype.delete;
-        RHU.WeakCollection = RHU.reflectConstruct(WeakSet, function () {
+        RHU.WeakCollection = RHU.reflectConstruct(WeakSet, "WeakCollection", function () {
             this._collection = [];
             this._registry = new FinalizationRegistry(() => {
                 this._collection = this._collection.filter((i) => {

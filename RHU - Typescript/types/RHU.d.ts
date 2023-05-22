@@ -53,10 +53,7 @@ declare global
 
         inherit(child: Function, base: Function): void,
 
-        // NOTE(randomuserhi): Disabled, since 'name' is no longer needed with electron + typescript
-        //reflectConstruct(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct,
-
-        reflectConstruct(base: Function, constructor: Function, argnames?: string[]): RHU.ReflectConstruct,
+        reflectConstruct(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct,
 
         clearAttributes(element: HTMLElement): void,
 

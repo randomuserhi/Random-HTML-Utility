@@ -10,7 +10,7 @@
 
         let a = new Map();
 
-        RHU.WeakRefMap = RHU.reflectConstruct(Map, function()
+        RHU.WeakRefMap = RHU.reflectConstruct(Map, "WeakRefMap", function()
         {
             // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
             //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
@@ -60,7 +60,7 @@
         let WeakSet_add = WeakSet.prototype.add;
         let WeakSet_delete = WeakSet.prototype.delete;
 
-        RHU.WeakCollection = RHU.reflectConstruct(WeakSet, function()
+        RHU.WeakCollection = RHU.reflectConstruct(WeakSet, "WeakCollection", function()
         {
             this._collection = [];
             // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
