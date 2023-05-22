@@ -43,16 +43,7 @@ declare global
 
         readyState: string,
 
-        config: {
-
-            root: string,
-
-            extensions: string[],
-
-            modules: string[],
-
-            includes: Record<string, string>
-        },
+        config: RHU.Config,
 
         loader: Core.Loader,
 

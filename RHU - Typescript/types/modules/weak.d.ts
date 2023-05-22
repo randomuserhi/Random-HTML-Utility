@@ -21,13 +21,16 @@ declare global
             readonly prototype: WeakRefMap<any, any>
         }
 
-        interface WeakCollection<T extends object>
+        interface WeakCollection<T extends object> extends WeakSet<T>
         {
             prototype: WeakCollection<T>,
+            add(item: T): this,
+            delete(item: T): boolean,
             add(...items: T[]): void,
-            delete(...items: T[]): void
+            delete(...items: T[]): void,
+            [Symbol.iterator](): IterableIterator<T>
         }
-        interface WeakCollectionConstructor extends ReflectConstruct
+        interface WeakCollectionConstructor extends WeakSetConstructor, ReflectConstruct
         {
             new <T extends object = object>(values?: readonly T[] | null): WeakCollection<T>;
             readonly prototype: WeakCollection<object>;

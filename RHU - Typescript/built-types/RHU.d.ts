@@ -3,8 +3,28 @@
 
 declare global
 {
+    // TODO(randomuserhi): I should implement the type as an interface instead of a namespace.
+    //                     Using an interface allows for `readonly` keyword etc...
+    //                     but means I need to declare a global variable RHU:
+    //                     
+    //                     var RHU: RHU;
+    //                     interface RHU { ... }
+    //                     namespace RHU { ... }
+
     namespace RHU
     {
+        interface Config
+        {
+
+            readonly root: string,
+
+            readonly extensions: string[],
+
+            readonly modules: string[],
+
+            readonly includes: Record<string, string>
+        }
+
         namespace Properties
         {
             export interface Options
@@ -77,6 +97,7 @@ declare global
         }
 
         var readyState: ReadyState;
+        var config: RHU.Config;
 
         var imports: RHU.Module[];
 

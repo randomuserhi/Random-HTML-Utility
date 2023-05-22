@@ -450,7 +450,7 @@
                 return target;
             },
 
-            deleteProperties: function(object: any, preserve: {}): void
+            deleteProperties: function(object: any, preserve?: {}): void
             {
                 if (object === preserve) return;
 
@@ -597,6 +597,10 @@
 
         RHU.definePublicAccessor(RHU, "readyState", {
             get: function() { return core.readyState; }
+        });
+
+        RHU.definePublicAccessor(RHU, "config", {
+            get: function() { return core.config; }
         });
 
         // Event Handler:

@@ -19,7 +19,8 @@ declare global
             }
         },
 
-        readyState: string,
+        readonly readyState: string,
+        readonly config: RHU.Config,
 
         isMobile(): boolean,
 
@@ -43,7 +44,7 @@ declare global
 
         assign<T>(target: T, source: any, options?: RHU.Properties.Flags): T,
         
-        deleteProperties(object: any, preserve: {}): void,
+        deleteProperties(object: any, preserve?: {}): void,
 
         clone<T extends object>(object: object, prototype: T) : T,
         clone<T extends object>(object: T) : T,
@@ -63,11 +64,23 @@ declare global
 
         module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void
 
-        imports: RHU.Module[]
+        readonly imports: RHU.Module[]
     }
 
     namespace RHU
     {
+        interface Config
+        {
+
+            readonly root: string,
+
+            readonly extensions: string[],
+
+            readonly modules: string[],
+
+            readonly includes: Record<string, string>
+        }
+
         interface EventTarget
         {
             addEventListener(type: string, listener: (any) => void, options?: boolean | EventListenerOptions): void,

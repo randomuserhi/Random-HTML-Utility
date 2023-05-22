@@ -436,7 +436,7 @@
                 return target;
             };
 
-            RHU.delete = function(object, preserve = undefined)
+            RHU.deleteProperties = function(object, preserve = undefined)
             {
                 if (object === preserve) return;
 

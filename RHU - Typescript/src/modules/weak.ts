@@ -79,6 +79,13 @@
         }) as RHU.WeakCollectionConstructor;
         RHU.WeakCollection.prototype.add = function(...items)
         {
+            if (items.length === 1)
+            {
+                this._collection.push(new WeakRef(items[0]));
+                this._registry.register(items[0]);
+                return WeakSet_add.call(this, items[0]);
+            }
+            
             for (let item of items)
             {
                 if (!this.has(item))
@@ -91,6 +98,15 @@
         };
         RHU.WeakCollection.prototype.delete = function(...items)
         {
+            if (items.length === 1)
+            {
+                this._collection = this._collection.filter((i) => {
+                    i = i.deref();
+                    return RHU.exists(i) && !items.includes(i); 
+                });
+                return WeakSet_delete.call(this, items[0]);
+            }
+
             for (let item of items)
                 WeakSet_delete.call(this, item);
             this._collection = this._collection.filter((i) => {
