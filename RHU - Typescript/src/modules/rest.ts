@@ -2,7 +2,7 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.module({ name: "rhu/rest", trace: new Error(), hard: ["fetch", "URL"] }, function()
+    RHU.module({ name: "rhu/rest", trace: new Error(), hard: ["fetch", "URL", "Promise"] }, function()
     {
         if (RHU.exists(RHU.Rest))
             console.warn("Overwriting RHU.Rest...");
