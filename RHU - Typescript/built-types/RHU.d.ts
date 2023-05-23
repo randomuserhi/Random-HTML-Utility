@@ -210,6 +210,11 @@ declare global
 
         function module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void;
     }
+
+    interface Window
+    {
+        RHU: RHU;
+    }
 }
 
 export {}
