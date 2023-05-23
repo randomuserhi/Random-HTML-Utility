@@ -5,10 +5,9 @@
     "target": "ES2021",
     "strictNullChecks": true,
     "sourceMap": false,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
+    "noImplicitAny": false,
+    "forceConsistentCasingInFileNames": true,
     "removeComments": true,
-    "noImplicitAny": false
   },
   "exclude": [ "node_modules", "build", "built-types" ] 
 }
