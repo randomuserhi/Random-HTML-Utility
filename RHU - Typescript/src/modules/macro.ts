@@ -46,10 +46,10 @@
         };
 
         RHU.defineProperty(Node.prototype, symbols.macro, {
-            get: function() { return this; }
+            get: function(this: Node) { return this; }
         });
         RHU.definePublicAccessor(Node.prototype, "macro", {
-            get: function() { return this[symbols.macro]; }
+            get: function(this: Node) { return this[symbols.macro]; }
         });
 
         // NOTE(randomuserhi): Store a reference to base functions that will be overridden
