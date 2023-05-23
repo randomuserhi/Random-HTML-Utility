@@ -153,11 +153,62 @@ declare global
             Loading = "loading",
             Complete = "complete"
         }
-    }
 
-    interface Window
-    {
-        RHU: RHU;
+        const version: string;
+        
+        const readyState: ReadyState;
+        const config: RHU.Config;
+
+        const imports: RHU.Module[];
+
+        function addEventListener<T extends keyof RHU.EventMap>(type: string, listener: (this: RHU, ev: RHU.EventMap[T]) => any, options?: boolean | AddEventListenerOptions): void;
+
+        function addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+
+        function removeEventListener<T extends keyof RHU.EventMap>(type: string, listener: (this: RHU, ev: RHU.EventMap[T]) => any, options?: boolean | EventListenerOptions): void;
+
+        function removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+
+        function CustomEvent<T = any>(type: string, detail: T): CustomEvent<T>;
+
+        function isMobile(): boolean;
+
+        function exists<T>(object: T | null | undefined): object is T;
+
+        function parseOptions<T extends {}>(template: T, options: any | null | undefined): T;
+
+        function properties(object: any, options: RHU.Properties.Options, operation?: (object: any, property: PropertyKey) => void): Set<PropertyKey>;
+
+        function defineProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean;
+
+        function definePublicProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean;
+        
+        function definePublicAccessor(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean;
+
+        function defineProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void;
+        
+        function definePublicProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void;
+
+        function definePublicAccessors(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void;
+
+        function assign<T>(target: T, source: any, options?: RHU.Properties.Flags): T;
+        
+        function deleteProperties(object: any, preserve?: {}): void;
+
+        function clone<T extends object>(object: object, prototype: T) : T;
+        function clone<T extends object>(object: T) : T;
+
+        function isConstructor(object: any): boolean;
+
+        function inherit(child: Function, base: Function): void;
+
+        function reflectConstruct<T extends Constructor, K extends T>(base: T, name: string, constructor: (...args: any[]) => void, argnames?: string[]): RHU.ReflectConstruct<T, Prototype<K>>;
+
+        function clearAttributes(element: HTMLElement): void;
+
+        function getElementById(id: string, clearID: boolean): HTMLElement | null;
+
+        function module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void;
     }
 }
 
