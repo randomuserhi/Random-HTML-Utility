@@ -15,7 +15,7 @@ declare global
             
             Type: RHU.File.Type;
 
-            getType(blob: Blob)
+            getType(blob: Blob): Promise<[string, string]>;
         }
 
         namespace File

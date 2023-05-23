@@ -66,7 +66,7 @@ declare global
             interface wsClientConstructor<T extends WebSocket, Construct extends (...args: any[]) => RHU.WebSockets.Options>
             {
                 readonly prototype: wsClient<T, Construct>;
-                new<T extends WebSocketConstructor>(...args: Parameters<Construct>);
+                new(...args: Parameters<Construct>): wsClient<T, Construct>;
             }
 
             interface wsClientGenerator
