@@ -10,6 +10,9 @@ declare global
 
     namespace RHU
     {
+        var WeakRefMap: RHU.WeakRefMapConstructor | undefined | null;
+        var WeakCollection: RHU.WeakCollectionConstructor | undefined | null;
+
         interface WeakRefMap<K, V> extends Map<K, V>
         {
             prototype: WeakRefMap<K, V>;

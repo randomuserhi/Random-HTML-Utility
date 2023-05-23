@@ -14,6 +14,8 @@ declare global
 
     namespace RHU
     {
+        var WebSockets: WebSockets | undefined | null;
+
         interface WebSockets
         {
             readonly CONNECTING: 0;

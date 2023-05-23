@@ -8,6 +8,8 @@ declare global
 
     namespace RHU
     {
+        var Macro: RHU.Macro | undefined | null;
+
         interface Macro
         {
             

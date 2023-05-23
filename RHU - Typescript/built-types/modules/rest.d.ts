@@ -8,6 +8,8 @@ declare global
 
     namespace RHU
     {
+        var Rest: RHU.Rest | undefined | null;
+
         interface Rest
         {
             fetch<T>(options: RHU.Rest.Options<T, RHU.Rest.ParserFunc>): RHU.Rest.FetchFunc<T, RHU.Rest.ParserFunc>;
