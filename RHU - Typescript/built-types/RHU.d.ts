@@ -145,6 +145,7 @@ declare global
         {
             name?: string;
             type?: string;
+            trace: Error;
             callback?: (result: RHU.ResolvedDependencies) => void;
         }
 

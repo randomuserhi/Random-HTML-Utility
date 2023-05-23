@@ -64,6 +64,13 @@ declare global
             path(path: string): string;
         }
 
+        interface ModuleIdentifier extends RHU.Dependencies
+        {
+            name?: string;
+            type?: string;
+            callback?: (result: RHU.ResolvedDependencies) => void;
+        }
+
         interface Loader
         {
             
@@ -73,7 +80,7 @@ declare global
 
             root: Core.Root;
 
-            JS(path: string, module: RHU.Module, callback?: (isSuccessful: boolean) => void): boolean;
+            JS(path: string, module: Core.ModuleIdentifier, callback?: (isSuccessful: boolean) => void): boolean;
         }
 
         interface ModuleLoader

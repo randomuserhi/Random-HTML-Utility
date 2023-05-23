@@ -189,9 +189,9 @@
                     return core.path.join(this.location, path);
                 }
             }, root as { location: string, script: string, params: Record<string, string> }),
-            JS: function(this: Core.Loader, path: string, module: RHU.Module, callback?: (isSuccessful: boolean) => void): boolean
+            JS: function(this: Core.Loader, path: string, module: Core.ModuleIdentifier, callback?: (isSuccessful: boolean) => void): boolean
             {
-                let mod: RHU.Module = {
+                let mod: Core.ModuleIdentifier = {
                     name: "",
                     type: MODULE
                 };
