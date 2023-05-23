@@ -15,15 +15,15 @@
             element: string,
             floating: boolean,
             strict: boolean,
-            encapsulate: PropertyKey,
-            content: PropertyKey
+            encapsulate?: PropertyKey,
+            content?: PropertyKey
         }
 
         interface MacroTemplate
         {
             constructor: Function,
-            type: string,
-            source: string,
+            type?: string,
+            source?: string,
             options: MacroOptions,
             protoCache: RHU.WeakRefMap<any, any> // TODO(randomuserhi): Update types
         }
@@ -66,8 +66,14 @@
         Element_getAttribute = Function.call.bind(Element.prototype.getAttribute);
         Element_hasAttribute = Function.call.bind(Element.prototype.hasAttribute);
         Element_removeAttribute = Function.call.bind(Element.prototype.removeAttribute);
-        Node_childNodes = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "childNodes").get);
-        Node_parentNode = Function.call.bind(Object.getOwnPropertyDescriptor(Node.prototype, "parentNode").get);
+        
+        let Descriptor_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes");
+        if (!RHU.exists(Descriptor_childNodes)) throw new ReferenceError("Node.prototype.childNodes is null or undefined.");
+        Node_childNodes = Function.call.bind(Descriptor_childNodes.get);
+        
+        let Descriptor_parentNode = Object.getOwnPropertyDescriptor(Node.prototype, "parentNode");
+        if (!RHU.exists(Descriptor_parentNode)) throw new ReferenceError("Node.prototype.parentNode is null or undefined.");
+        Node_parentNode = Function.call.bind(Descriptor_parentNode.get);
 
         Document.prototype.createMacro = function<T extends keyof RHU.Macro.TemplateMap>(type: string): RHU.Macro.TemplateMap[T]
         {
@@ -150,7 +156,7 @@
                 type: type,
                 source: source,
                 options: opt,
-                protoCache: new RHU.WeakRefMap() // Used by the parser for performance
+                protoCache: new RHU.WeakRefMap!() // Used by the parser for performance
             });
 
             // parse macros currently of said type
@@ -161,7 +167,7 @@
 
             return undefined;
         } as RHU.Macro;
-        let templates = new Map<string | null, MacroTemplate>();
+        let templates = new Map<string | undefined | null, MacroTemplate>();
         let defaultTemplate: MacroTemplate = {
             constructor: function() {},
             type: undefined,
@@ -173,7 +179,7 @@
                 encapsulate: undefined,
                 content: undefined
             },
-            protoCache: new RHU.WeakRefMap()
+            protoCache: new RHU.WeakRefMap!()
         };
 
         let xPathEvaluator = new XPathEvaluator();
@@ -216,6 +222,9 @@
              *                     seem to not have any properties, an error check is made to double check this.
              */
 
+            // Normalize type undefined / null to blank type
+            if (!RHU.exists(type)) type = "";
+
             // Check if element is <rhu-macro>, 
             // if it is then expand it to parse the element it represents
             if (element.tagName === "RHU-MACRO") // NOTE(randomuserhi): tagName is a string thats all upper case.
@@ -240,7 +249,7 @@
                 element.replaceWith(macro);
                 
                 // Stop watching this <rhu-macro>
-                watching.get(type).delete(element);
+                watching.get(type)!.delete(element);
 
                 // Update element to continue parse on expanded <rhu-macro>
                 element = macro;
@@ -252,9 +261,6 @@
 
             // return if element doesn't exist
             if (!RHU.exists(element)) return;
-
-            // Normalize blank type / undefined type to null
-            if (type === "" || type === undefined) type = null;
 
             // return if type has not changed unless we are force parsing it
             if (force === false && element[symbols.constructed] === type) return;
@@ -422,7 +428,7 @@
             let query = xPathEvaluator.evaluate(xPath, element, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
             for (let i = 0, length = query.snapshotLength; i < length; ++i)
             {
-                let self = query.snapshotItem(i);
+                let self: Node = query.snapshotItem(i)!;
                 if (RHU.exists(self.parentNode))
                     self.parentNode.removeChild(self);
             }
@@ -475,7 +481,7 @@
                 // check if old type was not floating
                 // - floating macros are 1 time use (get consumed) and thus aren't watched
                 if (!old.options.floating && watching.has(oldType))
-                    watching.get(oldType).delete(element);
+                    watching.get(oldType)!.delete(element);
             }
             // Handle new type
             // check if new type is floating
@@ -485,9 +491,9 @@
                 if (RHU.exists(type))
                 {
                     if (!watching.has(type))
-                        watching.set(type, new RHU.WeakCollection<Element>());    
+                        watching.set(type, new RHU.WeakCollection!<Element>());    
                     let typeCollection = watching.get(type);
-                    typeCollection.add(element);
+                    typeCollection!.add(element);
                 }
             }
 
@@ -522,9 +528,9 @@
                     if (RHU.exists(type))
                     {
                         if (!watching.has(type))
-                            watching.set(type, new RHU.WeakCollection<Element>());    
+                            watching.set(type, new RHU.WeakCollection!<Element>());    
                         let typeCollection = watching.get(type);
-                        typeCollection.add(el);
+                        typeCollection!.add(el);
                     }
                     continue;
                 }

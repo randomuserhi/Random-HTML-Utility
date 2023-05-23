@@ -11,11 +11,11 @@
     (function() {
 
         core = {
-            exists: function(object: any)
+            exists: function<T>(object: T | undefined | null): object is T
             {
                 return object !== null && object !== undefined;
             },
-            parseOptions: function<T>(template: T, opt: any): T
+            parseOptions: function<T extends {}>(template: T, opt: any | undefined | null): T
             {
                 if (!core.exists(opt)) return template;
                 if (!core.exists(template)) return template;
@@ -24,16 +24,16 @@
                 Object.assign(result, opt);
                 return result;
             },
-            dependencies: function(options?: Core.Dependencies): Core.ResolvedDependencies
+            dependencies: function(options?: RHU.Dependencies): RHU.ResolvedDependencies
             {
-                let opt: { hard: string[], soft: string[], trace: Error } = {
+                let opt: { hard: string[], soft: string[], trace?: Error } = {
                     hard: [], 
                     soft: [],
                     trace: undefined
                 };
                 core.parseOptions(opt, options);
     
-                let check = (items: string[]): Core.ResolvedDependency => {
+                let check = (items: string[]): RHU.ResolvedDependency => {
                     let has: string[] = [];
                     let missing: string[] = [];
                     let set: Record<string, boolean> = {};
@@ -44,7 +44,7 @@
                         set[path] = true;
                         let traversal = path.split(".");
                         let obj = window;
-                        for (; traversal.length !== 0 && core.exists(obj); obj = obj[traversal.shift()]) {
+                        for (; traversal.length !== 0 && core.exists(obj); obj = obj[traversal.shift()!]) {
                             // No body needed, since for loop handles traversal
                         }
                         if (core.exists(obj))
@@ -109,7 +109,7 @@
     if (result.hard.missing.length !== 0)
     {
         let msg = `RHU was unable to import due to missing dependencies.`;
-        if (core.exists(result.trace))
+        if (core.exists(result.trace) && core.exists(result.trace.stack))
             msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
         for (let dependency of result.hard.missing)
         {
@@ -153,7 +153,7 @@
     (function() {
 
         let config = core.config;
-        let root: { location: string, script: string, params: Record<string, string> } = {
+        let root: { location?: string, script: string, params: Record<string, string> } = {
             location: config.root,
             script: "",
             params: {}
@@ -164,17 +164,20 @@
         {
             if (!core.exists(root.location))
             {
-                let s: HTMLScriptElement = document.currentScript as HTMLScriptElement;
-                root.location = s.src.match(/(.*)[/\\]/)[1] || "";
+                let s = document.currentScript as HTMLScriptElement;
+                let r = s.src.match(/(.*)[/\\]/);
+                root.location = "";
+                if (core.exists(r)) root.location = r[1] || "";
                 root.script = s.innerHTML;
                 let params = (new URL(s.src)).searchParams;
                 for (let key of params.keys())
                 {
-                    root.params[key] = params.get(key);
+                    root.params[key] = params.get(key)!;
                 }
             }
         }
-        else console.warn("Unable to find script element."); // NOTE(randomuserhi): Not sure if this is a fatal error or not...
+
+        if (!core.exists(root.location)) throw new Error("Unable to get root location.");
 
         // Create loader
         core.loader = {
@@ -185,22 +188,22 @@
                 {
                     return core.path.join(this.location, path);
                 }
-            }, root),
-            JS: function(this: Core.Loader, path: string, module: Core.Module, callback?: (isSuccessful: boolean) => void): boolean
+            }, root as { location: string, script: string, params: Record<string, string> }),
+            JS: function(this: Core.Loader, path: string, module: RHU.Module, callback?: (isSuccessful: boolean) => void): boolean
             {
-                let mod: Core.Module = {
-                    name: undefined,
+                let mod: RHU.Module = {
+                    name: "",
                     type: MODULE
                 };
                 core.parseOptions(mod, module);
 
-                if (!core.exists(mod.name))
+                if (!core.exists(mod.name) || mod.name === "")
                 {
                     console.error("Cannot load module without a name.");
                     return false;
                 }
 
-                if (!core.exists(mod.type))
+                if (!core.exists(mod.type) || mod.type === "")
                 {
                     console.error("Cannot load module without a type.");
                     return false;
@@ -269,7 +272,7 @@
                 return obj !== null && obj !== undefined;
             },
 
-            parseOptions: function<T>(template: T, options: any): T
+            parseOptions: function<T extends {}>(template: T, options: any | undefined | null): T
             {
                 if (!RHU.exists(options)) return template;
                 if (!RHU.exists(template)) return template;
@@ -507,7 +510,7 @@
                 Object.setPrototypeOf(child, base); // Inherit static properties
             },
 
-            reflectConstruct: function(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct
+            reflectConstruct: function<T extends Constructor, K extends T>(base: T, name: string, constructor: (...args: any[]) => void, argnames?: string[]): RHU.ReflectConstruct<T, Prototype<K>>
             {
                 // NOTE(randomuserhi): Cause we are using typescript, we don't need this check.
                 //if (!RHU.isConstructor(base)) throw new TypeError(`'constructor' and 'base' must be object constructors.`);
@@ -536,7 +539,7 @@
                 }
 
                 // Create function definition with provided signature
-                let definition: RHU.ReflectConstruct;
+                let definition: (RHU.ReflectConstruct<T, Prototype<K>> | undefined);
 
                 let argstr = args.join(",");
                 if (!RHU.exists(name))
@@ -558,25 +561,25 @@
                     console.warn("eval() call failed to create reflect constructor. Using fallback...");
                     definition = function(...args: any[]): unknown
                     {
-                        return definition.__reflect__.call(this, new.target, args);
-                    } as Function as RHU.ReflectConstruct; // NOTE(randomuserhi): dodgy cast, but needs to be done so we can initially set the definition
+                        return definition!.__reflect__.call(this, new.target, args);
+                    } as Function as RHU.ReflectConstruct<T, Prototype<K>>; // NOTE(randomuserhi): dodgy cast, but needs to be done so we can initially set the definition
                 }
 
                 // NOTE(randomuserhi): Careful with naming conflicts since JS may add __constructor__ as a standard function property
                 definition.__constructor__ = constructor;
-                definition.__args__ = function()
+                definition.__args__ = function(): any
                 {
                     return [];
                 };
-                definition.__reflect__ = function(newTarget: unknown, args: any[] = []) : unknown
+                definition.__reflect__ = function(newTarget: any, args: any[] = []) : Prototype<K> | undefined
                 {
                     if (RHU.exists(newTarget))
                     {
-                        let obj = Reflect.construct(base, definition.__args__(...args), definition);
-                        definition.__constructor__.call(obj, ...args);
+                        let obj = Reflect.construct(base, definition!.__args__(...args), definition!);
+                        definition!.__constructor__.call(obj, ...args);
                         return obj;
                     }
-                    else definition.__constructor__.call(this, ...args);
+                    else definition!.__constructor__.call(this, ...args);
                 };
 
                 return definition; 
@@ -587,11 +590,16 @@
                 while(element.attributes.length > 0) element.removeAttribute(element.attributes[0].name);
             },
 
-            getElementById: function(id: string, clearID: boolean = true): HTMLElement
+            getElementById: function(id: string, clearID: boolean = true): HTMLElement | null
             {
                 let el = document.getElementById(id);
-                if (clearID) el.removeAttribute("id");
+                if (RHU.exists(el) && clearID) el.removeAttribute("id");
                 return el;
+            },
+
+            CustomEvent: function(type: string, detail: any): CustomEvent
+            {
+                return new CustomEvent(type, { detail: detail });
             }
         } as RHU;
 
@@ -606,11 +614,20 @@
         // Event Handler:
 
         // create a node for handling events with EventTarget
-        let node: Text = document.createTextNode(null);
-        let addEventListener: (type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions) => void
+        let isEventListener = function(listener: EventListenerOrEventListenerObject): listener is EventListener
+        {
+            return listener instanceof Function;
+        }
+        
+        let node: Text = document.createTextNode("");
+        let addEventListener: (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => void
          = node.addEventListener.bind(node);
-        RHU.addEventListener = function (type: string, listener: (any) => void, options?: boolean | EventListenerOptions): void {
-            addEventListener(type, (e: CustomEvent) => { listener(e.detail); }, options);
+        RHU.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
+            let context = RHU;
+            if (isEventListener(listener))
+                addEventListener(type, (e: CustomEvent) => { listener.call(context, e.detail); }, options);
+            else
+                addEventListener(type, (e: CustomEvent) => { listener.handleEvent.call(context, e.detail); }, options);
         };
         RHU.removeEventListener = node.removeEventListener.bind(node);
         RHU.dispatchEvent = node.dispatchEvent.bind(node);
@@ -628,7 +645,7 @@
 
             run: function(this: Core.ModuleLoader, module: RHU.Module): void
             {
-                module.callback(result);
+                if (core.exists(module.callback)) module.callback(result);
                 this.imported.push(module);
             },
 
@@ -643,7 +660,7 @@
                 else
                 {
                     let msg = `could not loaded as not all hard dependencies were found.`;
-                    if (core.exists(result.trace))
+                    if (core.exists(result.trace) && core.exists(result.trace.stack))
                         msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
                     for (let dependency of result.hard.missing)
                     {
@@ -674,7 +691,7 @@
                         if (   (!allowPartial && (result.hard.missing.length === 0 && result.soft.missing.length === 0))
                             || ( allowPartial &&  result.hard.missing.length === 0))
                         {
-                            module.callback(result);
+                            if (core.exists(module.callback)) module.callback(result);
                             this.imported.push(module);
                         }
                         else this.watching.push(module);
@@ -725,8 +742,8 @@
                         window[core.loader.root.params.load]();
                     else console.error(`Callback for 'load' event called '${core.loader.root.params.load}' does not exist.`);
                 
-                // Trigger load event
-                RHU.dispatchEvent(new CustomEvent("load"));
+                // Trigger load event => TODO(randomuserhi): provide time taken to load
+                RHU.dispatchEvent(RHU.CustomEvent<RHU.LoadEvent>("load", {}));
             } 
         };
 
@@ -746,8 +763,10 @@
                     let msg = "Imports in order of execution:";
                     for (let module of obj)
                     {
-                        msg += `\n${core.exists(module.name) ? module.name : "Unknown"}${core.exists(module.trace) ? "\n" 
-                            + module.trace.stack.split("\n")[1] : ""}`;
+                        msg += `\n${core.exists(module.name) ? module.name : "Unknown"}${
+                            core.exists(module.trace) && core.exists(module.trace.stack) 
+                            ? "\n" + module.trace.stack.split("\n")[1] 
+                            : ""}`;
                     }
                     return msg;
                 };

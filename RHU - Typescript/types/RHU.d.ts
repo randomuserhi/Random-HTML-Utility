@@ -3,65 +3,82 @@
 
 declare global
 {
-    export interface RHU extends RHU.EventTarget
+    interface Constructor
     {
-        version: string,
+        new(...args: any[]): any;
+        prototype: any;
+    }
+    type Prototype<T extends Constructor> = T extends { new(...args: any[]): any; prototype: infer Proto; } ? Proto : never;
 
-        ReadyState: {
-            Loading: string,
-            Complete: string
-        },
+    interface RHU extends EventTarget
+    {
+        readonly version: string;
 
-        Module: {
-            Type: {
-                Module: string,
-                Extension: string
+        readonly ReadyState: {
+            readonly Loading: string,
+            readonly Complete: string
+        };
+
+        readonly Module: {
+            readonly Type: {
+                readonly Module: string,
+                readonly Extension: string
             }
-        },
+        };
 
-        readonly readyState: string,
-        readonly config: RHU.Config,
+        readonly readyState: string;
+        readonly config: RHU.Config;
 
-        isMobile(): boolean,
+        isMobile(): boolean;
 
-        exists(object: any): boolean,
+        exists<T>(object: T | null | undefined): object is T;
 
-        parseOptions<T>(template: T, options: any): T,
+        parseOptions<T extends {}>(template: T, options: any | null | undefined): T;
 
-        properties(object: any, options: RHU.Properties.Options, operation?: (object: any, property: PropertyKey) => void): Set<PropertyKey>,
+        properties(object: any, options: RHU.Properties.Options, operation?: (object: any, property: PropertyKey) => void): Set<PropertyKey>;
 
-        defineProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean,
+        defineProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean;
 
-        definePublicProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean,
+        definePublicProperty(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean;
         
-        definePublicAccessor(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean,
+        definePublicAccessor(object: any, property: PropertyKey, options: PropertyDescriptor, flags?: RHU.Properties.Flags): boolean;
 
-        defineProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void,
+        defineProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void;
         
-        definePublicProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void,
+        definePublicProperties(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void;
 
-        definePublicAccessors(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void,
+        definePublicAccessors(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags): void;
 
-        assign<T>(target: T, source: any, options?: RHU.Properties.Flags): T,
+        assign<T>(target: T, source: any, options?: RHU.Properties.Flags): T;
         
-        deleteProperties(object: any, preserve?: {}): void,
+        deleteProperties(object: any, preserve?: {}): void;
 
-        clone<T extends object>(object: object, prototype: T) : T,
-        clone<T extends object>(object: T) : T,
+        clone<T extends object>(object: object, prototype: T) : T;
+        clone<T extends object>(object: T) : T;
 
-        isConstructor(object: any): boolean,
+        isConstructor(object: any): boolean;
 
-        inherit(child: Function, base: Function): void,
+        inherit(child: Function, base: Function): void;
 
-        reflectConstruct(base: Function, name: string, constructor: Function, argnames?: string[]): RHU.ReflectConstruct,
+        reflectConstruct<T extends Constructor, K extends T>(base: T, name: string, constructor: (...args: any[]) => void, argnames?: string[]): RHU.ReflectConstruct<T, Prototype<K>>;
 
-        clearAttributes(element: HTMLElement): void,
+        clearAttributes(element: HTMLElement): void;
 
-        getElementById(id: string, clearID: boolean): HTMLElement,
+        getElementById(id: string, clearID: boolean): HTMLElement | null;
 
-        module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void
+        module(dependencies: RHU.Module, callback: (result?: RHU.ResolvedDependencies) => void): void;
 
-        readonly imports: RHU.Module[]
+        readonly imports: RHU.Module[];
+
+        addEventListener<T extends keyof RHU.EventMap>(type: string, listener: (this: RHU, ev: RHU.EventMap[T]) => any, options?: boolean | AddEventListenerOptions): void;
+
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+
+        removeEventListener<T extends keyof RHU.EventMap>(type: string, listener: (this: RHU, ev: RHU.EventMap[T]) => any, options?: boolean | EventListenerOptions): void;
+
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    
+        CustomEvent<T = any>(type: string, detail: T): CustomEvent<T>;
     }
 
     namespace RHU
@@ -69,73 +86,74 @@ declare global
         interface Config
         {
 
-            readonly root: string,
+            readonly root?: string;
 
-            readonly extensions: string[],
+            readonly extensions: string[];
 
-            readonly modules: string[],
+            readonly modules: string[];
 
-            readonly includes: Record<string, string>
+            readonly includes: Record<string, string>;
         }
 
-        interface EventTarget
+        interface EventMap
         {
-            addEventListener(type: string, listener: (any) => void, options?: boolean | EventListenerOptions): void,
+            "load": LoadEvent;
+        }
 
-            removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void,
-
-            dispatchEvent(event: CustomEvent): boolean
+        interface LoadEvent
+        {
+            
         }
 
         namespace Properties
         {
-            export interface Options
+            interface Options
             {
-                enumerable?: boolean,
-                configurable?: boolean,
-                symbols?: boolean,
-                hasOwn?: boolean,
-                writable?: boolean,
-                get?: boolean,
-                set?: boolean
+                enumerable?: boolean;
+                configurable?: boolean;
+                symbols?: boolean;
+                hasOwn?: boolean;
+                writable?: boolean;
+                get?: boolean;
+                set?: boolean;
             }
 
-            export interface Flags
+            interface Flags
             {
-                replace?: boolean,
-                warn?: boolean,
-                err?: boolean
+                replace?: boolean;
+                warn?: boolean;
+                err?: boolean;
             }
         }
 
-        export interface ReflectConstruct extends Function
+        interface ReflectConstruct<Base extends Constructor, T> extends Constructor
         {
-            __reflect__(newTarget: unknown, args: any[]): unknown;
-            __constructor__: Function;
-            __args__(...args: any[]): any[];
+            __reflect__(newTarget: any, args: any[]): T | undefined;
+            __constructor__(...args: any[]): void;
+            __args__(...args: any[]): ConstructorParameters<Base>;
         }
 
-        export interface Dependencies
+        interface Dependencies
         {
             hard?: string[];
             soft?: string[];
             trace?: Error;
         }
 
-        export interface ResolvedDependency
+        interface ResolvedDependency
         {
-            has: string[],
-            missing: string[]
+            has: string[];
+            missing: string[];
         }
 
-        export interface ResolvedDependencies
+        interface ResolvedDependencies
         {
-            hard: ResolvedDependency, 
-            soft: ResolvedDependency,
-            trace: Error
+            hard: ResolvedDependency;
+            soft: ResolvedDependency;
+            trace?: Error;
         }
 
-        export interface Module extends RHU.Dependencies
+        interface Module extends RHU.Dependencies
         {
             name?: string;
             type?: string;

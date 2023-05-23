@@ -8,20 +8,26 @@
             console.warn("Overwriting RHU.Rest...");
 
         let Rest: RHU.Rest = RHU.Rest = {
-            fetch: function<T>(options: RHU.Rest.Options<T>): RHU.Rest.FetchFunction<T>
+            fetch: function<T, P extends (...params: any[]) => RHU.Rest.Payload>(options: RHU.Rest.Options<T, P>): RHU.Rest.FetchFunc<T, P> | RHU.Rest.FetchFunc<T, RHU.Rest.ParserFunc> 
             {
-                let opt: RHU.Rest.Options<T> = {
-                    url: undefined,
+                interface partialOpt extends Omit<Omit<RHU.Rest.Options<T, P>, "fetch">, "callback">
+                {
+                    fetch?: RequestInit;
+                    callback?: (result: Response) => Promise<T>;
+                }
+                let partialOpt: partialOpt = {
+                    url: "",
                     fetch: undefined,
                     callback: undefined,
                     parser: undefined
                 };
-                RHU.parseOptions(opt, options);
+                RHU.parseOptions(partialOpt, options);
 
-                if (!RHU.exists(opt.url)) throw new SyntaxError("No fetch input was provided.");
-                if (!RHU.exists(opt.fetch)) throw new SyntaxError("No fetch options were provided.");
-                if (!RHU.exists(opt.callback)) throw new SyntaxError("No callback was provided.");
+                if (!RHU.exists(partialOpt.fetch)) throw new SyntaxError("No fetch options were provided.");
+                if (!RHU.exists(partialOpt.callback)) throw new SyntaxError("No callback was provided.");
     
+                let opt: RHU.Rest.Options<T, P> = partialOpt as RHU.Rest.Options<T, P>;
+
                 /** 
                  * NOTE(randomuserhi): parser check is handled outside the function such that
                  *                     the generated function object does not need to do a redundant
@@ -29,13 +35,13 @@
                  */
                 if (RHU.exists(opt.parser))
                 {
-                    return (async function(...params: any[])
+                    return (async function(...params: Parameters<P>)
                     {
                         let payload: RHU.Rest.Payload = { 
                             urlParams: {},
                             body: null
                         };
-                        RHU.parseOptions(payload, opt.parser(...params));
+                        RHU.parseOptions(payload, opt.parser!(...params));
     
                         // NOTE(randomuserhi): clone opt.fetch so we do not effect the original settings.
                         let init: RequestInit = RHU.clone(opt.fetch);
@@ -70,22 +76,30 @@
                 }
             },
 
-            fetchJSON: function<T>(options: RHU.Rest.Options<T>): RHU.Rest.FetchFunction<T>
+            fetchJSON: function<T, Parser extends (...params: any[]) => RHU.Rest.Payload>(options: RHU.Rest.Options<T, Parser>): RHU.Rest.FetchFunc<T, Parser>
             {
-                let opt: RHU.Rest.Options<T> = {
+                interface partialOpt extends Omit<Omit<Omit<RHU.Rest.Options<T, Parser>, "url">, "fetch">, "callback">
+                {
+                    url?: string | URL;
+                    fetch?: RequestInit;
+                    callback?: (result: Response) => Promise<T>;
+                }
+                let partialOpt: partialOpt = {
                     url: undefined,
                     fetch: undefined,
                     callback: undefined,
                     parser: undefined
                 };
-                RHU.parseOptions(opt, options);
+                RHU.parseOptions(partialOpt, options);
 
-                if (!RHU.exists(opt.url)) throw new SyntaxError("No fetch url was provided.");
-                if (!RHU.exists(opt.fetch)) throw new SyntaxError("No fetch options were provided.");
-                if (!RHU.exists(opt.callback)) throw new SyntaxError("No callback was provided.");
+                if (!RHU.exists(partialOpt.url)) throw new SyntaxError("No fetch url was provided.");
+                if (!RHU.exists(partialOpt.fetch)) throw new SyntaxError("No fetch options were provided.");
+                if (!RHU.exists(partialOpt.callback)) throw new SyntaxError("No callback was provided.");
 
-                if (!RHU.exists(opt.fetch.headers)) opt.fetch.headers = {};
-                opt.fetch.headers["Content-Type"] = "application/json";
+                if (!RHU.exists(partialOpt.fetch.headers)) partialOpt.fetch.headers = {};
+                partialOpt.fetch.headers["Content-Type"] = "application/json";
+
+                let opt: RHU.Rest.Options<T, Parser> = partialOpt as RHU.Rest.Options<T, Parser>;
 
                 /** 
                  * NOTE(randomuserhi): parser check is handled outside the function such that
@@ -101,7 +115,7 @@
 
                         if (RHU.exists(payload.body)) payload.body = JSON.stringify(payload.body);
                         return payload;
-                    };
+                    } as Parser;
                 }
                 else
                 {
@@ -109,10 +123,10 @@
                     {
                         if (RHU.exists(payload.body)) payload.body = JSON.stringify(payload.body);
                         return payload;
-                    };
+                    } as Parser;
                 }
                 
-                return Rest.fetch<T>(opt);
+                return Rest.fetch<T, Parser>(opt);
             }
         };
     });

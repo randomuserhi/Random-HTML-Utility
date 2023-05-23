@@ -3,7 +3,7 @@
 
 declare global
 {
-    export interface Core
+    interface Core
     {
         /**
          * Checks if a given object is not `null` / `undefined`
@@ -11,7 +11,7 @@ declare global
          * @param {any} object
          * @returns {boolean} `true` if the object is not `null` / `undefined`, otherwise `false`
          */
-        exists(object: any) : boolean,
+        exists<T>(object: T | undefined | null) : object is T;
         
         /**
          * Parses destructured parameters into a given template.
@@ -21,7 +21,7 @@ declare global
          * @param {any} options 
          * @returns {T} returns the original template
          */
-        parseOptions<T>(template: T, options: any): T,
+        parseOptions<T extends {}>(template: T, options: any | undefined | null): T;
         
         /**
          * Checks what dependencies exist in a given dependency
@@ -32,51 +32,51 @@ declare global
          * @param {Error} [options.trace] - Error trace for where the dependencies came from
          * @returns {Core.ResolvedDependencies} A resolved dependency object
          */
-        dependencies(options?: Core.Dependencies): Core.ResolvedDependencies,
+        dependencies(options?: RHU.Dependencies): RHU.ResolvedDependencies;
 
         path: {
 
-            join(...paths: string[]): string,
+            join(...paths: string[]): string;
 
-            isAbsolute(path: string): boolean
+            isAbsolute(path: string): boolean;
         },
 
-        readyState: string,
+        readyState: string;
 
-        config: RHU.Config,
+        config: RHU.Config;
 
-        loader: Core.Loader,
+        loader: Core.Loader;
 
-        moduleLoader: Core.ModuleLoader
+        moduleLoader: Core.ModuleLoader;
     }
 
     namespace Core
     {
-        export interface Root
+        interface Root
         {
 
-            location: string, 
+            location: string;
 
-            script: string, 
+            script: string;
 
-            params: Record<string, string>,
+            params: Record<string, string>;
 
-            path(path: string): string
+            path(path: string): string;
         }
 
-        export interface Loader
+        interface Loader
         {
             
-            timeout: number,
+            timeout: number;
 
-            head: HTMLHeadElement,
+            head: HTMLHeadElement;
 
-            root: Core.Root,
+            root: Core.Root;
 
-            JS(path: string, module: Core.Module, callback?: (isSuccessful: boolean) => void): boolean
+            JS(path: string, module: RHU.Module, callback?: (isSuccessful: boolean) => void): boolean;
         }
 
-        export interface ModuleLoader
+        interface ModuleLoader
         {
             importList: Set<ModuleLoader.Import>;
             watching: RHU.Module[];
@@ -97,48 +97,12 @@ declare global
 
         namespace ModuleLoader
         {
-            export interface Import
+            interface Import
             {
-                path: string, 
-                name: string, 
-                type: string
+                path: string;
+                name: string;
+                type: string;
             }
-        }
-
-        export interface Dependencies
-        {
-
-            hard?: string[], 
-            
-            soft?: string[], 
-            
-            trace?: Error 
-        }
-
-        export interface ResolvedDependency
-        {
-
-            has: string[],
-
-            missing: string[]
-        }
-
-        export interface ResolvedDependencies
-        {
-
-            hard: ResolvedDependency, 
-
-            soft: ResolvedDependency,
-
-            trace: Error
-        }
-
-        export interface Module
-        {
-
-            name: string,
-
-            type?: string
         }
     }
 }

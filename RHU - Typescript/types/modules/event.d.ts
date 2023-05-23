@@ -3,9 +3,7 @@ declare global
     interface RHU
     {
 
-        eventTarget?(target: any): void,
-
-        CustomEvent?(type: string, detail: any): CustomEvent
+        eventTarget?<T extends EventTarget>(target: T): void;
     }
 }
 

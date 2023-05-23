@@ -1,19 +1,23 @@
 declare global
 {
+    interface RHU
+    {
+
+        Macro?: RHU.Macro;
+    }
+
     namespace RHU
     {
-        var Macro: Macro
-
         interface Macro
         {
-
-            (constructor: Function, type: string, source: string, options: RHU.Macro.Options): void,
             
-            parseDomString(str: string): DocumentFragment,
+            (constructor: Function, type: string, source: string, options: RHU.Macro.Options): void;
             
-            parse(element: Element, type?: string, force?: boolean): void,
+            parseDomString(str: string): DocumentFragment;
+            
+            parse(element: Element, type?: string | undefined | null, force?: boolean): void;
 
-            observe(target: Node): void
+            observe(target: Node): void;
         }
 
         namespace Macro
@@ -21,15 +25,15 @@ declare global
             interface Options
             {
 
-                element?: string,
+                element?: string;
 
-                floating?: boolean,
+                floating?: boolean;
 
-                strict?: boolean,
+                strict?: boolean;
 
-                encapsulate?: PropertyKey,
+                encapsulate?: PropertyKey;
                 
-                content?: PropertyKey
+                content?: PropertyKey;
             }
 
             interface Constructor<T extends Element = Element>
@@ -37,7 +41,7 @@ declare global
                 (this: T): void;
                 prototype: T;
             }
-            
+
             interface TemplateMap
             {
 
@@ -48,15 +52,15 @@ declare global
     interface Document
     {
         
-        createMacro<T extends keyof RHU.Macro.TemplateMap>(type: T): RHU.Macro.TemplateMap[T],
+        createMacro<T extends keyof RHU.Macro.TemplateMap>(type: T): RHU.Macro.TemplateMap[T];
         
-        Macro(type: string, attributes: Record<string, string>): string
+        Macro(type: string, attributes: Record<string, string>): string;
     }
 
     interface Element
     {
 
-        rhuMacro: string
+        rhuMacro: string;
     }
 }
 

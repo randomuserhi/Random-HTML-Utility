@@ -1,11 +1,9 @@
 declare global
 {
-    namespace RHU
+    interface RHU
     {
 
-        function eventTarget(target: any): void;
-
-        function CustomEvent(type: string, detail: any): CustomEvent;
+        eventTarget?<T extends EventTarget>(target: T): void;
     }
 }
 
