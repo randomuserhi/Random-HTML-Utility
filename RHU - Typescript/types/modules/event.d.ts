@@ -1,10 +1,5 @@
-declare global
+interface RHU
 {
-    interface RHU
-    {
 
-        eventTarget?<T extends EventTarget>(target: T): void;
-    }
+    eventTarget?<T extends EventTarget>(target: T): void;
 }
-
-export {}

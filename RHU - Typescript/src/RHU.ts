@@ -1,11 +1,5 @@
 (function() {
 
-    const LOADING: string = "loading";
-    const COMPLETE: string = "complete";
-
-    const MODULE: string = "module";
-    const EXTENSION: string = "x-module";
-
     // Core Implementation for initial import
     let core: Core;
     (function() {
@@ -89,7 +83,7 @@
                 }
             },
 
-            readyState: LOADING
+            readyState: "loading"
         } as Core;
 
     })();
@@ -193,7 +187,7 @@
             {
                 let mod: Core.ModuleIdentifier = {
                     name: "",
-                    type: MODULE
+                    type: "module"
                 };
                 core.parseOptions(mod, module);
 
@@ -248,17 +242,11 @@
         let RHU: RHU = window.RHU = {
             version: "1.0.0",
 
-            Module: {
-                Type: {
-                    Module: MODULE,
-                    Extension: EXTENSION
-                }
-            },
+            MODULE: "module",
+            EXTENSION: "x-module",
 
-            ReadyState: {
-                Loading: LOADING,
-                Complete: COMPLETE
-            },
+            LOADING: "loading",
+            COMPLETE: "complete",
 
             isMobile: function(): boolean
             {
@@ -702,7 +690,7 @@
             load: function(this: Core.ModuleLoader, module: RHU.Module): void
             {
                 // If not ready, then push module to waiting list
-                if (core.readyState !== COMPLETE)
+                if (core.readyState !== RHU.COMPLETE)
                 {
                     this.watching.push(module);
                 }
@@ -724,7 +712,7 @@
 
             onComplete: function()
             {
-                core.readyState = COMPLETE;
+                core.readyState = RHU.COMPLETE;
 
                 // First handle dependencies that are fully accepted (no missing hard AND soft dependencies)
                 this.reconcile();
@@ -780,7 +768,7 @@
             core.moduleLoader.importList.add({
                 path: core.loader.root.path(core.path.join("modules", `${module}.js`)),
                 name: module,
-                type: RHU.Module.Type.Module
+                type: RHU.MODULE
             });
         }
         for (let module of core.config.extensions)
@@ -788,7 +776,7 @@
             core.moduleLoader.importList.add({
                 path: core.loader.root.path(core.path.join("modules", `${module}.js`)),
                 name: module,
-                type: RHU.Module.Type.Extension
+                type: RHU.EXTENSION
             });
         }
         for (let includePath in core.config.includes)
@@ -807,7 +795,7 @@
                 core.moduleLoader.importList.add({
                     path: path,
                     name: module,
-                    type: RHU.Module.Type.Module
+                    type: RHU.MODULE
                 });
             }
         }
