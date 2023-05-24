@@ -81,6 +81,17 @@ interface Window
 
 declare namespace RHU
 {
+    // NOTE(randomuserhi): Type definitions to get around https://github.com/microsoft/TypeScript/issues/28357
+    interface EventListener {
+        (evt: Event): void;
+        (evt: CustomEvent): void;
+    }
+    interface EventListenerObject {
+        handleEvent(object: Event): void;
+        handleEvent(object: CustomEvent): void;
+    }
+    type EventListenerOrEventListenerObject = EventListener | EventListenerObject;
+
     type MODULE = "module";
     type EXTENSION = "x-module";
     type ModuleType = RHU.MODULE | RHU.EXTENSION;

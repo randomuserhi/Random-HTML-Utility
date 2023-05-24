@@ -1,5 +1,9 @@
 (function() {
 
+    // NOTE(randomuserhi): Type for casting strings to keyof window to allow
+    //                     string access: `window[somestring as keyof typeof window]`
+    type keyOfWindow = keyof typeof window;
+
     // Core Implementation for initial import
     let core: Core;
     (function() {
@@ -38,7 +42,7 @@
                         set[path] = true;
                         let traversal = path.split(".");
                         let obj = window;
-                        for (; traversal.length !== 0 && core.exists(obj); obj = obj[traversal.shift()!]) {
+                        for (; traversal.length !== 0 && core.exists(obj); obj = obj[(traversal.shift()!) as keyOfWindow]) {
                             // No body needed, since for loop handles traversal
                         }
                         if (core.exists(obj))
@@ -547,7 +551,7 @@
                 if (!RHU.exists(definition))
                 {
                     console.warn("eval() call failed to create reflect constructor. Using fallback...");
-                    definition = function(...args: any[]): unknown
+                    definition = function(this: RHU.ReflectConstruct<T, Prototype<K>>, ...args: any[]): unknown
                     {
                         return definition!.__reflect__.call(this, new.target, args);
                     } as Function as RHU.ReflectConstruct<T, Prototype<K>>; // NOTE(randomuserhi): dodgy cast, but needs to be done so we can initially set the definition
@@ -607,15 +611,17 @@
             return listener instanceof Function;
         }
         
+        let a : EventListenerOrEventListenerObject;
         let node: Text = document.createTextNode("");
-        let addEventListener: (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => void
+        let addEventListener: (type: string, listener: RHU.EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => void
          = node.addEventListener.bind(node);
-        RHU.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
+        RHU.addEventListener = function (type: string, listener: RHU.EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void {
             let context = RHU;
+            // NOTE(randomuserhi): Type cast required for strictFunctionTypes in tsconfig.json => https://github.com/microsoft/TypeScript/issues/28357
             if (isEventListener(listener))
-                addEventListener(type, (e: CustomEvent) => { listener.call(context, e.detail); }, options);
+                addEventListener(type, ((e: CustomEvent) => { listener.call(context, e.detail); }) as EventListener, options);
             else
-                addEventListener(type, (e: CustomEvent) => { listener.handleEvent.call(context, e.detail); }, options);
+                addEventListener(type, ((e: CustomEvent) => { listener.handleEvent.call(context, e.detail); }) as EventListener, options);
         };
         RHU.removeEventListener = node.removeEventListener.bind(node);
         RHU.dispatchEvent = node.dispatchEvent.bind(node);
@@ -726,8 +732,8 @@
                 // NOTE(randomuserhi): Callbacks using '.' are treated as a single key: window[key],
                 //                     so callback.special accesses window["callback.special"]
                 if (core.exists(core.loader.root.params.load))
-                    if (core.exists(window[core.loader.root.params.load]))
-                        window[core.loader.root.params.load]();
+                    if (core.exists(window[core.loader.root.params.load as keyOfWindow]))
+                        window[core.loader.root.params.load as keyOfWindow]();
                     else console.error(`Callback for 'load' event called '${core.loader.root.params.load}' does not exist.`);
                 
                 // Trigger load event => TODO(randomuserhi): provide time taken to load
