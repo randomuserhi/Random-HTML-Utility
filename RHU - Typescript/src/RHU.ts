@@ -611,7 +611,6 @@
             return listener instanceof Function;
         }
         
-        let a : EventListenerOrEventListenerObject;
         let node: Text = document.createTextNode("");
         let addEventListener: (type: string, listener: RHU.EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => void
          = node.addEventListener.bind(node);
@@ -743,11 +742,20 @@
 
         // Define module functions of RHU
         let RHU: RHU = window.RHU;
-        RHU.module = function(module: RHU.Module, callback)
+        RHU.require = function<T extends object, Module extends { hard: string[] }>(root: T, module: Module): RHU.Module.CastExists<T, Module>
         {
-            module.callback = callback;
-
-            // execute module
+            if (core.dependencies(module).hard.missing.length === 0)
+                return root as RHU.Module.CastExists<T, Module>;
+            // TODO(randomuserhi): construct missing list to display in error message
+            throw new ReferenceError("Not all hard dependencies were available.");
+        };
+        // NOTE(randomuserhi): Function used for type inference by typescript
+        RHU.module = function<Module extends { hard: Path[], callback: (result?: RHU.ResolvedDependencies) => any, trace: Error }, Path extends string>(module: Module): Module
+        {
+            return module;
+        };
+        RHU.import = function(module: RHU.Module)
+        {
             core.moduleLoader.load(module);
         };
         RHU.definePublicAccessor(RHU, "imports", {

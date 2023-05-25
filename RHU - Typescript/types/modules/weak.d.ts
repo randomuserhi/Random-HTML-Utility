@@ -11,6 +11,7 @@ declare namespace RHU
     interface WeakRefMap<K, V> extends Map<K, V>
     {
         prototype: WeakRefMap<K, V>;
+        _registry: FinalizationRegistry<K>;
     }
     interface WeakRefMapConstructor extends ReflectConstruct<MapConstructor, WeakRefMapConstructor>
     {
@@ -22,6 +23,8 @@ declare namespace RHU
     interface WeakCollection<T extends object> extends WeakSet<T>
     {
         prototype: WeakCollection<T>;
+        _registry: FinalizationRegistry<T>;
+        _collection: WeakRef<T>[];
         add(item: T): this;
         delete(item: T): boolean;
         add(...items: T[]): void;

@@ -47,6 +47,13 @@ declare namespace RHU
     }
 }
 
+type Macro = HTMLElement | {};
+
+interface Node
+{
+    macro: Macro;
+}
+
 interface Document
 {
     
@@ -57,6 +64,5 @@ interface Document
 
 interface Element
 {
-
     rhuMacro: string;
 }
