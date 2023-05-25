@@ -1,5 +1,5 @@
 {
-  "name": "example-RHU",
+  "name": "example",
   "version": "1.0.0",
   "description": "",
   "main": "build/app.cjs",

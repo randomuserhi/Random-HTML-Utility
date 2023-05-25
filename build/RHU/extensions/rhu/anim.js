@@ -1,1 +1,0 @@
-!function(){"use strict";let n=window.RHU;if(null==n)throw new Error("No RHU found. Did you import RHU before running?");n.module({module:"x-rhu/anim",trace:new Error,hard:[]},(function(){n.exists(n.Anim)&&console.warn("Overwriting RHU.Anim...")}))}();
