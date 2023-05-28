@@ -95,7 +95,7 @@
             if (!RHU.exists(Descriptor_parentNode)) throw new ReferenceError("Node.prototype.parentNode is null or undefined.");
             Node_parentNode = Function.call.bind(Descriptor_parentNode.get);
 
-            Document.prototype.createMacro = function<T extends keyof RHU.Macro.TemplateMap>(type: string): RHU.Macro.TemplateMap[T]
+            Document.prototype.createMacro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T): RHU.Macro.TemplateMap[T]
             {
                 let definition = templates.get(type);
                 if (!RHU.exists(definition)) definition = defaultTemplate;
@@ -112,7 +112,7 @@
                 return el[symbols.macro] as RHU.Macro.TemplateMap[T];
             };
 
-            Document.prototype.Macro = function(type: string, attributes: Record<string, string>): string
+            Document.prototype.Macro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T, attributes: Record<string, string>): string
             {
                 let definition = templates.get(type);
                 if (!RHU.exists(definition)) definition = defaultTemplate;
