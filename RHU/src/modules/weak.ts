@@ -12,8 +12,6 @@
             let Map_keys = Map.prototype.keys;
             let Map_get = Map.prototype.get;
 
-            let a = new Map();
-
             RHU.WeakRefMap = RHU.reflectConstruct(Map, "WeakRefMap", function<K, V>(this: RHU.WeakRefMap<K, V>)
             {
                 // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
