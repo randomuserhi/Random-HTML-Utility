@@ -1,6 +1,10 @@
 (function() {
     
     /**
+     * TODO(randomuserhi): Integrate an in-javascript css solution
+     */
+
+    /**
      * NOTE(randomuserhi): <rhu-macro> is a c-style macro which means that it is preprocessed into the given macro
      *                     but has no functionality beyond that. For example, if you create a <rhu-macro> element and
      *                     attach to dom with document.body.append(document.createElement("rhu-macro")), it won't do anything. 
@@ -218,6 +222,7 @@
                 return RHU.clone(prototype, clonePrototypeChain(next, last));
             };
 
+            let slot: HTMLDivElement = document.createElement("div");
             let parseStack: string[] = [];
             let watching: Map<string, RHU.WeakCollection<Element>> 
             = new Map<string, RHU.WeakCollection<Element>>(); // Stores active macros that are being watched
@@ -370,6 +375,14 @@
                 // Get elements from parser 
                 let doc = Macro.parseDomString(RHU.exists(definition.source) ? definition.source : "");
 
+                // If the macro is not floating, assign parent
+                if (!options.floating)
+                {
+                    element.replaceWith(slot);
+                    element.append(...doc.childNodes);
+                    doc.append(element);
+                }
+
                 let properties: any = {};
                 let checkProperty = (identifier: PropertyKey): boolean => {
                     if (Object.hasOwnProperty.call(properties, identifier)) 
@@ -384,6 +397,8 @@
                 let nested: _Element[] = [...doc.querySelectorAll("rhu-macro")];
                 for (let el of nested)
                 {
+                    if (el === element) continue;
+
                     const typename: string = "rhu-type";
                     let type = Element_getAttribute(el, typename);
                     Element.prototype.removeAttribute.call(el, typename);
@@ -416,10 +431,10 @@
                         if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
                         else
                         {
-                            Element_setAttribute(macro, "rhu-macro", type);
                             for (let i = 0; i < el.attributes.length; ++i)
                                 macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                             el.replaceWith(macro);
+                            Element_setAttribute(macro, "rhu-macro", type);
                         }
                     }
                 }
@@ -428,6 +443,8 @@
                 let referencedElements = doc.querySelectorAll("*[rhu-id]") as NodeListOf<_Element>;
                 for (let el of referencedElements)
                 {
+                    if (el === element) continue;
+
                     let identifier = Element_getAttribute(el, "rhu-id");
                     Element.prototype.removeAttribute.call(el, "rhu-id");
                     checkProperty(identifier);
@@ -438,10 +455,17 @@
 
                 // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
                 for (let el of doc.querySelectorAll("*[rhu-macro]")) 
+                {
+                    if (el === element) continue;
                     Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
+                }
 
-                // Place elements onto element
-                Element.prototype.append.call(element, ...doc.childNodes);
+                // If element was floating, place children onto element
+                // otherwise place element back onto document
+                if (options.floating)
+                    Element.prototype.append.call(element, ...doc.childNodes);
+                else
+                    slot.replaceWith(element);
 
                 // Remove comment nodes:
                 const xPath = "//comment()";
@@ -561,10 +585,10 @@
                     if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
                     else
                     {
-                        Element_setAttribute(macro, "rhu-macro", type);
                         for (let i = 0; i < el.attributes.length; ++i)
                             macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                         el.replaceWith(macro);
+                        Element_setAttribute(macro, "rhu-macro", type);
                     }
                 }
 

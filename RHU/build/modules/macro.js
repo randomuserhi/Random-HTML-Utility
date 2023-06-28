@@ -143,6 +143,7 @@
                     return RHU.clone(prototype, last);
                 return RHU.clone(prototype, clonePrototypeChain(next, last));
             };
+            let slot = document.createElement("div");
             let parseStack = [];
             let watching = new Map();
             Macro.parse = function (element, type, force = false) {
@@ -204,6 +205,11 @@
                     Object.setPrototypeOf(target, proxy);
                 }
                 let doc = Macro.parseDomString(RHU.exists(definition.source) ? definition.source : "");
+                if (!options.floating) {
+                    element.replaceWith(slot);
+                    element.append(...doc.childNodes);
+                    doc.append(element);
+                }
                 let properties = {};
                 let checkProperty = (identifier) => {
                     if (Object.hasOwnProperty.call(properties, identifier))
@@ -214,6 +220,8 @@
                 };
                 let nested = [...doc.querySelectorAll("rhu-macro")];
                 for (let el of nested) {
+                    if (el === element)
+                        continue;
                     const typename = "rhu-type";
                     let type = Element_getAttribute(el, typename);
                     Element.prototype.removeAttribute.call(el, typename);
@@ -238,15 +246,17 @@
                         if (!RHU.exists(macro))
                             console.error(`No valid container element to convert into macro was found for '${type}'.`);
                         else {
-                            Element_setAttribute(macro, "rhu-macro", type);
                             for (let i = 0; i < el.attributes.length; ++i)
                                 macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                             el.replaceWith(macro);
+                            Element_setAttribute(macro, "rhu-macro", type);
                         }
                     }
                 }
                 let referencedElements = doc.querySelectorAll("*[rhu-id]");
                 for (let el of referencedElements) {
+                    if (el === element)
+                        continue;
                     let identifier = Element_getAttribute(el, "rhu-id");
                     Element.prototype.removeAttribute.call(el, "rhu-id");
                     checkProperty(identifier);
@@ -254,9 +264,15 @@
                         get: function () { return el[symbols.macro]; }
                     });
                 }
-                for (let el of doc.querySelectorAll("*[rhu-macro]"))
+                for (let el of doc.querySelectorAll("*[rhu-macro]")) {
+                    if (el === element)
+                        continue;
                     Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
-                Element.prototype.append.call(element, ...doc.childNodes);
+                }
+                if (options.floating)
+                    Element.prototype.append.call(element, ...doc.childNodes);
+                else
+                    slot.replaceWith(element);
                 const xPath = "//comment()";
                 let query = xPathEvaluator.evaluate(xPath, element, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
                 for (let i = 0, length = query.snapshotLength; i < length; ++i) {
@@ -330,10 +346,10 @@
                     if (!RHU.exists(macro))
                         console.error(`No valid container element to convert into macro was found for '${type}'.`);
                     else {
-                        Element_setAttribute(macro, "rhu-macro", type);
                         for (let i = 0; i < el.attributes.length; ++i)
                             macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                         el.replaceWith(macro);
+                        Element_setAttribute(macro, "rhu-macro", type);
                     }
                 }
                 let macros = document.querySelectorAll("[rhu-macro]");
