@@ -143,7 +143,6 @@
                     return RHU.clone(prototype, last);
                 return RHU.clone(prototype, clonePrototypeChain(next, last));
             };
-            let slot = document.createElement("div");
             let parseStack = [];
             let watching = new Map();
             Macro.parse = function (element, type, force = false) {
@@ -174,6 +173,7 @@
                 if (parseStack.includes(type))
                     throw new Error("Recursive definition of macros are not allowed.");
                 parseStack.push(type);
+                let slot;
                 let oldType = element[symbols.constructed];
                 let proto = element[symbols.prototype];
                 RHU.deleteProperties(element);
@@ -206,6 +206,7 @@
                 }
                 let doc = Macro.parseDomString(RHU.exists(definition.source) ? definition.source : "");
                 if (!options.floating) {
+                    slot = document.createElement("div");
                     element.replaceWith(slot);
                     element.append(...doc.childNodes);
                     doc.append(element);

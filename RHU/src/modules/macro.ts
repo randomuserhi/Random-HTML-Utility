@@ -222,7 +222,6 @@
                 return RHU.clone(prototype, clonePrototypeChain(next, last));
             };
 
-            let slot: HTMLDivElement = document.createElement("div");
             let parseStack: string[] = [];
             let watching: Map<string, RHU.WeakCollection<Element>> 
             = new Map<string, RHU.WeakCollection<Element>>(); // Stores active macros that are being watched
@@ -295,6 +294,9 @@
                     throw new Error("Recursive definition of macros are not allowed.");
 
                 parseStack.push(type);
+
+                // Create a slot element to work with
+                let slot: HTMLDivElement;
 
                 // get old type of element, prior to purging old properties
                 let oldType: string | undefined = element[symbols.constructed];
@@ -378,6 +380,8 @@
                 // If the macro is not floating, assign parent
                 if (!options.floating)
                 {
+                    slot = document.createElement("div");
+
                     element.replaceWith(slot);
                     element.append(...doc.childNodes);
                     doc.append(element);
@@ -465,7 +469,7 @@
                 if (options.floating)
                     Element.prototype.append.call(element, ...doc.childNodes);
                 else
-                    slot.replaceWith(element);
+                    slot!.replaceWith(element);
 
                 // Remove comment nodes:
                 const xPath = "//comment()";
