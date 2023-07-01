@@ -9,12 +9,13 @@
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
 
-            
+            RHU.Style = function()
+            {
+                
+            } as Function as RHU.Style;
 
-            let style: RHU.StyleDeclaration = {
-                display: "flex",
-                borderRadius: `${10}px`,
-            };
+            let element = Symbol("Element reference");
+            RHU.Style.el = function() { return element; };
         }
     }));
 

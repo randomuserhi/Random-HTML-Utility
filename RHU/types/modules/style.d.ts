@@ -1,12 +1,28 @@
 interface RHU
 {
 
-    Style?(generator: (style: RHU.StyleBlock) => void): RHU.StyleBlock;
+    Style?: RHU.Style;
 }
 
 declare namespace RHU
 {
-    interface StyleBlock extends Record<PropertyKey, StyleBlock | StyleDeclaration>
+    interface Style
+    {
+        new (generator: (style: RHU.CSSBlock) => void): CSSBlock;
+        (style: StyleDeclaration): CSSBody;
+        
+        el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
+        /** @deprecated */
+        el<Tag extends keyof HTMLElementDeprecatedTagNameMap>(tag: Tag): symbol; 
+        el(tag: string): symbol; 
+    }
+
+    interface CSSBody extends StyleDeclaration
+    {
+        
+    }
+
+    interface CSSBlock extends Record<PropertyKey, CSSBlock | CSSBody>
     {
 
     }
@@ -17,7 +33,9 @@ declare namespace RHU
 
     namespace Style
     {
-        type BasicColors = 
+        type HTMLElement = keyof HTMLElementTagNameMap;
+
+        type BasicColor = 
             "black" |
             "silver" |
             "gray" |
@@ -36,11 +54,11 @@ declare namespace RHU
             "aqua";
 
         // TODO(randomuserhi): Fill out from https://www.w3.org/wiki/CSS/Properties/color/keywords
-        type ExtendedColors = 
+        type ExtendedColor = 
             "aliceblue" |
             "antiquewhite";
 
-        type Colors = BasicColors | ExtendedColors;
+        type Color = BasicColor | ExtendedColor;
 
         // https://stackoverflow.com/questions/74467392/autocomplete-in-typescript-of-literal-type-and-string
         type CSSAny = string & {};
@@ -49,15 +67,15 @@ declare namespace RHU
         {
             display: "none" | "block" | "flex";
 
-            color: Colors | CSSAny;
+            color: Color | CSSAny;
 
-            "background-color": Colors | CSSAny;
-            backgroundColor: Colors | CSSAny;
+            "background-color": Color | CSSAny;
+            backgroundColor: Color | CSSAny;
 
             "border-radius": CSSAny;
             borderRadius: CSSAny;
 
-            [k: CSSAny]: CSSAny;
+            [property: CSSAny]: CSSAny;
         }
 
         type CSSProperty = keyof CSSProperties;    
