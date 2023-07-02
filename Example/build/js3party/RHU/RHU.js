@@ -470,12 +470,16 @@
                     return true;
                 }
                 else {
-                    let msg = `could not loaded as not all hard dependencies were found.`;
+                    let msg = `could not be loaded as not all hard dependencies were found.`;
                     if (core.exists(result.trace) && core.exists(result.trace.stack))
                         msg += `\n${result.trace.stack.split("\n").splice(1).join("\n")}\n`;
                     for (let dependency of result.hard.missing) {
                         msg += (`\n\tMissing '${dependency}'`);
                     }
+                    if (core.readyState === RHU.COMPLETE)
+                        msg += "\n\nThis module was loaded synchronously, please check the order of imports.";
+                    else
+                        msg += "\n\nThis module was loaded asynchronously by 'RHU.Core', please check all imports are included in the config.";
                     if (core.exists(module.name))
                         console.warn(`Module, '${module.name}', ${msg}`);
                     else
@@ -517,11 +521,11 @@
                     this.onComplete();
             },
             onComplete: function () {
-                core.readyState = RHU.COMPLETE;
                 this.reconcile();
                 this.reconcile(true);
                 for (let module of this.watching)
                     this.execute(module);
+                core.readyState = RHU.COMPLETE;
                 if (core.exists(core.loader.root.params.load))
                     if (core.exists(window[core.loader.root.params.load]))
                         window[core.loader.root.params.load]();

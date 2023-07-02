@@ -87,16 +87,12 @@ declare namespace RHU
 {
     // Utilities used for type inference
 
-    // Converts a single string path, `"object.property"` into the type `{ object: { property: {} } }`
-    type PathToType<Key extends string, Value> =
-        Key extends `${infer Parent}.${infer Child}` ? { [P in Parent]: PathToType<Child, Value> } 
-                                                     : { [P in Key]: Value };
-
-    // Converts multiple string paths, `"object.a" | "object.b"` into the type `{ object: { a: {} } & { b: {} } }` 
-    //     => which is same as `{ object: { a: {}, b: {} } }`
-    type PathsToType<Keys extends string, Value> = 
-        { [Property in Keys]: (x: PathToType<Property, Value>) => void } extends { [k: string]: (x: infer Record) => void } ?
-        { [Property in keyof Record]: Record[Property] } : never;
+    // Converts multiple string paths, `"object.a" | "object.b"` into the type `{ object: { a: {}, b: {} } }`
+    type PathsToType<Keys extends string, Value> = [Keys] extends [never] ? unknown : {
+            [Property in (Keys extends `${infer Parent}.${string}` ? Parent : Keys)]:
+            (Property extends Keys ? Value : unknown) &
+            PathsToType<Keys extends `${Property}.${infer Child}` ? Child : never, Value>
+        }
 
     // Gets the type of the value of a property inside T
     type ValueOf<T extends object, Key extends string & keyof T> = 
@@ -114,7 +110,7 @@ declare namespace RHU
     // Casts a type T into a type where the provided paths exist (not null | undefined)
     //     => CastExists<{ a: number | undefined, b: number | undefined, c: number | undefined }, "a" | "b">
     //         => { a: number, b: number, c: number | undefined }
-    //         => NOTE(randomuserhi): The above type is what it basically bois down to, but the actual type
+    //         => NOTE(randomuserhi): The above type is what it basically boils down to, but the actual type
     //                                is represented differently. Refer to: 
     //            https://stackoverflow.com/questions/76311435/typescript-infer-values-that-are-not-null-from-string-identifier
     type CastExists<T extends object, Paths extends string> =
@@ -125,7 +121,7 @@ declare namespace RHU
     //     => CastExistsSubSet<{ a: number | undefined, b: number | undefined, c: number | undefined }, "a", "a" | "b">
     //         => { a: number }
     //             => "a" | "b" exist, but "a" was the only selected key to expose
-    //         => NOTE(randomuserhi): The above type is what it basically bois down to, but the actual type
+    //         => NOTE(randomuserhi): The above type is what it basically boils down to, but the actual type
     //                                is represented differently. Refer to: 
     //            https://stackoverflow.com/questions/76311435/typescript-infer-values-that-are-not-null-from-string-identifier
     /**
