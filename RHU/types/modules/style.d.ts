@@ -24,12 +24,15 @@ declare namespace RHU
         // Utilities used for type inference
 
         // Obtains all keys of an object that are styled objects and not CSS properties
+        // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type "button" | "wrapper"
+        //
         // https://stackoverflow.com/questions/69464179/how-to-extract-keys-of-certain-type-from-object
         type StyledKeys<T extends {}> = {
             [Property in keyof T]: T[Property] extends BodyDeclaration ? Property: never;
         }[keyof T]
         
         // Converts an object type to an object type containing only the keys which are styled objects
+        // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type { button: { ... }, wrapper: { ... } }
         type StyledType<T extends {}> = {
             [Property in StyledKeys<T>]: T[Property]
         }
