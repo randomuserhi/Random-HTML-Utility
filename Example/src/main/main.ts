@@ -19,6 +19,18 @@ RHU.import(RHU.module({ trace: new Error(),
     {
         let { RHU } = window.RHU.require(window, this);
 
+        let appmount = function(this: appmount)
+        {
+            
+        } as appmountConstructor;
+        
+        RHU.Macro(appmount, "appmount", //html
+            `
+            `, {
+                element: //html
+                `<div class=""></div>`
+            });
+
         let style = RHU.Style({
             "color": "red",
             "display": "flex",
@@ -31,21 +43,9 @@ RHU.import(RHU.module({ trace: new Error(),
                 }),
             },
             borderRadius: {
-
+                
             }
         });
         console.log(style);
-
-        let appmount = function(this: appmount)
-        {
-            
-        } as appmountConstructor;
-        
-        RHU.Macro(appmount, "appmount", //html
-            `
-            `, {
-                element: //html
-                `<div class=""></div>`
-            });
     }
 }));

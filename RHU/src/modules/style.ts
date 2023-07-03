@@ -25,7 +25,10 @@
             } as SymbolCollection;
 
             // Utility functions
-            let isPlainObject = Object.isPrototypeOf.bind(Object.prototype);
+            let isPlainObject = function(obj: any): boolean
+            {
+                return Object.getPrototypeOf(obj) === Object.prototype;
+            }
 
             RHU.Style = function(arg: any)
             {
@@ -53,7 +56,7 @@
                         if (typeof value === "string") target[key] = value;
                         else if (isStyleBody(value)) target[key] = new styleBody(value);
                         else if (isPlainObject(value)) target[key] = new styleBody(value as RHU.Style.BodyDeclaration);
-                        // TODO(randomuserhi): Better error message
+                        // TODO(randomuserhi): Better error message => include full property path?
                         else throw new Error(`Object assigned to ${key} is not a valid style object.`);
                     }     
                 };

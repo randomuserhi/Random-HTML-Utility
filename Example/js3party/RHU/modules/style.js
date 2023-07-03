@@ -10,6 +10,10 @@
             const symbols = {
                 name: Symbol("style name"),
             };
+            let isPlainObject = function(obj)
+            {
+                return Object.getPrototypeOf(obj) === Object.prototype;
+            }
             RHU.Style = function (arg) {
                 if (RHU.exists(new.target))
                     return new styleBlock(arg);
@@ -27,10 +31,10 @@
                             target[key] = value;
                         else if (isStyleBody(value))
                             target[key] = new styleBody(value);
-                        else {
-                            target[key] = {};
-                            clone(target[key], value);
-                        }
+                        else if (isPlainObject(value))
+                            target[key] = new styleBody(value);
+                        else
+                            throw new Error(`Object assigned to ${key} is not a valid style object.`);
                     }
                 };
                 clone(this, declaration);
@@ -44,6 +48,16 @@
                 throw new Error("Not implemented yet.");
             };
             let isStyleBody = Object.isPrototypeOf.bind(styleBody.prototype);
+            RHU.Style.mediaQuery = function (arg) {
+                if (RHU.exists(new.target))
+                    throw new Error("This function cannot be called with the 'new' keyword.");
+                else
+                    return new mediaQuery(arg);
+            };
+            let mediaQuery = function (declaration) {
+                throw new Error("Not implemented yet.");
+            };
+            let isMediaQuery = Object.isPrototypeOf.bind(mediaQuery.prototype);
             let element = Symbol("Element reference");
             RHU.Style.el = function () { return element; };
         }
