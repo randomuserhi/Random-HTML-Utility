@@ -25,7 +25,6 @@ declare namespace RHU
 
         type CSSMediaQuery<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.MediaQuery;
         type CSSBody<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BodyDeclaration;
-        /** @deprecated */
         type CSSBlock<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BlockDeclaration;
 
         // Utilities used for type inference
@@ -52,19 +51,21 @@ declare namespace RHU
             toString(): string;
         }
 
-        interface MediaQuery extends BlockDeclaration
+        type MediaQuery = BlockDeclaration &
         {
 
         }
 
-        interface Block extends BlockDeclaration
+        type Block = BlockDeclaration &
         {
 
         }
 
         // Declaration types 
 
-        type BlockDeclaration = Record<PropertyKey, Body | BodyDeclaration | MediaQuery>;
+        type BlockDeclaration = {
+            [Property in PropertyKey]: Body | BodyDeclaration | MediaQuery;
+        }
         type BodyDeclaration = {
             [Property in Style.CSSProperty]?: (Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSAny) | BodyDeclaration | BodyDeclaration[];
         };

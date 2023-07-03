@@ -54,6 +54,7 @@
                     {
                         let value = declaration[key];
                         if (typeof value === "string") target[key] = value;
+                        else if (isMediaQuery(value)) target[key] = new mediaQuery(value);
                         else if (isStyleBody(value)) target[key] = new styleBody(value);
                         else if (isPlainObject(value)) target[key] = new styleBody(value as RHU.Style.BodyDeclaration);
                         // TODO(randomuserhi): Better error message => include full property path?
@@ -83,11 +84,24 @@
                 else return new mediaQuery(arg);
             } as any;
 
-            let mediaQuery = function<T extends {}>(this: MediaQuery, declaration: RHU.Style.BlockDeclaration): RHU.Style.StyledType<T> & MediaQuery
+            let mediaQuery = function(this: MediaQuery, declaration: RHU.Style.BlockDeclaration)
             {
-                throw new Error("Not implemented yet.");
+                // Deep clone input into media query body
+                let clone: (target: MediaQuery, declaration: RHU.Style.BlockDeclaration) => void = function(target, declaration)
+                {
+                    for (let key of Object.keys(declaration))
+                    {
+                        let value = declaration[key];
+                        if (isMediaQuery(value)) target[key] = new mediaQuery(value);
+                        else if (isStyleBody(value)) target[key] = new styleBody(value);
+                        else if (isPlainObject(value)) target[key] = new styleBody(value as RHU.Style.BodyDeclaration);
+                        // TODO(randomuserhi): Better error message => include full property path?
+                        else throw new Error(`Object assigned to ${key} is not a valid style object.`);
+                    }     
+                };
+                clone(this, declaration);
             } as Function as { 
-                new<T extends {}>(body: RHU.Style.StyledType<T> & RHU.Style.BlockDeclaration): RHU.Style.StyledType<T> & MediaQuery;
+                new(body: RHU.Style.BlockDeclaration): MediaQuery;
                 prototype: MediaQuery;
             };
             let isMediaQuery: (obj: any) => obj is MediaQuery 
