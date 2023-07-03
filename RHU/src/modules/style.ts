@@ -14,35 +14,18 @@
             { 
                 readonly name: unique symbol;
             }
-            type CSSBody = RHU.Style.CSSBody &
+            type Body = RHU.Style.Body &
             {
                 [symbols.name]?: string | null;
             }
-            type CSSBlock = RHU.Style.CSSBlock;
-            type CSSMediaQuery = RHU.Style.CSSMediaQuery;
+            type Block = RHU.Style.Block;
+            type MediaQuery = RHU.Style.MediaQuery;
             const symbols: SymbolCollection = {
                 name: Symbol("style name"),
             } as SymbolCollection;
 
-            // NOTE(randomuserhi): This below is to test types => not to push to production
-            let style = new RHU.Style!((style) => {
-                style.button = {
-                    display: "flex",
-                    color: "aqua",
-                    wrapper: {
-                        display: "flex"
-                    }
-                }
-                style.isPortrait = RHU.Style!.mediaQuery({
-                    [`${style.button}`]: {
-                        display: "none"
-                    }
-                });
-            });
-            // TODO(randomuserhi): I would like some type inference on the returned CSSBlock
-            //                     But i'm not sure if that is even possible with the generator
-            //                     setup I have...
-            style.button.wrapper.display = "none"; // Without inference, type error => wrapper does not exist   
+            // Utility functions
+            let isPlainObject = Object.isPrototypeOf.bind(Object.prototype);
 
             RHU.Style = function(arg: any)
             {
@@ -51,32 +34,33 @@
                 else return new styleBody(arg);
             } as Function as RHU.Style;
 
-            let styleBlock = function(this: CSSBlock, generator: (style: CSSBlock) => void)
+            let styleBlock = function<T extends {}>(this: Block, generator: (style: RHU.Style.StyledType<T> & Block) => void): RHU.Style.StyledType<T> & Block
             {
                 throw new Error("Not implemented yet.");
             } as Function as { 
-                new(generator: (style: CSSBlock) => void): CSSBlock;
-                prototype: CSSBlock;
+                new<T extends {}>(generator: (style: RHU.Style.StyledType<T> & Block) => void): RHU.Style.StyledType<T> & Block;
+                prototype: Block;
             };
 
-            let styleBody = function(this: CSSBody, declaration: RHU.Style.BodyDeclaration)
+            let styleBody = function(this: Body, declaration: RHU.Style.BodyDeclaration)
             {
                 // Deep clone input into style body
-                let clone: (target: CSSBody, declaration: RHU.Style.BodyDeclaration) => void = function(target, declaration)
+                let clone: (target: Body, declaration: RHU.Style.BodyDeclaration) => void = function(target, declaration)
                 {
                     for (let key of Object.keys(declaration))
                     {
                         let value = declaration[key];
                         if (typeof value === "string") target[key] = value;
                         else if (isStyleBody(value)) target[key] = new styleBody(value);
-                        // By default assume object pattern is a style body
-                        else target[key] = new styleBody(value as RHU.Style.BodyDeclaration);
+                        else if (isPlainObject(value)) target[key] = new styleBody(value as RHU.Style.BodyDeclaration);
+                        // TODO(randomuserhi): Better error message
+                        else throw new Error(`Object assigned to ${key} is not a valid style object.`);
                     }     
                 };
                 clone(this, declaration);
             } as Function as { 
-                new(declaration: RHU.Style.BodyDeclaration): CSSBody;
-                prototype: CSSBody;
+                new(declaration: RHU.Style.BodyDeclaration): Body;
+                prototype: Body;
             };
             styleBody.prototype[Symbol.toPrimitive] = function(hint)
             {
@@ -87,13 +71,24 @@
             {
                 throw new Error("Not implemented yet.");
             }
-            let isStyleBody: (obj: any) => obj is CSSBody 
+            let isStyleBody: (obj: any) => obj is Body 
                 = Object.isPrototypeOf.bind(styleBody.prototype);
 
-            RHU.Style.mediaQuery = function(this: CSSMediaQuery, declaration: RHU.Style.BlockDeclaration): CSSMediaQuery
+            RHU.Style.mediaQuery = function(arg: any)
+            {
+                if (RHU.exists(new.target)) throw new Error("This function cannot be called with the 'new' keyword.");
+                else return new mediaQuery(arg);
+            } as any;
+
+            let mediaQuery = function<T extends {}>(this: MediaQuery, declaration: RHU.Style.BlockDeclaration): RHU.Style.StyledType<T> & MediaQuery
             {
                 throw new Error("Not implemented yet.");
+            } as Function as { 
+                new<T extends {}>(body: RHU.Style.StyledType<T> & RHU.Style.BlockDeclaration): RHU.Style.StyledType<T> & MediaQuery;
+                prototype: MediaQuery;
             };
+            let isMediaQuery: (obj: any) => obj is MediaQuery 
+                = Object.isPrototypeOf.bind(mediaQuery.prototype);
 
             let element = Symbol("Element reference");
             RHU.Style.el = function() { return element; };

@@ -8,10 +8,10 @@ declare namespace RHU
 {
     interface Style
     {
-        new (generator: (style: Style.CSSBlock) => void): Style.CSSBlock;
-        <T extends {}>(style: T & Style.BodyDeclaration): Style.CSSBody<Style.StyledType<T>>;
+        new<T extends {}>(generator: (style: Style.StyledType<T> & Style.Block) => void): Style.StyledType<T> & Style.Block;
+        <T extends {}>(style: Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body;
 
-        mediaQuery(body: Style.BlockDeclaration): Style.CSSMediaQuery;
+        mediaQuery<T extends {}>(body: Style.StyledType<T> & Style.BlockDeclaration): Style.StyledType<T> & Style.MediaQuery;
 
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
         /** @deprecated */
@@ -21,6 +21,13 @@ declare namespace RHU
 
     namespace Style
     {
+        // Types for declaring style type structures
+
+        type CSSMediaQuery<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.MediaQuery;
+        type CSSBody<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BodyDeclaration;
+        /** @deprecated */
+        type CSSBlock<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BlockDeclaration;
+
         // Utilities used for type inference
 
         // Obtains all keys of an object that are styled objects and not CSS properties
@@ -34,30 +41,35 @@ declare namespace RHU
         // Converts an object type to an object type containing only the keys which are styled objects
         // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type { button: { ... }, wrapper: { ... } }
         type StyledType<T extends {}> = {
-            [Property in StyledKeys<T>]: T[Property] extends BodyDeclaration ? CSSBody<T[Property]> : T[Property];
+            [Property in StyledKeys<T>]: T[Property];
         }
 
-        type CSSBody<T extends {} = {}> = StyledType<T> & BodyDeclaration &
+        // Object types
+
+        type Body = BodyDeclaration &
         {
             [Symbol.toPrimitive]: (hint: "number" | "string" | "default") => string | undefined | null; 
             toString(): string;
         }
 
-        interface CSSMediaQuery extends BlockDeclaration
+        interface MediaQuery extends BlockDeclaration
         {
 
         }
 
-        interface CSSBlock extends BlockDeclaration
+        interface Block extends BlockDeclaration
         {
 
         }
 
-        type BlockDeclaration = Record<PropertyKey, CSSBody | BodyDeclaration | CSSMediaQuery>;
+        // Declaration types 
 
+        type BlockDeclaration = Record<PropertyKey, Body | BodyDeclaration | MediaQuery>;
         type BodyDeclaration = {
             [Property in Style.CSSProperty]?: (Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSAny) | BodyDeclaration | BodyDeclaration[];
         };
+
+        // CSS types
 
         type HTMLElement = keyof HTMLElementTagNameMap;
 
