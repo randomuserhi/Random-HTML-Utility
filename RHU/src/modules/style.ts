@@ -109,6 +109,30 @@
 
             let element = Symbol("Element reference");
             RHU.Style.el = function() { return element; };
+
+            type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
+            type CSSBody<T extends {} = {}> = RHU.Style.CSSBody<T>;
+            let style = RHU.Style!<{
+                wrapper: CSSBody,
+                grid: {
+                    cell: CSSBody
+                },
+                // grid: CSSBlock<{ ... }> also works
+                query: CSSMediaQuery
+            }>({
+                display: "flex",
+                color: "aqua",
+                borderRadius: 10,
+                wrapper: {
+                    display: "flex"
+                },
+                grid: {
+                    cell: {
+                        display: "flex"
+                    }
+                },
+                query: RHU.Style!.mediaQuery({})
+            });
         }
     }));
 

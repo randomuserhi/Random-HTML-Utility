@@ -100,16 +100,17 @@ declare namespace RHU
         type Color = BasicColor | ExtendedColor;
 
         // https://stackoverflow.com/questions/74467392/autocomplete-in-typescript-of-literal-type-and-string
-        type CSSAny = string & {};
+        type CSSAny = CSSString | number;
+        type CSSString = string & {};
 
         interface CSSPropertiesMap
         {
-            display: "none" | "block" | "flex";
+            display: "none" | "block" | "flex" | "grid" | CSSString;
 
-            color: Color | CSSAny;
+            color: Color | CSSString;
 
-            "background-color": Color | CSSAny;
-            backgroundColor: Color | CSSAny;
+            "background-color": Color | CSSString;
+            backgroundColor: Color | CSSString;
 
             "border-radius": CSSAny;
             borderRadius: CSSAny;
