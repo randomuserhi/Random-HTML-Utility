@@ -43,8 +43,8 @@ RHU.import(RHU.module({ trace: new Error(),
                 }),
             },
             borderRadius: {
-                
-            }
+
+            } as RHU.Style.BlockDeclaration
         });
         console.log(style);
     }
