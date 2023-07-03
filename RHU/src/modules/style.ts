@@ -24,7 +24,6 @@
                 name: Symbol("style name"),
             } as SymbolCollection;
 
-            /*
             // NOTE(randomuserhi): This below is to test types => not to push to production
             let style = new RHU.Style!((style) => {
                 style.button = {
@@ -43,8 +42,7 @@
             // TODO(randomuserhi): I would like some type inference on the returned CSSBlock
             //                     But i'm not sure if that is even possible with the generator
             //                     setup I have...
-            style.button.wrapper.display = "none"; // Without inference, type error => wrapper does not exist
-            */
+            style.button.wrapper.display = "none"; // Without inference, type error => wrapper does not exist   
 
             RHU.Style = function(arg: any)
             {

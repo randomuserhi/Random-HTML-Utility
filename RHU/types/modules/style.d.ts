@@ -9,8 +9,6 @@ declare namespace RHU
     interface Style
     {
         new (generator: (style: Style.CSSBlock) => void): Style.CSSBlock;
-        // TODO(randomuserhi): This partially works, I need to expand `T` to convert it into a type
-        //                     where the values are `{}`
         <T extends {}>(style: T & Style.BodyDeclaration): Style.CSSBody<Style.StyledType<T>>;
 
         mediaQuery(body: Style.BlockDeclaration): Style.CSSMediaQuery;
