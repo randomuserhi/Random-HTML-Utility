@@ -13,6 +13,8 @@ declare namespace RHU
         //                     where the values are `{}`
         <T extends {}>(style: T & Style.BodyDeclaration): Style.CSSBody<Style.StyledType<T>>;
 
+        mediaQuery(body: Style.BlockDeclaration): Style.CSSMediaQuery;
+
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
         /** @deprecated */
         el<Tag extends keyof HTMLElementDeprecatedTagNameMap>(tag: Tag): symbol; 
@@ -34,7 +36,7 @@ declare namespace RHU
         // Converts an object type to an object type containing only the keys which are styled objects
         // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type { button: { ... }, wrapper: { ... } }
         type StyledType<T extends {}> = {
-            [Property in StyledKeys<T>]: T[Property]
+            [Property in StyledKeys<T>]: T[Property] extends BodyDeclaration ? CSSBody<T[Property]> : T[Property];
         }
 
         type CSSBody<T extends {} = {}> = StyledType<T> & BodyDeclaration &
@@ -43,12 +45,17 @@ declare namespace RHU
             toString(): string;
         }
 
+        interface CSSMediaQuery extends BlockDeclaration
+        {
+
+        }
+
         interface CSSBlock extends BlockDeclaration
         {
 
         }
 
-        type BlockDeclaration = Record<PropertyKey, CSSBlock | CSSBody>;
+        type BlockDeclaration = Record<PropertyKey, CSSBody | BodyDeclaration | CSSMediaQuery>;
 
         type BodyDeclaration = {
             [Property in Style.CSSProperty]?: (Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSAny) | BodyDeclaration | BodyDeclaration[];

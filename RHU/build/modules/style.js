@@ -27,10 +27,8 @@
                             target[key] = value;
                         else if (isStyleBody(value))
                             target[key] = new styleBody(value);
-                        else {
-                            target[key] = {};
-                            clone(target[key], value);
-                        }
+                        else
+                            target[key] = new styleBody(value);
                     }
                 };
                 clone(this, declaration);
@@ -44,6 +42,9 @@
                 throw new Error("Not implemented yet.");
             };
             let isStyleBody = Object.isPrototypeOf.bind(styleBody.prototype);
+            RHU.Style.mediaQuery = function (declaration) {
+                throw new Error("Not implemented yet.");
+            };
             let element = Symbol("Element reference");
             RHU.Style.el = function () { return element; };
         }

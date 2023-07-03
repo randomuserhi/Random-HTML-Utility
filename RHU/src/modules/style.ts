@@ -19,9 +19,32 @@
                 [symbols.name]?: string | null;
             }
             type CSSBlock = RHU.Style.CSSBlock;
+            type CSSMediaQuery = RHU.Style.CSSMediaQuery;
             const symbols: SymbolCollection = {
                 name: Symbol("style name"),
             } as SymbolCollection;
+
+            /*
+            // NOTE(randomuserhi): This below is to test types => not to push to production
+            let style = new RHU.Style!((style) => {
+                style.button = {
+                    display: "flex",
+                    color: "aqua",
+                    wrapper: {
+                        display: "flex"
+                    }
+                }
+                style.isPortrait = RHU.Style!.mediaQuery({
+                    [`${style.button}`]: {
+                        display: "none"
+                    }
+                });
+            });
+            // TODO(randomuserhi): I would like some type inference on the returned CSSBlock
+            //                     But i'm not sure if that is even possible with the generator
+            //                     setup I have...
+            style.button.wrapper.display = "none"; // Without inference, type error => wrapper does not exist
+            */
 
             RHU.Style = function(arg: any)
             {
@@ -32,24 +55,11 @@
 
             let styleBlock = function(this: CSSBlock, generator: (style: CSSBlock) => void)
             {
-                throw new Error("Not implemented yet.")
+                throw new Error("Not implemented yet.");
             } as Function as { 
                 new(generator: (style: CSSBlock) => void): CSSBlock;
                 prototype: CSSBlock;
             };
-
-            // TODO(randomuserhi): Type inference so that the stylebody created has the correct autocompletion
-            //                     based on the parsed input:
-            //
-            // let style = RHU.Style({
-            //     "color": "white",
-            //     "display": "flex",
-            //     button: {
-            //         "color": "white"
-            //     }
-            // });
-            // // This line is poorly inferred by typescript
-            // (style.button as RHU.Style.BodyDeclaration).color = "red";
 
             let styleBody = function(this: CSSBody, declaration: RHU.Style.BodyDeclaration)
             {
@@ -61,11 +71,8 @@
                         let value = declaration[key];
                         if (typeof value === "string") target[key] = value;
                         else if (isStyleBody(value)) target[key] = new styleBody(value);
-                        else 
-                        {
-                            target[key] = {};
-                            clone(target[key] as CSSBody, value as RHU.Style.BodyDeclaration);
-                        }
+                        // By default assume object pattern is a style body
+                        else target[key] = new styleBody(value as RHU.Style.BodyDeclaration);
                     }     
                 };
                 clone(this, declaration);
@@ -84,6 +91,11 @@
             }
             let isStyleBody: (obj: any) => obj is CSSBody 
                 = Object.isPrototypeOf.bind(styleBody.prototype);
+
+            RHU.Style.mediaQuery = function(this: CSSMediaQuery, declaration: RHU.Style.BlockDeclaration): CSSMediaQuery
+            {
+                throw new Error("Not implemented yet.");
+            };
 
             let element = Symbol("Element reference");
             RHU.Style.el = function() { return element; };
