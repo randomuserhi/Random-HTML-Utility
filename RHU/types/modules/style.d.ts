@@ -13,7 +13,7 @@ declare namespace RHU
     interface Style
     {
         new<T extends {}>(generator: (style: Style.StyledType<T> & Style.Block) => void): Style.StyledType<T> & Style.Block;
-        <T extends {}>(style: Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body<T>;
+        <T extends {}>(style: { props?: undefined; child?: undefined; } & Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body<T>;
 
         mediaQuery<T extends {}>(body: Style.StyledType<T> & Style.BlockDeclaration): Style.StyledType<T> & Style.MediaQuery;
 
@@ -38,7 +38,7 @@ declare namespace RHU
         //
         // https://stackoverflow.com/questions/69464179/how-to-extract-keys-of-certain-type-from-object
         type StyledKeys<T extends {}> = {
-            [Property in keyof T]: T[Property] extends BodyDeclaration ? Property: never;
+            [Property in keyof T]: Property extends keyof _Body ? never : T[Property] extends BodyDeclaration ? Property: never;
         }[keyof T]
         
         // Converts an object type to an object type containing only the keys which are styled objects
@@ -49,7 +49,8 @@ declare namespace RHU
 
         // Object types
 
-        type Body<T extends {} = {}> = BodyDeclaration &
+        type Body<T extends {} = {}> = BodyDeclaration & _Body<T>;
+        type _Body<T extends {} = {}> =
         {
             props: StyleDeclaration;
             child: Style.StyledType<T> & BlockDeclaration;

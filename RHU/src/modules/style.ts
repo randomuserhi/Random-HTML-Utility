@@ -123,6 +123,9 @@
                 grid: {
                     cell: CSSBody
                 },
+                props: {
+                    cell2: CSSBody
+                }
                 // grid: CSSBlock<{ ... }> also works
                 query: CSSMediaQuery
             }>({
@@ -137,8 +140,22 @@
                         display: "flex"
                     }
                 },
+                // TODO(randomuserhi): The below should result in an error since the type should not include props
+                //                     this is done with { props?: undefined; child?: undefined; } & StyledType<T> & BodyDeclaration
+                //                     in parameter type for RHU.Style??
+                //                     TODO => generate { props?: undefined; child?: undefined; } automatically from _Body type:
+                //                             {[Property in keyof _Body]?: undefined} might work??
+                props: {
+                    cell2: {
+                        display: "flex"
+                    },
+                    bruh: {
+                        
+                    }
+                },
                 query: RHU.Style!.mediaQuery({})
             });
+
         }
     }));
 
