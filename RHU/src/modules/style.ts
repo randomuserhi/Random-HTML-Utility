@@ -9,6 +9,12 @@
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
 
+            // TODO(randomuserhi): Re-write to accomodate new type and overriding system
+            //                     to handle clashes in names for CSSBlock, CSSMediaQuery and CSSBody
+            //                     (Basically this entire code base)
+            //                     New system allows for shorthand, but has long form take over in edge cases
+            //                     - refer to discord notes 
+
             // Type aliases to allow for privated symbols
             interface SymbolCollection
             { 
