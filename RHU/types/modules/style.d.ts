@@ -13,7 +13,10 @@ declare namespace RHU
     interface Style
     {
         new<T extends {}>(generator: (style: Style.StyledType<T> & Style.Block) => void): Style.StyledType<T> & Style.Block;
-        <T extends {}>(style: { props?: undefined; child?: undefined; } & Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body<T>;
+        <T extends {}>(style: { 
+            [Property in keyof Style._Body<T>]?: Style._Body<T>[Property]; 
+        }): Style.StyledType<T> & Style.Body<T>;
+        <T extends {}>(style: Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body<T>;
 
         mediaQuery<T extends {}>(body: Style.StyledType<T> & Style.BlockDeclaration): Style.StyledType<T> & Style.MediaQuery;
 
@@ -49,14 +52,15 @@ declare namespace RHU
 
         // Object types
 
-        type Body<T extends {} = {}> = BodyDeclaration & _Body<T>;
-        type _Body<T extends {} = {}> =
+        type Body<T extends {} = {}> = BodyDeclaration & _Body<T> &
         {
-            props: StyleDeclaration;
-            child: Style.StyledType<T> & BlockDeclaration;
-
             [Symbol.toPrimitive]: (hint: "number" | "string" | "default") => string | undefined | null; 
             toString(): string;
+        };
+        type _Body<T extends {} = {}> =
+        {
+            properties: StyleDeclaration;
+            children: Style.StyledType<T> & BlockDeclaration;
         }
 
         type MediaQuery = BlockDeclaration &

@@ -9,11 +9,7 @@
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
 
-            // TODO(randomuserhi): Re-write to accomodate new type and overriding system
-            //                     to handle clashes in names for CSSBlock, CSSMediaQuery and CSSBody
-            //                     (Basically this entire code base)
-            //                     New system allows for shorthand, but has long form take over in edge cases
-            //                     - refer to discord notes 
+            // TODO(randomuserhi): Implement the actual implementation => types seem to work
 
             // Type aliases to allow for privated symbols
             interface SymbolCollection
@@ -116,16 +112,39 @@
             let element = Symbol("Element reference");
             RHU.Style.el = function() { return element; };
 
+            // NOTE(randomuserhi): The below is for testing purposes and not to push to prod
             type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
             type CSSBody<T extends {} = {}> = RHU.Style.CSSBody<T>;
-            let style = RHU.Style!<{
+            let style_1 = RHU.Style!<{
                 wrapper: CSSBody,
                 grid: {
                     cell: CSSBody
                 },
-                props: {
-                    cell2: CSSBody
+                // grid: CSSBlock<{ ... }> also works
+                query: CSSMediaQuery
+            }>({
+                properties: {
+                    display: "flex",
+                    color: "aqua",
+                    borderRadius: 10,
+                },
+                children: {
+                    wrapper: {
+                        display: "flex"
+                    },
+                    grid: {
+                        cell: {
+                            display: "flex"
+                        }
+                    },
+                    query: RHU.Style!.mediaQuery({})
                 }
+            });
+            let style_2 = RHU.Style!<{
+                wrapper: CSSBody,
+                grid: {
+                    cell: CSSBody
+                },
                 // grid: CSSBlock<{ ... }> also works
                 query: CSSMediaQuery
             }>({
@@ -140,22 +159,8 @@
                         display: "flex"
                     }
                 },
-                // TODO(randomuserhi): The below should result in an error since the type should not include props
-                //                     this is done with { props?: undefined; child?: undefined; } & StyledType<T> & BodyDeclaration
-                //                     in parameter type for RHU.Style??
-                //                     TODO => generate { props?: undefined; child?: undefined; } automatically from _Body type:
-                //                             {[Property in keyof _Body]?: undefined} might work??
-                props: {
-                    cell2: {
-                        display: "flex"
-                    },
-                    bruh: {
-                        
-                    }
-                },
                 query: RHU.Style!.mediaQuery({})
             });
-
         }
     }));
 
