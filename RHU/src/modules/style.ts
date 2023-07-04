@@ -53,7 +53,7 @@
                     for (let key of Object.keys(declaration))
                     {
                         let value = declaration[key];
-                        if (typeof value === "string") target[key] = value;
+                        if (typeof value === "string" || typeof value === "number") target[key] = value;
                         else if (isMediaQuery(value)) target[key] = new mediaQuery(value);
                         else if (isStyleBody(value)) target[key] = new styleBody(value);
                         else if (isPlainObject(value)) target[key] = new styleBody(value as RHU.Style.BodyDeclaration);

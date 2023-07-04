@@ -53,7 +53,7 @@ declare namespace RHU
 
         type MediaQuery = BlockDeclaration &
         {
-
+            query: string;
         }
 
         type Block = BlockDeclaration &
