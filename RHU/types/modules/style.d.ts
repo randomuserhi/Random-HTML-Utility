@@ -1,3 +1,7 @@
+// TODO(randomuserhi): comments and documentation
+//                     especially important here since a lot of types here are defined with strict intent
+//                     and are quite complex
+
 interface RHU
 {
 
@@ -9,7 +13,7 @@ declare namespace RHU
     interface Style
     {
         new<T extends {}>(generator: (style: Style.StyledType<T> & Style.Block) => void): Style.StyledType<T> & Style.Block;
-        <T extends {}>(style: Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body;
+        <T extends {}>(style: Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body<T>;
 
         mediaQuery<T extends {}>(body: Style.StyledType<T> & Style.BlockDeclaration): Style.StyledType<T> & Style.MediaQuery;
 
@@ -45,8 +49,11 @@ declare namespace RHU
 
         // Object types
 
-        type Body = BodyDeclaration &
+        type Body<T extends {} = {}> = BodyDeclaration &
         {
+            props: StyleDeclaration;
+            child: Style.StyledType<T> & BlockDeclaration;
+
             [Symbol.toPrimitive]: (hint: "number" | "string" | "default") => string | undefined | null; 
             toString(): string;
         }
@@ -64,10 +71,13 @@ declare namespace RHU
         // Declaration types 
 
         type BlockDeclaration = {
-            [Property in PropertyKey]: Body | BodyDeclaration | MediaQuery;
+            [Property in PropertyKey]: BodyDeclaration | MediaQuery;
         }
         type BodyDeclaration = {
             [Property in Style.CSSProperty]?: (Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSAny) | BodyDeclaration | BodyDeclaration[];
+        };
+        type StyleDeclaration = {
+            [Property in Style.CSSProperty]?: Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSAny;
         };
 
         // CSS types
