@@ -8,17 +8,29 @@ interface RHU
     Style?: RHU.Style;
 }
 
+type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
+type CSSBody<T extends {} = {}> = RHU.Style.CSSBody<T>;
+type CSSBlock<T extends {} = {}> = RHU.Style.CSSBlock<T>;
+
 declare namespace RHU
 {
     interface Style
     {
-        new<T extends {}>(generator: (style: Style.StyledType<T> & Style.Block) => void): Style.StyledType<T> & Style.Block;
+        new<T extends {}>(generator: (style: Style.StyledType<T, Style.Block> & Style.Block<T>) => void): Style.StyledType<T, Style.Block> & Style.Block<T>;
+        
         <T extends {}>(style: { 
-            [Property in keyof Style._Body<T>]?: Style._Body<T>[Property]; 
-        }): Style.StyledType<T> & Style.Body<T>;
-        <T extends {}>(style: Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body<T>;
+            [Property in keyof Style.BodyProperties<T>]?: Style.BodyProperties<T>[Property]; 
+        }): Style.StyledType<T, Style.Body> & Style.Body<T>;
+        <T extends {}>(style: { 
+            [Property in keyof Style.BodyProperties<T>]?: Style.BodyProperties<T>[Property]; 
+        } & Style.StyledType<T, Style.Body> & Style.BodyDeclaration): Style.StyledType<T, Style.Body> & Style.Body<T>;
 
-        mediaQuery<T extends {}>(body: Style.StyledType<T> & Style.BlockDeclaration): Style.StyledType<T> & Style.MediaQuery;
+        MediaQuery<T extends {}>(body: { 
+            [Property in keyof Style.MediaQueryProperties<T>]?: Style.MediaQueryProperties<T>[Property]; 
+        }): Style.StyledType<T, Style.MediaQuery> & Style.MediaQuery<T>;
+        MediaQuery<T extends {}>(body: { 
+            [Property in keyof Style.MediaQueryProperties<T>]?: Style.MediaQueryProperties<T>[Property]; 
+        } & Style.StyledType<T, Style.MediaQuery> & Style.BlockDeclaration): Style.StyledType<T, Style.MediaQuery> & Style.MediaQuery<T>;
 
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
         /** @deprecated */
@@ -30,9 +42,9 @@ declare namespace RHU
     {
         // Types for declaring style type structures
 
-        type CSSMediaQuery<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.MediaQuery;
-        type CSSBody<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BodyDeclaration;
-        type CSSBlock<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BlockDeclaration;
+        type CSSMediaQuery<T extends {} = {}> = StyledType<T, MediaQuery> & MediaQuery;
+        type CSSBody<T extends {} = {}> = StyledType<T, BodyDeclaration> & BodyDeclaration;
+        type CSSBlock<T extends {} = {}> = StyledType<T, BlockDeclaration> & BlockDeclaration;
 
         // Utilities used for type inference
 
@@ -40,37 +52,52 @@ declare namespace RHU
         // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type "button" | "wrapper"
         //
         // https://stackoverflow.com/questions/69464179/how-to-extract-keys-of-certain-type-from-object
-        type StyledKeys<T extends {}> = {
-            [Property in keyof T]: Property extends keyof _Body ? never : T[Property] extends BodyDeclaration ? Property: never;
+        type StyledKeys<T extends {}, Exclude extends {}> = {
+            [Property in keyof T]: Property extends keyof Exclude ? never : T[Property] extends BodyDeclaration ? Property : never;
+        }[keyof T]
+        type _StyledKeys<T extends {}> = {
+            [Property in keyof T]: T[Property] extends BodyDeclaration ? Property : never;
         }[keyof T]
         
         // Converts an object type to an object type containing only the keys which are styled objects
         // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type { button: { ... }, wrapper: { ... } }
-        type StyledType<T extends {}> = {
-            [Property in StyledKeys<T>]: T[Property];
+        type StyledType<T extends {}, Exclude extends {}> = {
+            [Property in StyledKeys<T, Exclude>]: T[Property];
+        }
+        type _StyledType<T extends {}> = {
+            [Property in _StyledKeys<T>]: T[Property];
         }
 
         // Object types
 
-        type Body<T extends {} = {}> = BodyDeclaration & _Body<T> &
+        type Body<T extends {} = {}> = BodyDeclaration & BodyProperties<T> &
         {
             [Symbol.toPrimitive]: (hint: "number" | "string" | "default") => string | undefined | null; 
             toString(): string;
         };
-        type _Body<T extends {} = {}> =
+        interface BodyProperties<T extends {} = {}>
         {
             properties: StyleDeclaration;
-            children: Style.StyledType<T> & BlockDeclaration;
+            children: Style._StyledType<T> & BlockDeclaration;
         }
 
-        type MediaQuery = BlockDeclaration &
+        type MediaQuery<T extends {} = {}> = BlockDeclaration & MediaQueryProperties<T> &
+        {
+
+        };
+        interface MediaQueryProperties<T extends {} = {}>
         {
             query: string;
+            children: Style._StyledType<T> & BlockDeclaration;
         }
 
-        type Block = BlockDeclaration &
+        type Block<T extends {} = {}> = BlockDeclaration & BlockProperties<T> &
         {
 
+        }
+        interface BlockProperties<T extends {} = {}>
+        {
+            children: Style._StyledType<T> & BlockDeclaration;
         }
 
         // Declaration types 

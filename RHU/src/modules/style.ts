@@ -10,6 +10,8 @@
                 console.warn("Overwriting RHU.Style...");
 
             // TODO(randomuserhi): Implement the actual implementation => types seem to work
+            // TODO(randomuserhi): Refactor types to reorganise and rename them => currently a lot of RHU.Style.StyledType<...> & {...}
+            //                     which gets increasingly messy
 
             // Type aliases to allow for privated symbols
             interface SymbolCollection
@@ -39,11 +41,11 @@
                 else return new styleBody(arg);
             } as Function as RHU.Style;
 
-            let styleBlock = function<T extends {}>(this: Block, generator: (style: RHU.Style.StyledType<T> & Block) => void): RHU.Style.StyledType<T> & Block
+            let styleBlock = function<T extends {}>(this: Block, generator: (style: RHU.Style.StyledType<T, Block> & Block) => void): RHU.Style.StyledType<T, Block> & Block
             {
                 throw new Error("Not implemented yet.");
             } as Function as { 
-                new<T extends {}>(generator: (style: RHU.Style.StyledType<T> & Block) => void): RHU.Style.StyledType<T> & Block;
+                new<T extends {}>(generator: (style: RHU.Style.StyledType<T, Block> & Block) => void): RHU.Style.StyledType<T, Block> & Block;
                 prototype: Block;
             };
 
@@ -80,7 +82,7 @@
             let isStyleBody: (obj: any) => obj is Body 
                 = Object.isPrototypeOf.bind(styleBody.prototype);
 
-            RHU.Style.mediaQuery = function(arg: any)
+            RHU.Style.MediaQuery = function(arg: any)
             {
                 if (RHU.exists(new.target)) throw new Error("This function cannot be called with the 'new' keyword.");
                 else return new mediaQuery(arg);
@@ -113,44 +115,38 @@
             RHU.Style.el = function() { return element; };
 
             // NOTE(randomuserhi): The below is for testing purposes and not to push to prod
-            type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
-            type CSSBody<T extends {} = {}> = RHU.Style.CSSBody<T>;
-            let style_1 = RHU.Style!<{
+            let style = RHU.Style!<{
+                properties: CSSMediaQuery<{
+                    cringe: CSSBody
+                }>,
+                children: {
+                    wrapper: CSSBody
+                },
                 wrapper: CSSBody,
                 grid: {
                     cell: CSSBody
                 },
+                display: CSSBody,
                 // grid: CSSBlock<{ ... }> also works
                 query: CSSMediaQuery
             }>({
                 properties: {
-                    display: "flex",
                     color: "aqua",
-                    borderRadius: 10,
+                    borderRadius: 10
                 },
-                children: {
+                b: RHU.Style!.MediaQuery({
+                    cringe: {
+                        
+                    }
+                }),
+                display: {
+                    display: "bruh"
+                },
+                a: {
                     wrapper: {
                         display: "flex"
-                    },
-                    grid: {
-                        cell: {
-                            display: "flex"
-                        }
-                    },
-                    query: RHU.Style!.mediaQuery({})
-                }
-            });
-            let style_2 = RHU.Style!<{
-                wrapper: CSSBody,
-                grid: {
-                    cell: CSSBody
+                    }
                 },
-                // grid: CSSBlock<{ ... }> also works
-                query: CSSMediaQuery
-            }>({
-                display: "flex",
-                color: "aqua",
-                borderRadius: 10,
                 wrapper: {
                     display: "flex"
                 },
@@ -159,7 +155,7 @@
                         display: "flex"
                     }
                 },
-                query: RHU.Style!.mediaQuery({})
+                query: RHU.Style!.MediaQuery({})
             });
         }
     }));
