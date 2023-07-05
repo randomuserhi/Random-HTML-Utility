@@ -116,35 +116,33 @@
 
             // NOTE(randomuserhi): The below is for testing purposes and not to push to prod
             let style = RHU.Style!<{
-                properties: CSSMediaQuery<{
+                properties: CSSBody<{
                     cringe: CSSBody
                 }>,
                 children: {
-                    wrapper: CSSBody
-                },
+                    cringe: CSSBody
+                }
                 wrapper: CSSBody,
                 grid: {
                     cell: CSSBody
                 },
-                display: CSSBody,
+                display: {
+                    display: CSSBody
+                },
                 // grid: CSSBlock<{ ... }> also works
                 query: CSSMediaQuery
             }>({
-                properties: {
-                    color: "aqua",
-                    borderRadius: 10
-                },
-                b: RHU.Style!.MediaQuery({
-                    cringe: {
-                        
-                    }
-                }),
-                display: {
-                    display: "bruh"
-                },
-                a: {
-                    wrapper: {
-                        display: "flex"
+                children: {
+                    properties: {
+                        display: "flex",
+                        cringe: {
+                            display: "flex"
+                        }
+                    },
+                    children: {
+                        cringe: {
+                            display: "flex"
+                        }
                     }
                 },
                 wrapper: {
@@ -152,6 +150,11 @@
                 },
                 grid: {
                     cell: {
+                        display: "flex"
+                    }
+                },
+                display: {
+                    display: {
                         display: "flex"
                     }
                 },

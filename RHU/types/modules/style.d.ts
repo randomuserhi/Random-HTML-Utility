@@ -16,21 +16,15 @@ declare namespace RHU
 {
     interface Style
     {
-        new<T extends {}>(generator: (style: Style.StyledType<T, Style.Block> & Style.Block<T>) => void): Style.StyledType<T, Style.Block> & Style.Block<T>;
+        new<T extends {}>(generator: (style: Style.StyledType<T, Style.BlockProperties> & Style.Block<T>) => void): Style.StyledType<T, Style.BlockProperties> & Style.Block<T>;
         
         <T extends {}>(style: { 
             [Property in keyof Style.BodyProperties<T>]?: Style.BodyProperties<T>[Property]; 
-        }): Style.StyledType<T, Style.Body> & Style.Body<T>;
-        <T extends {}>(style: { 
-            [Property in keyof Style.BodyProperties<T>]?: Style.BodyProperties<T>[Property]; 
-        } & Style.StyledType<T, Style.Body> & Style.BodyDeclaration): Style.StyledType<T, Style.Body> & Style.Body<T>;
+        } | (Style.StyledType<T, Style.BodyProperties> & Style.BodyDeclaration)): Style.StyledType<T, Style.BodyProperties> & Style.Body<T>;
 
         MediaQuery<T extends {}>(body: { 
             [Property in keyof Style.MediaQueryProperties<T>]?: Style.MediaQueryProperties<T>[Property]; 
-        }): Style.StyledType<T, Style.MediaQuery> & Style.MediaQuery<T>;
-        MediaQuery<T extends {}>(body: { 
-            [Property in keyof Style.MediaQueryProperties<T>]?: Style.MediaQueryProperties<T>[Property]; 
-        } & Style.StyledType<T, Style.MediaQuery> & Style.BlockDeclaration): Style.StyledType<T, Style.MediaQuery> & Style.MediaQuery<T>;
+        } | (Style.StyledType<T, Style.MediaQueryProperties> & Style.BlockDeclaration)): Style.StyledType<T, Style.MediaQueryProperties> & Style.MediaQuery<T>;
 
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
         /** @deprecated */
@@ -42,9 +36,9 @@ declare namespace RHU
     {
         // Types for declaring style type structures
 
-        type CSSMediaQuery<T extends {} = {}> = StyledType<T, MediaQuery> & MediaQuery;
-        type CSSBody<T extends {} = {}> = StyledType<T, BodyDeclaration> & BodyDeclaration;
-        type CSSBlock<T extends {} = {}> = StyledType<T, BlockDeclaration> & BlockDeclaration;
+        type CSSMediaQuery<T extends {} = {}> = StyledType<T, MediaQueryProperties> & MediaQuery;
+        type CSSBody<T extends {} = {}> = StyledType<T, BodyProperties> & BodyDeclaration;
+        type CSSBlock<T extends {} = {}> = StyledType<T, BlockProperties> & BlockDeclaration;
 
         // Utilities used for type inference
 
