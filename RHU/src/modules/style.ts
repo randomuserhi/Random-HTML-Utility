@@ -21,7 +21,7 @@
             // Type aliases for private symbol properties
 
             // Test code:
-            type CSSStyle<T extends RHU.Style.CSSStyle = {}> = RHU.Style.CSSStyle<T>;
+            type CSSStyle<T extends {} = {}> = RHU.Style.CSSStyle<T>;
             let style = RHU.Style!<{
                 button: CSSStyle<{
                     text: CSSStyle
@@ -32,11 +32,14 @@
             }>({
                 button: {
                     __style__: {
-                        display: "flex"
+                        display: "flex",
+                        border: {
+                            borderRadius: 1
+                        }
                     },
                     text: {
                         __style__: {
-                            display: "flex"
+                            display: "block"
                         }
                     }
                 },
