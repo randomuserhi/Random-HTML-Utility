@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "transpile": "./node_modules/.bin/tsc",
+    "transpile": "tsc",
     "minify": "",
     "build": "rimraf build/ && npm run transpile",
     "test": "echo \"Error: no test specified\" && exit 1"
