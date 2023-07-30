@@ -35,6 +35,22 @@
             //
             //                     This makes the behaviour defined in the sense that styles can't be altered post creation, and the exposed classes
             //                     are simply the string names to be used in html: <div style="`${style.button}`"></div>
+            //
+            //                     Since typescript can't enforce `{ ":root": {} }` or `{ ":hover" }` for style[":root"] and style[":hover"] access, these
+            //                     only cause runtime errors when style[":root"] get is made returning null / undefined. (Or style creation error)
+
+            // NOTE(randomuserhi): Implementation needs to keep track of nested calls to RHU.Style / RHU.MediaQuery since only the outermost one creates a
+            //                     <style> element and populates it. Thus nested calls need to execute differently returning the approapriate structure
+            //                     for the outermost to generate the <style> element
+            //                   
+            //                     Something simple like:
+            //
+            //                     let nested = false;
+            //                     function createStyle()
+            //                     {
+            //                         if (!nested) { nested = true; // create <style> element, handle main generator idk `nested = false;` at the end }
+            //                         else { // return defining type like `{ __style__ = { color = "white" } }` }
+            //                     }                     
 
             // Test code:
             type CSSStyle<T extends {} = {}> = RHU.Style.CSSStyle<T>;
