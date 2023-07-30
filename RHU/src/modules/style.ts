@@ -20,17 +20,20 @@
 
             // Type aliases for private symbol properties
 
+            // TODO(randomuserhi): Allow RHU.mediaquery(query, {}) and RHU.style({}) shorthands instead of __style__
+
             // Test code:
             type CSSStyle<T extends {} = {}> = RHU.Style.CSSStyle<T>;
+            type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
             let style = RHU.Style!<{
                 button: CSSStyle<{
                     text: CSSStyle
                 }>,
-                /*query: CSSQuery<{
+                query: CSSMediaQuery<{
                     mobile: CSSStyle
-                }>*/
-            }>({
-                button: {
+                }>
+            }>((style) => {
+                style.button = {
                     __style__: {
                         display: "flex",
                         border: {
@@ -42,11 +45,27 @@
                             display: "block"
                         }
                     }
-                },
-                // the structure can either be defined here in <> or above in the parent
-                /*query: RHU.Style.mediaQuery({
-                
+                }
+                // NOTE(randomuserhi): <T> can't be inferred
+                /*style.query: RHU.Style!.mediaQuery<{
+                    mobile: CSSStyle
+                }>({
+                    __query__: "cringe",
+                    mobile: {
+                        __style__: {
+
+                        }
+                    }
                 })*/
+                // Version without requirement to infer
+                style.query = {
+                    __query__: "cringe",
+                    mobile: {
+                        __style__: {
+
+                        }
+                    }
+                }
             });
         }
     }));
