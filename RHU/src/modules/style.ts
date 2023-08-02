@@ -26,6 +26,8 @@
             //                     `style.button[":hover"]` ...
             //                     You also should not be able to do
             //                     `style.button.__style__.display = "none"`
+            //                     - honestly its fine to leave it as is, as long as the properties are left readonly and simply used for debugging 
+            //                       to print the style object to console
             //                     
             //                     These actions are only prohibitted outside the generator function, thus to make it work I simply
             //                     need to implement a type that can convert an intermediate type:
