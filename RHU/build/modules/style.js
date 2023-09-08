@@ -7,11 +7,46 @@
         callback: function () {
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
-            const symbols = {
-                name: Symbol("style name"),
+            let styleHandler = {
+                set: function (target, prop, newValue) {
+                    console.log(prop);
+                    if (!RHU.exists(target[prop])) {
+                        if ((typeof prop === 'string' || prop instanceof String)
+                            && /__[_$a-zA-Z0-9]*__/g.test(prop)) {
+                            target[prop] = {};
+                        }
+                        else {
+                            target[prop] = new Proxy({}, styleHandler);
+                        }
+                    }
+                    if (typeof newValue === 'object' && newValue !== null) {
+                        for (let [key, value] of Object.entries(newValue)) {
+                            target[prop][key] = value;
+                        }
+                    }
+                    else {
+                        target[prop] = newValue;
+                    }
+                    return true;
+                }
             };
-            let style = RHU.Style({
-                button: {
+            let Style = RHU.Style = function (generator) {
+                let style = {};
+                let proxy = new Proxy(style, styleHandler);
+                generator(proxy);
+                return style;
+            };
+            Style.mediaQuery = function (generator) {
+                let style = {};
+                let proxy = new Proxy(style, styleHandler);
+                generator(proxy);
+                return style;
+            };
+            let style = RHU.Style((style) => {
+                let common = {
+                    color: "aliceblue"
+                };
+                style.button = {
                     __style__: {
                         display: "flex",
                         border: {
@@ -22,9 +57,21 @@
                         __style__: {
                             display: "block"
                         }
+                    },
+                    ":hover": {
+                        __style__: common
                     }
-                },
+                };
+                style.query = {
+                    __type__: "MEDIA_QUERY",
+                    __query__: "cringe",
+                    mobile: {
+                        __style__: common
+                    }
+                };
+                return style;
             });
+            console.log(style);
         }
     }));
 })();

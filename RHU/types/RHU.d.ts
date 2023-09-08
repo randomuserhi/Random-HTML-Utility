@@ -8,6 +8,10 @@ interface Constructor
 }
 type Prototype<T extends Constructor> = T extends { new(...args: any[]): any; prototype: infer Proto; } ? Proto : never;
 
+type ReadOnly<T> = { readonly [key in keyof T]: ReadOnly<T[key]> };
+type Mutable<T> = { -readonly [key in keyof T]: Mutable<T[key]> };
+type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+
 interface RHU extends EventTarget
 {
     readonly version: string;

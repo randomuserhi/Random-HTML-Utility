@@ -12,8 +12,8 @@ declare namespace RHU
 {
     interface Style
     {
-        <T extends Style.CSSStyle>(generator: (style: Style.CSSStyle<T>) => void): Style.CSSStyle<T>;
-        mediaQuery<T extends Style.DeclarationSchema>(generator: (mediaQuery: Style.CSSMediaQuery<T>) => void): Style.CSSMediaQuery<T>
+        <T extends Style.CSSStyle>(generator: (root: Style.CSSStyle<T>) => void): Style.CSSStyle<T>;
+        mediaQuery<T extends Style.DeclarationSchema>(generator: (root: Style.CSSMediaQuery<T>) => void): Style.CSSMediaQuery<T>;
 
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
         /** @deprecated */
@@ -35,15 +35,17 @@ declare namespace RHU
         // Declaration Types
         interface CSSStyleProperties
         {
+            __type__?: "CLASS";
             __style__?: StyleDeclaration;
         }
-        type CSSStyle<T extends DeclarationSchema = {}> = Omit<T, keyof CSSStyleProperties> & DeclarationObject<CSSStyleProperties>
+        type CSSStyle<T extends DeclarationSchema = {}> = Omit<T, keyof CSSStyleProperties> & DeclarationObject<CSSStyleProperties>;
         
         interface CSSMediaQueryProperties
         {
+            __type__: "MEDIA_QUERY";
             __query__?: string;
         }
-        type CSSMediaQuery<T extends DeclarationSchema = {}> = T & DeclarationObject<CSSMediaQueryProperties>
+        type CSSMediaQuery<T extends DeclarationSchema = {}> = T & DeclarationObject<CSSMediaQueryProperties>;
 
         type StyleDeclaration = {
             [Property in Style.CSSProperty]?: Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSValue;

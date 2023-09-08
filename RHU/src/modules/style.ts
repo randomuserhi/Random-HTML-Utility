@@ -9,16 +9,55 @@
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
 
-            // Types for symbols
-            interface SymbolCollection
-            { 
-                readonly name: unique symbol;
-            }
-            const symbols: SymbolCollection = {
-                name: Symbol("style name"),
-            } as SymbolCollection;
+            let styleHandler: ProxyHandler<any> = {
+                set: function(target, prop, newValue)
+                {
+                    console.log(prop);
+                    if (!RHU.exists(target[prop])) 
+                    {
+                        if ((typeof prop === 'string' || (prop as any) instanceof String) 
+                            && /__[_$a-zA-Z0-9]*__/g.test(prop as string))
+                        {
+                            target[prop] = {};
+                        }
+                        else
+                        {
+                            // TODO(randomuserhi)
+                            target[prop] = new Proxy({}, styleHandler);
+                        }
+                    }
+                    if (typeof newValue === 'object' && newValue !== null)
+                    {
+                        for (let [key, value] of Object.entries(newValue))
+                        {
+                            target[prop][key] = value;
+                        }
+                    }
+                    else
+                    {
+                        target[prop] = newValue;
+                    }
+                    return true;
+                }
+            };
 
             // Type aliases for private symbol properties
+            let Style = RHU.Style = function<T extends RHU.Style.CSSStyle>(generator: (root: RHU.Style.CSSStyle<T>) => void): ReadOnly<RHU.Style.CSSStyle<T>>
+            {
+                let style = {};
+                let proxy = new Proxy(style, styleHandler);
+                generator(proxy as RHU.Style.CSSStyle<T>);
+                return style as ReadOnly<RHU.Style.CSSStyle<T>>;
+            } as Function as RHU.Style;
+
+            Style.mediaQuery = function<T extends RHU.Style.DeclarationSchema>(generator: (root: RHU.Style.CSSMediaQuery<T>) => void): RHU.Style.CSSMediaQuery<T>
+            {
+                // TODO(randomuserhi):
+                let style = {};
+                let proxy = new Proxy(style, styleHandler);
+                generator(proxy as RHU.Style.CSSMediaQuery<T>);
+                return style as RHU.Style.CSSMediaQuery<T>;
+            }
 
             // TODO(randomuserhi): Change type inference so that the returned type from RHU.Style and RHU.mediaQuery etc...
             //                     only accepts classes for use in html
@@ -52,17 +91,17 @@
             //                     {
             //                         if (!nested) { nested = true; // create <style> element, handle main generator idk `nested = false;` at the end }
             //                         else { // return defining type like `{ __style__ = { color = "white" } }` }
-            //                     }                     
+            //                     }              
 
             // Test code:
             type CSSStyle<T extends {} = {}> = RHU.Style.CSSStyle<T>;
             type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
             let style = RHU.Style!<{
                 button: CSSStyle<{
-                    text: CSSStyle
+                    text: CSSStyle;
                 }>,
                 query: CSSMediaQuery<{
-                    mobile: CSSStyle
+                    mobile: CSSStyle;
                 }>
             }>((style) => {
                 let common: RHU.Style.StyleDeclaration = {
@@ -85,24 +124,32 @@
                     }
                 }
                 // NOTE(randomuserhi): <T> can't be inferred
-                /*style.query: RHU.Style!.mediaQuery<{
+                /*style.query = RHU.Style!.mediaQuery<{
                     mobile: CSSStyle
-                }>({
-                    __query__: "cringe",
-                    mobile: {
-                        __style__: {
+                }>(() => ({
+                        __query__: "cringe",
+                        mobile: {
+                            __style__: {
 
+                            }
+                        },
+                        [`${style.button}`]: {
+                            
                         }
-                    }
-                })*/
+                    })
+                );*/
                 // Version without requirement to infer
                 style.query = {
+                    __type__: "MEDIA_QUERY",
                     __query__: "cringe",
                     mobile: {
                         __style__: common
                     }
                 }
+
+                return style;
             });
+            console.log(style);
         }
     }));
 

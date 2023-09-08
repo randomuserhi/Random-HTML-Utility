@@ -30,22 +30,5 @@ RHU.import(RHU.module({ trace: new Error(),
                 element: //html
                 `<div class=""></div>`
             });
-
-        let style = RHU.Style({
-            "color": "red",
-            "display": "flex",
-            button: RHU.Style({
-                "color": "white"
-            }),
-            test: {
-                b: RHU.Style({
-                    "display": "flex"
-                }),
-            },
-            borderRadius: {
-
-            } as RHU.Style.BlockDeclaration
-        });
-        console.log(style);
     }
 }));
