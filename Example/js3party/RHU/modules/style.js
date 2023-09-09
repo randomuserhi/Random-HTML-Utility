@@ -96,6 +96,10 @@
                     __query__: "cringe",
                     mobile: {
                         __style__: common
+                    },
+                    nested: {
+                        __type__: "MEDIA_QUERY",
+                        __query__: "cringe",
                     }
                 };
                 return style;

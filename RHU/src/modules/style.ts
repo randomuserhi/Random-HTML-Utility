@@ -54,7 +54,7 @@
             };
 
             // Type aliases for private symbol properties
-            let Style = RHU.Style = function<T extends CSSStyle>(generator: (root: CSSStyle<T>) => void): ReadOnly<CSSStyle<T>>
+            let Style = RHU.Style = function<T extends RHU.Style.DeclarationSchema<RHU.Style.CSSAll>>(generator: (root: CSSStyle<T>) => void): ReadOnly<T>
             {
                 let style = {};
                 let handler: ProxyHandler<any> = {
@@ -93,7 +93,7 @@
                 }
                 let proxy = new Proxy(style, handler);
                 generator(proxy as CSSStyle<T>);
-                return style as ReadOnly<CSSStyle<T>>;
+                return style as ReadOnly<T>;
             } as Function as RHU.Style;
 
             Style.mediaQuery = function<T extends RHU.Style.DeclarationSchema<CSSStyle | CSSMediaQuery>>(generator: (root: CSSMediaQuery<T>) => void): CSSMediaQuery<T>
@@ -152,8 +152,6 @@
                 let common: RHU.Style.StyleDeclaration = {
                     color: "aliceblue"
                 }
-                style.__style__ = {
-                };
                 style.button = {
                     __style__: {
                         display: "flex",

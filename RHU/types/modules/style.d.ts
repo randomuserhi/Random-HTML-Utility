@@ -12,7 +12,7 @@ declare namespace RHU
 {
     interface Style
     {
-        <T extends Style.DeclarationSchema<Style.CSSAll>>(generator: (root: T & Style.DeclarationObject<Style.CSSStyleProperties>) => void): T & Style.DeclarationObject<Style.CSSStyleProperties>;
+        <T extends Style.DeclarationSchema<Style.CSSAll>>(generator: (root: T) => void): ReadOnly<T>;
         mediaQuery<T extends Style.DeclarationSchema<Style.CSSAll>>(generator: (root: Style.CSSMediaQuery<T>) => void): Style.CSSMediaQuery<T>;
 
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
