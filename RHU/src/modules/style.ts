@@ -9,10 +9,20 @@
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
 
+            type CSSStyle<T extends {} = {}> = RHU.Style.CSSStyle<T>;
+            type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
+
+            // TODO(randomuserhi): cleanup code => styleHandler and root handler are very similar in logic, just slightly different...
+
+            let propStack: PropertyKey[] = [];
             let styleHandler: ProxyHandler<any> = {
                 set: function(target, prop, newValue)
                 {
-                    console.log(prop);
+                    let parentProp = propStack.length > 0 ? propStack[propStack.length - 1] : undefined;
+                    console.log(`${String(parentProp)} ${String(prop)}`);
+                    
+                    propStack.push(prop);
+
                     if (!RHU.exists(target[prop])) 
                     {
                         if ((typeof prop === 'string' || (prop as any) instanceof String) 
@@ -37,26 +47,62 @@
                     {
                         target[prop] = newValue;
                     }
+
+                    propStack.pop();
                     return true;
                 }
             };
 
             // Type aliases for private symbol properties
-            let Style = RHU.Style = function<T extends RHU.Style.CSSStyle>(generator: (root: RHU.Style.CSSStyle<T>) => void): ReadOnly<RHU.Style.CSSStyle<T>>
+            let Style = RHU.Style = function<T extends CSSStyle>(generator: (root: CSSStyle<T>) => void): ReadOnly<CSSStyle<T>>
             {
                 let style = {};
-                let proxy = new Proxy(style, styleHandler);
-                generator(proxy as RHU.Style.CSSStyle<T>);
-                return style as ReadOnly<RHU.Style.CSSStyle<T>>;
+                let handler: ProxyHandler<any> = {
+                    set: function(target, prop, newValue)
+                    {
+                        propStack.push(prop);
+    
+                        if (!RHU.exists(target[prop])) 
+                        {
+                            if ((typeof prop === 'string' || (prop as any) instanceof String) 
+                                && /__[_$a-zA-Z0-9]*__/g.test(prop as string))
+                            {
+                                target[prop] = {};
+                            }
+                            else
+                            {
+                                // TODO(randomuserhi)
+                                target[prop] = new Proxy({}, styleHandler);
+                            }
+                        }
+                        if (typeof newValue === 'object' && newValue !== null)
+                        {
+                            for (let [key, value] of Object.entries(newValue))
+                            {
+                                target[prop][key] = value;
+                            }
+                        }
+                        else
+                        {
+                            target[prop] = newValue;
+                        }
+    
+                        propStack.pop();
+                        return true;
+                    }
+                }
+                let proxy = new Proxy(style, handler);
+                generator(proxy as CSSStyle<T>);
+                return style as ReadOnly<CSSStyle<T>>;
             } as Function as RHU.Style;
 
-            Style.mediaQuery = function<T extends RHU.Style.DeclarationSchema>(generator: (root: RHU.Style.CSSMediaQuery<T>) => void): RHU.Style.CSSMediaQuery<T>
+            Style.mediaQuery = function<T extends RHU.Style.DeclarationSchema<CSSStyle | CSSMediaQuery>>(generator: (root: CSSMediaQuery<T>) => void): CSSMediaQuery<T>
             {
                 // TODO(randomuserhi):
                 let style = {};
                 let proxy = new Proxy(style, styleHandler);
-                generator(proxy as RHU.Style.CSSMediaQuery<T>);
-                return style as RHU.Style.CSSMediaQuery<T>;
+                generator(proxy as CSSMediaQuery<T>);
+                return style as CSSMediaQuery<T>;
             }
 
             // TODO(randomuserhi): Change type inference so that the returned type from RHU.Style and RHU.mediaQuery etc...
@@ -94,8 +140,6 @@
             //                     }              
 
             // Test code:
-            type CSSStyle<T extends {} = {}> = RHU.Style.CSSStyle<T>;
-            type CSSMediaQuery<T extends {} = {}> = RHU.Style.CSSMediaQuery<T>;
             let style = RHU.Style!<{
                 button: CSSStyle<{
                     text: CSSStyle;
@@ -107,6 +151,8 @@
                 let common: RHU.Style.StyleDeclaration = {
                     color: "aliceblue"
                 }
+                style.__style__ = {
+                };
                 style.button = {
                     __style__: {
                         display: "flex",

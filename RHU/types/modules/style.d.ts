@@ -8,12 +8,17 @@ interface RHU
     Style?: RHU.Style;
 }
 
+// TODO(randomuserhi): 
+// - Clean up types => Declaration schema defines what can be inside a given schema, by default only accepts styles => should have an ALL type which accepts CSSStyle | CSSMediaQuery
+// - Omit<T, keyof CSSStyleProperties> & DeclarationObject<CSSStyleProperties> can be made into a generic => support T & DeclarationObject<CSSStyleProperties> as well (no omit)
+// - Document how the types work
+
 declare namespace RHU
 {
     interface Style
     {
-        <T extends Style.CSSStyle>(generator: (root: Style.CSSStyle<T>) => void): Style.CSSStyle<T>;
-        mediaQuery<T extends Style.DeclarationSchema>(generator: (root: Style.CSSMediaQuery<T>) => void): Style.CSSMediaQuery<T>;
+        <T extends Style.DeclarationSchema<Style.CSSStyle | Style.CSSMediaQuery>>(generator: (root: T & Style.DeclarationObject<Style.CSSStyleProperties>) => void): T & Style.DeclarationObject<Style.CSSStyleProperties>;
+        mediaQuery<T extends Style.DeclarationSchema<Style.CSSStyle | Style.CSSMediaQuery>>(generator: (root: Style.CSSMediaQuery<T>) => void): Style.CSSMediaQuery<T>;
 
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
         /** @deprecated */
@@ -28,8 +33,8 @@ declare namespace RHU
         type DeclarationObject<T> = T & {
             [Property: string]: TypesIn<T> | CSSStyle | undefined; 
         }
-        type DeclarationSchema = {
-            [Property in string]?: CSSStyle
+        type DeclarationSchema<T = CSSStyle> = {
+            [Property in string]?: T
         }
 
         // Declaration Types
@@ -45,7 +50,7 @@ declare namespace RHU
             __type__: "MEDIA_QUERY";
             __query__?: string;
         }
-        type CSSMediaQuery<T extends DeclarationSchema = {}> = T & DeclarationObject<CSSMediaQueryProperties>;
+        type CSSMediaQuery<T extends DeclarationSchema<Style.CSSStyle | Style.CSSMediaQuery> = {}> = Omit<T, keyof (CSSStyleProperties | CSSMediaQueryProperties)> & DeclarationObject<CSSMediaQueryProperties>;
 
         type StyleDeclaration = {
             [Property in Style.CSSProperty]?: Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSValue;
