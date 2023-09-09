@@ -12,7 +12,7 @@ declare namespace RHU
 {
     interface Style
     {
-        <T extends Style.DeclarationSchema<Style.CSSAll>>(generator: (root: T) => void): ReadOnly<T>;
+        <T extends Style.DeclarationSchema<Style.CSSAll>>(generator: (root: Style.StripRestrictedProps<T>) => void): ReadOnly<Style.StripRestrictedProps<T>>;
         mediaQuery<T extends Style.DeclarationSchema<Style.CSSAll>>(generator: (root: Style.CSSMediaQuery<T>) => void): Style.CSSMediaQuery<T>;
 
         el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
@@ -39,20 +39,28 @@ declare namespace RHU
             [Property in string]?: T
         }
 
+        type StripRestrictedProps<T> = {
+            [K in keyof T as K extends `__${infer _K}__` ? never : K]: T[K];
+        }
+
         // Declaration Types
         interface CSSStyleProperties
         {
             __type__?: "CLASS";
             __style__?: StyleDeclaration;
         }
-        type CSSStyle<T extends DeclarationSchema = {}> = Omit<T, keyof CSSStyleProperties> & DeclarationObject<CSSStyleProperties>;
+        //type CSSStyle<T extends DeclarationSchema = {}> = Omit<T, keyof CSSStyleProperties> & DeclarationObject<CSSStyleProperties>;
+        //type CSSStyle<T extends DeclarationSchema = {}> = Omit<StripRestrictedProps<T>, keyof CSSStyleProperties> & DeclarationObject<CSSStyleProperties>;
+        type CSSStyle<T extends DeclarationSchema = {}> = StripRestrictedProps<T> & DeclarationObject<CSSStyleProperties>;
         
         interface CSSMediaQueryProperties
         {
             __type__: "MEDIA_QUERY";
             __query__?: string;
         }
-        type CSSMediaQuery<T extends DeclarationSchema<CSSStyle | CSSMediaQuery> = {}> = Omit<T, keyof (CSSStyleProperties | CSSMediaQueryProperties)> & DeclarationObject<CSSMediaQueryProperties>;
+        //type CSSMediaQuery<T extends DeclarationSchema<CSSStyle | CSSMediaQuery> = {}> = Omit<T, keyof (CSSStyleProperties | CSSMediaQueryProperties)> & DeclarationObject<CSSMediaQueryProperties>;
+        //type CSSMediaQuery<T extends DeclarationSchema<CSSStyle | CSSMediaQuery> = {}> = Omit<StripRestrictedProps<T>, keyof (CSSStyleProperties | CSSMediaQueryProperties)> & DeclarationObject<CSSMediaQueryProperties>;
+        type CSSMediaQuery<T extends DeclarationSchema<CSSStyle | CSSMediaQuery> = {}> = StripRestrictedProps<T> & DeclarationObject<CSSMediaQueryProperties>;
 
         type StyleDeclaration = {
             [Property in Style.CSSProperty]?: Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSValue;

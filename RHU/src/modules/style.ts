@@ -137,7 +137,7 @@
             //                     {
             //                         if (!nested) { nested = true; // create <style> element, handle main generator idk `nested = false;` at the end }
             //                         else { // return defining type like `{ __style__ = { color = "white" } }` }
-            //                     }              
+            //                     }
 
             // Test code:
             let style = RHU.Style!<{
