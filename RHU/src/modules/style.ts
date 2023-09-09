@@ -146,7 +146,8 @@
                 }>,
                 query: CSSMediaQuery<{
                     mobile: CSSStyle;
-                }>
+                    nested: CSSMediaQuery;
+                }>,
             }>((style) => {
                 let common: RHU.Style.StyleDeclaration = {
                     color: "aliceblue"
@@ -190,6 +191,10 @@
                     __query__: "cringe",
                     mobile: {
                         __style__: common
+                    },
+                    nested: {
+                        __type__: "MEDIA_QUERY",
+                        __query__: "cringe",
                     }
                 }
 

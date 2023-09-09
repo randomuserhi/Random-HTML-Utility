@@ -31,7 +31,7 @@ declare namespace RHU
         // Utility types
         type TypesIn<T> = T[keyof T];
         type DeclarationObject<T> = T & {
-            [Property: string]: TypesIn<T> | CSSStyle | undefined; 
+            [Property: string]: TypesIn<T> | CSSStyle | CSSMediaQuery | undefined; 
         }
         type DeclarationSchema<T = CSSStyle> = {
             [Property in string]?: T
