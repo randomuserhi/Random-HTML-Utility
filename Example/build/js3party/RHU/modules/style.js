@@ -8,59 +8,56 @@
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
             let propStack = [];
-            let styleHandler = {
-                set: function (target, prop, newValue) {
-                    let parentProp = propStack.length > 0 ? propStack[propStack.length - 1] : undefined;
-                    console.log(`${String(parentProp)} ${String(prop)}`);
-                    propStack.push(prop);
+            let propHandler = function (target, prop, newValue, options) {
+                let opt = {
+                    enter: undefined,
+                    exit: undefined,
+                };
+                RHU.parseOptions(opt, options);
+                let stack = {
+                    prop: prop,
+                    value: undefined,
+                };
+                propStack.push(stack);
+                if (RHU.exists(opt.enter))
+                    opt.enter(stack.prop, stack.value);
+                if (typeof newValue === 'object' && newValue !== null) {
                     if (!RHU.exists(target[prop])) {
                         if ((typeof prop === 'string' || prop instanceof String)
                             && /__[_$a-zA-Z0-9]*__/g.test(prop)) {
-                            target[prop] = {};
+                            stack.value = newValue;
                         }
                         else {
-                            target[prop] = new Proxy({}, styleHandler);
+                            stack.value = new Proxy({}, styleHandler);
+                            for (let [key, value] of Object.entries(newValue)) {
+                                stack.value[key] = value;
+                            }
+                            if (RHU.exists(opt.exit))
+                                opt.exit(stack.prop, stack.value);
                         }
                     }
-                    if (typeof newValue === 'object' && newValue !== null) {
-                        for (let [key, value] of Object.entries(newValue)) {
-                            target[prop][key] = value;
+                    target[prop] = stack.value;
+                }
+                else {
+                    stack.value = newValue;
+                    target[prop] = stack.value;
+                }
+                propStack.pop();
+                return true;
+            };
+            let styleHandler = {
+                set: function (target, prop, newValue) {
+                    return propHandler(target, prop, newValue, {
+                        exit: (prop, value) => {
+                            console.log(`exit ${String(prop)}`);
+                            console.log(value);
                         }
-                    }
-                    else {
-                        target[prop] = newValue;
-                    }
-                    propStack.pop();
-                    return true;
+                    });
                 }
             };
             let Style = RHU.Style = function (generator) {
                 let style = {};
-                let handler = {
-                    set: function (target, prop, newValue) {
-                        propStack.push(prop);
-                        if (!RHU.exists(target[prop])) {
-                            if ((typeof prop === 'string' || prop instanceof String)
-                                && /__[_$a-zA-Z0-9]*__/g.test(prop)) {
-                                target[prop] = {};
-                            }
-                            else {
-                                target[prop] = new Proxy({}, styleHandler);
-                            }
-                        }
-                        if (typeof newValue === 'object' && newValue !== null) {
-                            for (let [key, value] of Object.entries(newValue)) {
-                                target[prop][key] = value;
-                            }
-                        }
-                        else {
-                            target[prop] = newValue;
-                        }
-                        propStack.pop();
-                        return true;
-                    }
-                };
-                let proxy = new Proxy(style, handler);
+                let proxy = new Proxy(style, styleHandler);
                 generator(proxy);
                 return style;
             };
@@ -74,7 +71,6 @@
                 let common = {
                     color: "aliceblue"
                 };
-                style.__style__ = {};
                 style.button = {
                     __style__: {
                         display: "flex",
@@ -96,6 +92,10 @@
                     __query__: "cringe",
                     mobile: {
                         __style__: common
+                    },
+                    nested: {
+                        __type__: "MEDIA_QUERY",
+                        __query__: "cringe",
                     }
                 };
                 return style;

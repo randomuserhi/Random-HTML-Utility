@@ -14,42 +14,74 @@
 
             // TODO(randomuserhi): cleanup code => styleHandler and root handler are very similar in logic, just slightly different...
 
-            let propStack: PropertyKey[] = [];
-            let styleHandler: ProxyHandler<any> = {
-                set: function(target, prop, newValue)
-                {
-                    let parentProp = propStack.length > 0 ? propStack[propStack.length - 1] : undefined;
-                    console.log(`${String(parentProp)} ${String(prop)}`);
-                    
-                    propStack.push(prop);
+            interface propHandlerOptions
+            {
+                enter?: (prop: PropertyKey) => void;
+                exit?: (prop: PropertyKey, value: any) => void;
+            }
 
+            // TODO(randomuserhi): Documentation => general idea is that it generates a style object tree calling enter and exit callbacks as it traverses the object
+            //                                      exit is only called on complete style class nodes for processing
+            // TODO(randomuserhi): Consider just dunking it into the main prop handler if this code doesn't get reused cause currently there is no point having it customizable
+            let propStack: { prop: PropertyKey, value: any }[] = [];
+            let propHandler = function(target: any, prop: PropertyKey, newValue: any, options?: propHandlerOptions): boolean
+            {
+                let opt: propHandlerOptions = {
+                    enter: undefined,
+                    exit: undefined,
+                }
+                RHU.parseOptions(opt, options);
+
+                let ctx: { prop: PropertyKey, value: any } = {
+                    prop: prop,
+                    value: undefined,
+                };
+                propStack.push(ctx);
+
+                if (RHU.exists(opt.enter)) opt.enter(ctx.prop);
+
+                if (typeof newValue === 'object' && newValue !== null)
+                {
                     if (!RHU.exists(target[prop])) 
                     {
                         if ((typeof prop === 'string' || (prop as any) instanceof String) 
                             && /__[_$a-zA-Z0-9]*__/g.test(prop as string))
                         {
-                            target[prop] = {};
+                            ctx.value = newValue;
                         }
                         else
                         {
-                            // TODO(randomuserhi)
-                            target[prop] = new Proxy({}, styleHandler);
-                        }
-                    }
-                    if (typeof newValue === 'object' && newValue !== null)
-                    {
-                        for (let [key, value] of Object.entries(newValue))
-                        {
-                            target[prop][key] = value;
-                        }
-                    }
-                    else
-                    {
-                        target[prop] = newValue;
-                    }
+                            ctx.value = new Proxy({}, styleHandler);
 
-                    propStack.pop();
-                    return true;
+                            for (let [key, value] of Object.entries(newValue))
+                            {
+                                ctx.value[key] = value;
+                            }
+
+                            if (RHU.exists(opt.exit)) opt.exit(ctx.prop, ctx.value);
+                        }
+                    }
+                    target[prop] = ctx.value;
+                }
+                else
+                {
+                    ctx.value = newValue;
+                    target[prop] = ctx.value;
+                }
+
+                propStack.pop();
+
+                return true;
+            };
+            let styleHandler: ProxyHandler<any> = {
+                set: function(target, prop, newValue)
+                {
+                    return propHandler(target, prop, newValue, {
+                        exit: (prop, value) => {
+                            console.log(`exit ${String(prop)}`);
+                            console.log(value);
+                        }
+                    });
                 }
             };
 
@@ -57,41 +89,7 @@
             let Style = RHU.Style = function<T extends RHU.Style.DeclarationSchema<RHU.Style.CSSAll>>(generator: (root: CSSStyle<T>) => void): ReadOnly<T>
             {
                 let style = {};
-                let handler: ProxyHandler<any> = {
-                    set: function(target, prop, newValue)
-                    {
-                        propStack.push(prop);
-    
-                        if (!RHU.exists(target[prop])) 
-                        {
-                            if ((typeof prop === 'string' || (prop as any) instanceof String) 
-                                && /__[_$a-zA-Z0-9]*__/g.test(prop as string))
-                            {
-                                target[prop] = {};
-                            }
-                            else
-                            {
-                                // TODO(randomuserhi)
-                                target[prop] = new Proxy({}, styleHandler);
-                            }
-                        }
-                        if (typeof newValue === 'object' && newValue !== null)
-                        {
-                            for (let [key, value] of Object.entries(newValue))
-                            {
-                                target[prop][key] = value;
-                            }
-                        }
-                        else
-                        {
-                            target[prop] = newValue;
-                        }
-    
-                        propStack.pop();
-                        return true;
-                    }
-                }
-                let proxy = new Proxy(style, handler);
+                let proxy = new Proxy(style, styleHandler);
                 generator(proxy as CSSStyle<T>);
                 return style as ReadOnly<T>;
             } as Function as RHU.Style;
