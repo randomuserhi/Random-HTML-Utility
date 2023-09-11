@@ -38,8 +38,6 @@
                 };
                 propStack.push(ctx);
 
-                if (RHU.exists(opt.enter)) opt.enter(ctx.prop);
-
                 if (typeof newValue === 'object' && newValue !== null)
                 {
                     if (!RHU.exists(target[prop])) 
@@ -52,6 +50,8 @@
                         else
                         {
                             ctx.value = new Proxy({}, styleHandler);
+
+                            if (RHU.exists(opt.enter)) opt.enter(ctx.prop);
 
                             for (let [key, value] of Object.entries(newValue))
                             {
@@ -77,6 +77,9 @@
                 set: function(target, prop, newValue)
                 {
                     return propHandler(target, prop, newValue, {
+                        enter: (prop) => {
+                            console.log(`enter ${String(prop)}`);
+                        },
                         exit: (prop, value) => {
                             console.log(`exit ${String(prop)}`);
                             console.log(value);

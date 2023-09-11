@@ -14,33 +14,33 @@
                     exit: undefined,
                 };
                 RHU.parseOptions(opt, options);
-                let stack = {
+                let ctx = {
                     prop: prop,
                     value: undefined,
                 };
-                propStack.push(stack);
-                if (RHU.exists(opt.enter))
-                    opt.enter(stack.prop, stack.value);
+                propStack.push(ctx);
                 if (typeof newValue === 'object' && newValue !== null) {
                     if (!RHU.exists(target[prop])) {
                         if ((typeof prop === 'string' || prop instanceof String)
                             && /__[_$a-zA-Z0-9]*__/g.test(prop)) {
-                            stack.value = newValue;
+                            ctx.value = newValue;
                         }
                         else {
-                            stack.value = new Proxy({}, styleHandler);
+                            ctx.value = new Proxy({}, styleHandler);
+                            if (RHU.exists(opt.enter))
+                                opt.enter(ctx.prop);
                             for (let [key, value] of Object.entries(newValue)) {
-                                stack.value[key] = value;
+                                ctx.value[key] = value;
                             }
                             if (RHU.exists(opt.exit))
-                                opt.exit(stack.prop, stack.value);
+                                opt.exit(ctx.prop, ctx.value);
                         }
                     }
-                    target[prop] = stack.value;
+                    target[prop] = ctx.value;
                 }
                 else {
-                    stack.value = newValue;
-                    target[prop] = stack.value;
+                    ctx.value = newValue;
+                    target[prop] = ctx.value;
                 }
                 propStack.pop();
                 return true;
@@ -48,6 +48,9 @@
             let styleHandler = {
                 set: function (target, prop, newValue) {
                     return propHandler(target, prop, newValue, {
+                        enter: (prop) => {
+                            console.log(`enter ${String(prop)}`);
+                        },
                         exit: (prop, value) => {
                             console.log(`exit ${String(prop)}`);
                             console.log(value);
