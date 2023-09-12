@@ -32,6 +32,14 @@
                 return this.name;
             }
 
+            let interpret = function(value?: string | number): string | undefined
+            {
+                if (typeof value === "number") {
+                    return `${value}px`;
+                }
+                return value;
+            }
+
             let css = function (style: RHU.Style.StyleDeclaration): string
             {
                 let result = "";
@@ -47,9 +55,9 @@
                         switch(prop) {
                             case "border":
                                 const parse = value as RHU.Style.CSSProperties.border;
-                                result += `
-                                border-radius: ${parse["border-radius"] || parse.borderRadius};
-                                `;
+                                
+                                const borderRadius = interpret(parse["border-radius"] || parse.borderRadius);
+                                if (RHU.exists(borderRadius)) result += `border-radius: ${borderRadius}; `;
                                 break;
                         }
                     }
