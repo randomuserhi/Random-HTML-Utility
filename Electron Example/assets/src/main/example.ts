@@ -47,8 +47,7 @@ RHU.module(new Error(), "main",
                 {
                     if (resp.status == 200)
                     {
-                        let json = await resp.json();
-                        return json;
+                        return resp;
                     }
                     else 
                     {

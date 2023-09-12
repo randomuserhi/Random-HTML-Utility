@@ -18,8 +18,7 @@ RHU.module(new Error(), "main", { Rest: "rhu/rest" }, function ({ Rest }) {
         },
         callback: async function (resp) {
             if (resp.status == 200) {
-                let json = await resp.json();
-                return json;
+                return resp;
             }
             else {
                 return null;
