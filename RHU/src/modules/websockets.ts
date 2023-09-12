@@ -2,16 +2,11 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "rhu/websockets", hard: ["WebSocket", "RHU.eventTarget"],
-        callback: function()
+    RHU.module(new Error(), "rhu/websockets", 
+        { eventTarget: "rhu/event" },
+        function({ eventTarget })
         {
-            let { RHU } = window.RHU.require(window, this);
-
-            if (RHU.exists(RHU.WebSockets))
-                console.warn("Overwriting RHU.WebSockets...");
-
-            let WebSockets: RHU.WebSockets = RHU.WebSockets = {} as RHU.WebSockets;
+            let WebSockets: RHU.WebSockets = {} as RHU.WebSockets;
 
             RHU.definePublicAccessors(WebSockets, {
                 CONNECTING: {
@@ -50,7 +45,7 @@
             };
             ws.prototype.send = function(data)
             {
-                if (this.readyState === RHU.WebSockets!.OPEN)
+                if (this.readyState === WebSockets!.OPEN)
                     WebSocket.prototype.send.call(this, data);
                 else
                     this.queue.push(data);
@@ -79,7 +74,7 @@
                     // TODO(randomuserhi): Not sure about saving args like this, seems dodgy way of handling reconnect
                     this.args = args;
 
-                    RHU.eventTarget.call(this);
+                    eventTarget.call(this);
 
                     let params: RHU.WebSockets.Options = {
                         url: "",
@@ -108,7 +103,9 @@
 
                 return construct;
             } as Function as RHU.WebSockets.wsClientGenerator;
+
+            return WebSockets;
         }
-    }));
+    );
 
 })();

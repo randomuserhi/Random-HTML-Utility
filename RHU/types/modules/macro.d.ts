@@ -1,11 +1,10 @@
-interface RHU
-{
-
-    Macro?: RHU.Macro;
-}
-
 declare namespace RHU
 {
+    interface Modules
+    {
+        "rhu/macro": RHU.Macro;
+    }
+
     interface Macro
     {
         

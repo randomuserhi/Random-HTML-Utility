@@ -2,14 +2,11 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "rhu/file", hard: ["FileReader", "Promise"],
-        callback: function()
+    RHU.module(new Error(), "rhu/file",
+        {},
+        function()
         {
-            if (RHU.exists(RHU.File))
-            console.warn("Overwriting RHU.File...");
-
-            let File: RHU.File = RHU.File = {
+            let File: RHU.File = {
                 Type: {
                     unknown: "unknown",
                     png: "png",
@@ -48,7 +45,7 @@
             } as RHU.File;
 
             // obtain an alias for Type since we access it frequently
-            let Type: RHU.File.Type = RHU.File.Type;
+            let Type: RHU.File.Type = File.Type;
 
             /**
              * NOTE(randomuserhi): Implementation based on:
@@ -108,7 +105,9 @@
                     fr.readAsArrayBuffer(blob);
                 });
             };
+
+            return File;
         }
-    }));
+    );
 
 })();

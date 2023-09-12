@@ -2,14 +2,11 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "rhu/rest", hard: ["fetch", "URL", "Promise"],
-        callback: function()
+    RHU.module(new Error(), "rhu/rest",
+        {},    
+        function()
         {
-            if (RHU.exists(RHU.Rest))
-            console.warn("Overwriting RHU.Rest...");
-
-            let Rest: RHU.Rest = RHU.Rest = {
+            let Rest: RHU.Rest = {
                 fetch: function<T, P extends (...params: any[]) => RHU.Rest.Payload>(options: RHU.Rest.Options<T, P>): RHU.Rest.FetchFunc<T, P> | RHU.Rest.FetchFunc<T, RHU.Rest.ParserFunc> 
                 {
                     interface partialOpt extends Omit<Omit<RHU.Rest.Options<T, P>, "fetch">, "callback">
@@ -132,7 +129,9 @@
                     return Rest.fetch<T, Parser>(opt);
                 }
             };
+
+            return Rest;
         }
-    }));
+    );
 
 })();

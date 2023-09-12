@@ -2,17 +2,14 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "rhu/weak", hard: ["Map", "WeakRef", "WeakSet", "FinalizationRegistry"],
-        callback: function()
+    RHU.module(new Error(), "rhu/weak", {},
+        function()
         {
-            let { RHU } = window.RHU.require(window, this);
-
             let Map_set = Map.prototype.set;
             let Map_keys = Map.prototype.keys;
             let Map_get = Map.prototype.get;
 
-            RHU.WeakRefMap = RHU.reflectConstruct(Map, "WeakRefMap", function<K, V>(this: RHU.WeakRefMap<K, V>)
+            const WeakRefMap = RHU.reflectConstruct(Map, "WeakRefMap", function<K, V>(this: RHU.WeakRefMap<K, V>)
             {
                 // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
                 //                     cleaning up huge amounts of divs being created, since otherwise cleanup of the
@@ -26,12 +23,12 @@
                     this.delete(key);
                 });
             }) as RHU.WeakRefMapConstructor;
-            RHU.WeakRefMap.prototype.set = function(key, value)
+            WeakRefMap.prototype.set = function(key, value)
             {
                 this._registry.register(value, key);
                 return Map_set.call(this, key, new WeakRef(value));
             };
-            RHU.WeakRefMap.prototype.get = function(key)
+            WeakRefMap.prototype.get = function(key)
             {
                 let raw = Map_get.call(this, key);
                 if (!RHU.exists(raw)) return undefined;
@@ -39,7 +36,7 @@
                 if (!RHU.exists(value)) return undefined;
                 return value;
             };
-            RHU.WeakRefMap.prototype.values = function* ()
+            WeakRefMap.prototype.values = function* ()
             {
                 for (let key of Map_keys.call(this))
                 {
@@ -48,7 +45,7 @@
                     else this.delete(key);
                 }
             };
-            RHU.WeakRefMap.prototype[Symbol.iterator] = function* ()
+            WeakRefMap.prototype[Symbol.iterator] = function* ()
             {
                 for (let key of Map_keys.call(this))
                 {
@@ -57,12 +54,12 @@
                     else this.delete(key);
                 }
             };
-            RHU.inherit(RHU.WeakRefMap, Map);
+            RHU.inherit(WeakRefMap, Map);
 
             let WeakSet_add = WeakSet.prototype.add;
             let WeakSet_delete = WeakSet.prototype.delete;
 
-            RHU.WeakCollection = RHU.reflectConstruct(WeakSet, "WeakCollection", function<T extends object>(this: RHU.WeakCollection<T>)
+            const WeakCollection = RHU.reflectConstruct(WeakSet, "WeakCollection", function<T extends object>(this: RHU.WeakCollection<T>)
             {
                 this._collection = [];
                 // TODO(randomuserhi): Consider moving FinalizationRegistry to a soft dependency since this just assists
@@ -79,7 +76,7 @@
                     });
                 });
             }) as RHU.WeakCollectionConstructor;
-            RHU.WeakCollection.prototype.add = function(...items)
+            WeakCollection.prototype.add = function(...items)
             {
                 if (items.length === 1)
                 {
@@ -98,7 +95,7 @@
                     }
                 }
             };
-            RHU.WeakCollection.prototype.delete = function(...items)
+            WeakCollection.prototype.delete = function(...items)
             {
                 if (items.length === 1)
                 {
@@ -116,7 +113,7 @@
                     return RHU.exists(item) && !items.includes(item); 
                 });
             };
-            RHU.WeakCollection.prototype[Symbol.iterator] = function* ()
+            WeakCollection.prototype[Symbol.iterator] = function* ()
             {
                 let collection = this._collection;
                 this._collection = []; 
@@ -130,8 +127,13 @@
                     }
                 }
             };
-            RHU.inherit(RHU.WeakCollection, WeakSet);
+            RHU.inherit(WeakCollection, WeakSet);
+
+            return {
+                WeakRefMap,
+                WeakCollection,
+            };
         }
-    }));
+    );
 
 })();

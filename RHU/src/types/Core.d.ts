@@ -20,17 +20,6 @@ interface Core
      * @returns {T} returns the original template
      */
     parseOptions<T extends {}>(template: T, options: any | undefined | null): T;
-    
-    /**
-     * Checks what dependencies exist in a given dependency
-     *
-     * @param {Core.Dependencies} options - Properties of the dependency
-     * @param {string[]} [options.hard] - Hard dependencies that are required
-     * @param {string[]} [options.soft] - Soft dependencies that are not necessarily required
-     * @param {Error} [options.trace] - Error trace for where the dependencies came from
-     * @returns {Core.ResolvedDependencies} A resolved dependency object
-     */
-    dependencies(options?: RHU.Dependencies): RHU.ResolvedDependencies;
 
     path: {
 
@@ -62,11 +51,10 @@ declare namespace Core
         path(path: string): string;
     }
 
-    interface ModuleIdentifier extends RHU.Dependencies
+    interface ModuleIdentifier
     {
-        name?: string;
-        type?: string;
-        callback?: (result: RHU.ResolvedDependencies) => void;
+        name: string;
+        type: string;
     }
 
     interface Loader
@@ -83,21 +71,18 @@ declare namespace Core
 
     interface ModuleLoader
     {
-        importList: Set<ModuleLoader.Import>;
+        loading: Set<ModuleLoader.Import>;
         watching: RHU.Module[];
         imported: RHU.Module[];
-
-        run: (module: RHU.Module) => void;
-
-        execute: (module: RHU.Module) => boolean;
+        skipped: RHU.Module[];
+        cache: Map<string, any>;
         
-        reconcile: (allowPartial?: boolean) => void;
+        set(module: string, obj: any): void;
+        get(module: string): any;
+        onLoad(module: Core.ModuleLoader.Import): void;
 
-        load: (module: RHU.Module) => void;
-
-        onLoad: (isSuccessful: boolean, module: Core.ModuleLoader.Import) => void;
-
-        onComplete: () => void;
+        execute(module: RHU.Module): void;
+        reconcile(module: RHU.Module): void;
     }
 
     namespace ModuleLoader

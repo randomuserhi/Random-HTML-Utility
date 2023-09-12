@@ -1,15 +1,13 @@
 // TODO(randomuserhi): comments and documentation
 //                     especially important here since a lot of types here are defined with strict intent
 //                     and are quite complex
-
-interface RHU
-{
-
-    Style?: RHU.Style;
-}
-
 declare namespace RHU
 {
+    interface Modules
+    {
+        "rhu/style": RHU.Style;
+    }
+
     interface Style
     {
         <T>(factory: (worker: Style.Factory) => T): T;

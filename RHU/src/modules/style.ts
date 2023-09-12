@@ -2,13 +2,10 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "rhu/style", hard: [],
-        callback: function()
+    RHU.module(new Error(), "rhu/style", 
+        {},
+        function()
         {
-            if (RHU.exists(RHU.Style))
-                console.warn("Overwriting RHU.Style...");
-
             // TODO(randomuserhi): Documentation
             
             let id = 69;
@@ -47,7 +44,7 @@
                 return result;
             };
 
-            let Style = RHU.Style = function<T>(factory: (worker: RHU.Style.Factory) => T): T
+            let Style = function<T>(factory: (worker: RHU.Style.Factory) => T): T
             {
                 let generatedCode = "";
                 let generator = function (first: TemplateStringsArray, ...interpolations: (string | RHU.Style.ClassName | RHU.Style.StyleDeclaration)[]): void
@@ -113,7 +110,9 @@
 
                 return exports;
             } as RHU.Style;
+        
+            return Style;
         }
-    }));
+    );
 
 })();

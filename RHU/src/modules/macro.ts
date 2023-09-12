@@ -1,5 +1,4 @@
 (function() {
-    
     /**
      * TODO(randomuserhi): Integrate an in-javascript css solution
      */
@@ -12,12 +11,10 @@
 
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "rhu/macro", hard: ["Map", "XPathEvaluator", "RHU.WeakCollection", "MutationObserver"],
-        callback: function()
-        {
-            let { RHU } = window.RHU.require(window, this);
-
+    RHU.module(new Error(), "rhu/macro", 
+        { Weak: "rhu/weak" },
+        function({ Weak: { WeakRefMap, WeakCollection } })
+        {   
             interface MacroOptions
             {
                 element: string,
@@ -35,17 +32,6 @@
                 options: MacroOptions,
                 protoCache: RHU.WeakRefMap<any, any> // TODO(randomuserhi): Update types
             }
-
-            //TODO(randomuserhi): read from a config and enable performance logging etc...
-            //TODO(randomuserhi): documentation
-            //TODO(randomuserhi): Implement a way to create a macro from HTML definition
-            //                    so you can RHU.Macro.fromHTML(element) and it will generate a macro definition
-            //                    including nested definitions with proper error handling.
-            //                    This is useful to handle macros that only exist one time (like a navbar)
-            //                    - Maybe in this case fromHTML() shouldnt create a defintion and just return a 1 time macro object
-
-            if (RHU.exists(RHU.Macro))
-                console.warn("Overwriting RHU.Macro...");
 
             interface SymbolCollection
             { 
@@ -154,8 +140,8 @@
                 }
             });
 
-            let Macro: RHU.Macro
-            = RHU.Macro = function(constructor: Function, type: string, source: string = "", options: RHU.Macro.Options): void
+            const Macro: RHU.Macro
+            = function(constructor: Function, type: string, source: string = "", options: RHU.Macro.Options): void
             {
                 if (type == "") throw new SyntaxError("'type' cannot be blank.");
                 if (typeof type !== "string") throw new TypeError("'type' must be a string.");
@@ -180,7 +166,7 @@
                     type: type,
                     source: source,
                     options: opt,
-                    protoCache: new RHU.WeakRefMap!() // Used by the parser for performance
+                    protoCache: new WeakRefMap() // Used by the parser for performance
                 });
 
                 // parse macros currently of said type
@@ -203,7 +189,7 @@
                     encapsulate: undefined,
                     content: undefined
                 },
-                protoCache: new RHU.WeakRefMap!()
+                protoCache: new WeakRefMap()
             };
 
             let xPathEvaluator = new XPathEvaluator();
@@ -539,7 +525,7 @@
                     if (RHU.exists(type))
                     {
                         if (!watching.has(type))
-                            watching.set(type, new RHU.WeakCollection<Element>());    
+                            watching.set(type, new WeakCollection<Element>());    
                         let typeCollection = watching.get(type);
                         typeCollection!.add(element);
                     }
@@ -575,7 +561,7 @@
                         if (RHU.exists(type))
                         {
                             if (!watching.has(type))
-                                watching.set(type, new RHU.WeakCollection<Element>());    
+                                watching.set(type, new WeakCollection<Element>());    
                             let typeCollection = watching.get(type);
                             typeCollection!.add(el);
                         }
@@ -692,7 +678,9 @@
             // Document may have loaded already if the script is declared as defer, in this case just call onload
             else 
                 onDocumentLoad();
+
+            return Macro;
         }
-    }));
+    );
 
 })();

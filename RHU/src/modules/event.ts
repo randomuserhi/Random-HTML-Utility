@@ -2,19 +2,16 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "rhu/event", hard: [],
-        callback: function()
+    RHU.module(new Error(), "rhu/event", 
+        {},
+        function()
         {
-            if (RHU.exists(RHU.eventTarget))
-                console.warn("Overwriting RHU.EventTarget...");
-
             let isEventListener = function(callback: EventListenerOrEventListenerObject): callback is EventListener
             {
                 return callback instanceof Function;
             }
 
-            RHU.eventTarget = function<T extends EventTarget>(target: T): void
+            const eventTarget = function<T extends EventTarget>(target: T): void
             {
                 // create a node for handling events with EventTarget
                 let node = document.createTextNode("");
@@ -30,7 +27,9 @@
                 target.removeEventListener = node.removeEventListener.bind(node);
                 target.dispatchEvent = node.dispatchEvent.bind(node);
             };
+
+            return eventTarget;
         }
-    }));
+    );
 
 })();

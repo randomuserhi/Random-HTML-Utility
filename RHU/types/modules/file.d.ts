@@ -1,11 +1,10 @@
-interface RHU
-{
-
-    File?: RHU.File;
-}
-
 declare namespace RHU
 {
+    interface Modules
+    {
+        "rhu/file": RHU.File;
+    }
+
     interface File
     {
         

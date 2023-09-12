@@ -2,13 +2,10 @@
     
     let RHU: RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
-    RHU.import(RHU.module({ trace: new Error(),
-        name: "x-rhu/bezier", hard: [],
-        callback: function()
+    RHU.module(new Error(), "x-rhu/bezier", 
+        {},
+        function()
         {
-            if (RHU.exists(RHU.Bezier))
-            console.warn("Overwriting RHU.Bezier...");
-
             // Implementation adapted from https://github.com/gre/bezier-easing/blob/master/src/index.js
 
             let NEWTON_ITERATIONS = 4;
@@ -58,7 +55,7 @@
 
             let LinearEasing = function(x: number) { return x; };
 
-            RHU.Bezier = function(x0: number = 0, y0: number = 0, x1: number = 0, y1: number = 0)
+            return function(x0: number = 0, y0: number = 0, x1: number = 0, y1: number = 0)
             {
                 if (x0 < 0) x0 = 0;
                 else if (x0 > 1) x0 = 1;
@@ -102,6 +99,6 @@
                 };
             };
         }
-    }));
+    );
 
 })();
