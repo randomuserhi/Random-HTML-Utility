@@ -19,7 +19,22 @@
             let result = "";
             for (const [key, value] of Object.entries(style)) {
                 let prop = key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
-                result += `${prop}:${value};`;
+                if (typeof value === "string" || value instanceof String) {
+                    result += `${prop}:${value};`;
+                }
+                else if (typeof value === "number") {
+                    result += `${prop}:${value}px;`;
+                }
+                else {
+                    switch (prop) {
+                        case "border":
+                            const parse = value;
+                            result += `
+                                border-radius: ${parse["border-radius"] || parse.borderRadius};
+                                `;
+                            break;
+                    }
+                }
             }
             return result;
         };

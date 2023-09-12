@@ -46,7 +46,7 @@
                         // TODO(randomuserhi): Fill out
                         switch(prop) {
                             case "border":
-                                const parse = prop as RHU.Style.CSSProperties.border;
+                                const parse = value as RHU.Style.CSSProperties.border;
                                 result += `
                                 border-radius: ${parse["border-radius"] || parse.borderRadius};
                                 `;

@@ -31,6 +31,11 @@ RHU.module(new Error(), "Main",
             height: 100%;
             background-color: blue;
             padding: 10px;
+            ${css({
+                border: {
+                    borderRadius: 5
+                }
+            })}
             `;
 
             style`
