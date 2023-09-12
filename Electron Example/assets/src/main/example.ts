@@ -7,20 +7,24 @@ interface testConstructor extends RHU.Macro.Constructor<test>
     
 }
 
-declare namespace RHU { namespace Macro {
-    interface TemplateMap
-    {
-        "test": test
-    }      
-}}
+declare namespace RHU { 
+    interface Modules {
+        "main": void;
+    }
+    
+    namespace Macro {
+        interface TemplateMap
+        {
+            "test": test
+        }      
+    }
+}
 
-RHU.import(RHU.module({ trace: new Error(),
-    name: "test", hard: ["RHU.Rest"],
-    callback: function()
+RHU.module(new Error(), "main", 
+    { Rest: "rhu/rest" },
+    function({ Rest })
     {
-        let { RHU } = window.RHU.require(window, this);
-
-        let request = RHU.Rest.fetch(
+        let request = Rest.fetch(
             {
                 url: `https://9anime.to/ajax/server/HTufCcshkw==`,
                 fetch: { 
@@ -57,4 +61,4 @@ RHU.import(RHU.module({ trace: new Error(),
             console.log(await request());
         })();
     }
-}));
+);

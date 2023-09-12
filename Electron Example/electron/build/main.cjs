@@ -86,9 +86,8 @@ class Program {
     static main(app) {
         Program.app = app;
         Program.app.on('window-all-closed', Program.onWindowAllClosed);
-        if (process.platform !== "darwin") {
-            Program.app.quit();
-        }
+        Program.app.on('ready', Program.onReady);
+        Program.setupIPC();
     }
 }
 exports.default = Program;
