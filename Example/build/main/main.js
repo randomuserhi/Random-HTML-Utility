@@ -24,9 +24,11 @@ RHU.module(new Error(), "Main", { Style: "rhu/style", Macro: "rhu/macro" }, func
             wrapper
         };
     });
-    const appmount = function () {
-    };
-    Macro(appmount, "appmount", `
+    Macro((() => {
+        const appmount = function () {
+        };
+        return appmount;
+    })(), "appmount", `
             <div>
             </div>
             `, {

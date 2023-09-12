@@ -1,11 +1,3 @@
-interface appmount extends HTMLDivElement
-{
-}
-interface appmountConstructor extends RHU.Macro.Constructor<appmount>
-{
-    
-}
-
 declare namespace RHU { 
     interface Modules {
         "Main": void;
@@ -17,6 +9,10 @@ declare namespace RHU {
             "appmount": appmount;
         }
     }
+}
+
+interface appmount extends HTMLDivElement
+{
 }
 
 RHU.module(new Error(), "Main", 
@@ -50,13 +46,15 @@ RHU.module(new Error(), "Main",
                 wrapper
             }
         });
-
-        const appmount = function(this: appmount)
-        {
-            
-        } as appmountConstructor;
         
-        Macro(appmount, "appmount", //html
+        Macro((() => {
+            const appmount = function(this: appmount)
+            {
+                
+            } as RHU.Macro.Constructor<appmount>;
+
+            return appmount;
+        })(), "appmount", //html
             `
             <div>
             </div>
