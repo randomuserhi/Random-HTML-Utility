@@ -34,12 +34,25 @@
 
             let css = function (style: RHU.Style.StyleDeclaration): string
             {
-                // TODO(randomuserhi): Convert numbers to pixels => 100 - "100px" etc...
                 let result = "";
                 for (const [key, value] of Object.entries(style))
                 {
                     let prop = key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
-                    result += `${prop}:${value};`;
+                    if (typeof value === "string" || value instanceof String) {
+                        result += `${prop}:${value};`;
+                    } else if (typeof value === "number") {
+                        result += `${prop}:${value}px;`;
+                    } else {
+                        // TODO(randomuserhi): Fill out
+                        switch(prop) {
+                            case "border":
+                                const parse = prop as RHU.Style.CSSProperties.border;
+                                result += `
+                                border-radius: ${parse["border-radius"] || parse.borderRadius};
+                                `;
+                                break;
+                        }
+                    }
                 }
                 return result;
             };

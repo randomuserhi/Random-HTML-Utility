@@ -74,6 +74,7 @@ declare namespace RHU
         type CSSFlatValue = CSSString | number;
         type CSSValue = CSSFlatValue | {};
 
+        // TODO(randomuserhi): Fill out
         namespace CSSProperties
         {
             interface border
