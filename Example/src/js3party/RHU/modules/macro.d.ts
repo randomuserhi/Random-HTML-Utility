@@ -8,11 +8,11 @@ declare namespace RHU
     interface Macro
     {
         
-        (constructor: Function, type: string, source: string, options: RHU.Macro.Options): void;
+        <T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string, options: RHU.Macro.Options): T;
         
         parseDomString(str: string): DocumentFragment;
         
-        parse(element: Element, type?: string | undefined | null, force?: boolean): void;
+        parse(element: Element, type?: string & {} | RHU.Macro.Templates | undefined | null, force?: boolean): void;
 
         observe(target: Node): void;
     }
@@ -39,6 +39,7 @@ declare namespace RHU
             prototype: T;
         }
 
+        type Templates = keyof TemplateMap;
         interface TemplateMap
         {
 

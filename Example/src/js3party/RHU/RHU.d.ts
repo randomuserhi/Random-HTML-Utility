@@ -65,7 +65,7 @@ interface RHU
     module<T extends RHU.Module.Require, M extends RHU.Module.Exports>(trace: Error, name: M, require: T, callback: (require: RHU.Module.Imports<T>) => RHU.Modules[M]): void;
 
     readonly imports: RHU.Module[];
-    readonly watching: RHU.Module[];
+    readonly waiting: RHU.Module[];
 
     CustomEvent<T = any>(type: string, detail: T): CustomEvent<T>;
 }
