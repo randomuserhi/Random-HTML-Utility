@@ -1,3 +1,7 @@
+// TODO(randomuserhi): comments and documentation
+//                     especially important here since a lot of types here are defined with strict intent
+//                     and are quite complex
+
 interface RHU
 {
 
@@ -8,65 +12,32 @@ declare namespace RHU
 {
     interface Style
     {
-        new<T extends {}>(generator: (style: Style.StyledType<T> & Style.Block) => void): Style.StyledType<T> & Style.Block;
-        <T extends {}>(style: Style.StyledType<T> & Style.BodyDeclaration): Style.StyledType<T> & Style.Body;
-
-        mediaQuery<T extends {}>(body: Style.StyledType<T> & Style.BlockDeclaration): Style.StyledType<T> & Style.MediaQuery;
-
-        el<Tag extends keyof HTMLElementTagNameMap>(tag: Tag): symbol; 
-        /** @deprecated */
-        el<Tag extends keyof HTMLElementDeprecatedTagNameMap>(tag: Tag): symbol; 
-        el(tag: string): symbol; 
+        <T>(factory: (worker: Style.Factory) => T): T;
     }
 
     namespace Style
     {
-        // Types for declaring style type structures
-
-        type CSSMediaQuery<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.MediaQuery;
-        type CSSBody<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BodyDeclaration;
-        /** @deprecated */
-        type CSSBlock<T extends {} = {}> = RHU.Style.StyledType<T> & RHU.Style.BlockDeclaration;
-
-        // Utilities used for type inference
-
-        // Obtains all keys of an object that are styled objects and not CSS properties
-        // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type "button" | "wrapper"
-        //
-        // https://stackoverflow.com/questions/69464179/how-to-extract-keys-of-certain-type-from-object
-        type StyledKeys<T extends {}> = {
-            [Property in keyof T]: T[Property] extends BodyDeclaration ? Property: never;
-        }[keyof T]
-        
-        // Converts an object type to an object type containing only the keys which are styled objects
-        // E.g: { display: "flex", button: { display: "flex" }, wrapper: { ... } } returns the type { button: { ... }, wrapper: { ... } }
-        type StyledType<T extends {}> = {
-            [Property in StyledKeys<T>]: T[Property];
-        }
-
-        // Object types
-
-        type Body = BodyDeclaration &
+        interface ClassName
         {
-            [Symbol.toPrimitive]: (hint: "number" | "string" | "default") => string | undefined | null; 
-            toString(): string;
+            name: string;
+            [Symbol.toPrimitive]: () => string;
         }
 
-        interface MediaQuery extends BlockDeclaration
+        interface Generator
         {
-
+            (first: TemplateStringsArray, ...interpolations: (string | ClassName | StyleDeclaration)[]): void;
+            class(first: TemplateStringsArray, ...interpolations: (string | StyleDeclaration)[]): ClassName;
         }
 
-        interface Block extends BlockDeclaration
+        interface Factory 
         {
-
+            style: Generator;
+            css: (style: StyleDeclaration) => string;
+            cn: () => ClassName;
         }
 
-        // Declaration types 
-
-        type BlockDeclaration = Record<PropertyKey, Body | BodyDeclaration | MediaQuery>;
-        type BodyDeclaration = {
-            [Property in Style.CSSProperty]?: (Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSAny) | BodyDeclaration | BodyDeclaration[];
+        type StyleDeclaration = {
+            [Property in Style.CSSProperty]?: Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSValue;
         };
 
         // CSS types
@@ -99,21 +70,35 @@ declare namespace RHU
         type Color = BasicColor | ExtendedColor;
 
         // https://stackoverflow.com/questions/74467392/autocomplete-in-typescript-of-literal-type-and-string
-        type CSSAny = string & {};
+        type CSSString = string & {};
 
-        interface CSSPropertiesMap
+        type CSSKey = CSSString;
+        type CSSFlatValue = CSSString | number;
+        type CSSValue = CSSFlatValue | {};
+
+        namespace CSSProperties
         {
-            display: "none" | "block" | "flex";
+            interface border
+            {
+                "border-radius"?: CSSFlatValue;
+                borderRadius?: CSSFlatValue;
+            }
 
-            color: Color | CSSAny;
-
-            "background-color": Color | CSSAny;
-            backgroundColor: Color | CSSAny;
-
-            "border-radius": CSSAny;
-            borderRadius: CSSAny;
+            type All = border;
         }
 
-        type CSSProperty = CSSAny | keyof CSSPropertiesMap;    
+        type CSSPropertiesMap = CSSProperties.All &
+        {
+            display?: "none" | "block" | "flex" | "grid" | CSSString;
+
+            color?: Color | CSSString;
+
+            "background-color"?: Color | CSSString;
+            backgroundColor?: Color | CSSString;
+
+            "border"?: CSSString | CSSProperties.border;
+        }
+
+        type CSSProperty = CSSKey | keyof CSSPropertiesMap;    
     }
 }

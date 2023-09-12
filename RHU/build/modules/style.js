@@ -7,103 +7,76 @@
         callback: function () {
             if (RHU.exists(RHU.Style))
                 console.warn("Overwriting RHU.Style...");
-            let propStack = [];
-            let propHandler = function (target, prop, newValue, options) {
-                let opt = {
-                    enter: undefined,
-                    exit: undefined,
-                };
-                RHU.parseOptions(opt, options);
-                let ctx = {
-                    prop: prop,
-                    value: undefined,
-                };
-                propStack.push(ctx);
-                if (typeof newValue === 'object' && newValue !== null) {
-                    if (!RHU.exists(target[prop])) {
-                        if ((typeof prop === 'string' || prop instanceof String)
-                            && /__[_$a-zA-Z0-9]*__/g.test(prop)) {
-                            ctx.value = newValue;
-                        }
-                        else {
-                            ctx.value = new Proxy({}, styleHandler);
-                            if (RHU.exists(opt.enter))
-                                opt.enter(ctx.prop);
-                            for (let [key, value] of Object.entries(newValue)) {
-                                ctx.value[key] = value;
-                            }
-                            if (RHU.exists(opt.exit))
-                                opt.exit(ctx.prop, ctx.value);
-                        }
-                    }
-                    target[prop] = ctx.value;
+            let id = 69;
+            let cn = function (name) {
+                if (RHU.exists(name)) {
+                    this.name = name;
                 }
                 else {
-                    ctx.value = newValue;
-                    target[prop] = ctx.value;
-                }
-                propStack.pop();
-                return true;
-            };
-            let styleHandler = {
-                set: function (target, prop, newValue) {
-                    return propHandler(target, prop, newValue, {
-                        enter: (prop) => {
-                            console.log(`enter ${String(prop)}`);
-                        },
-                        exit: (prop, value) => {
-                            console.log(`exit ${String(prop)}`);
-                            console.log(value);
-                        }
-                    });
+                    this.name = `rhu_${++id}`;
                 }
             };
-            let Style = RHU.Style = function (generator) {
-                let style = {};
-                let proxy = new Proxy(style, styleHandler);
-                generator(proxy);
-                return style;
+            cn.prototype[Symbol.toPrimitive] = function () {
+                return this.name;
             };
-            Style.mediaQuery = function (generator) {
-                let style = {};
-                let proxy = new Proxy(style, styleHandler);
-                generator(proxy);
-                return style;
+            let css = function (style) {
+                let result = "";
+                for (const [key, value] of Object.entries(style)) {
+                    let prop = key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+                    result += `${prop}:${value};`;
+                }
+                return result;
             };
-            let style = RHU.Style((style) => {
-                let common = {
-                    color: "aliceblue"
-                };
-                style.button = {
-                    __style__: {
-                        display: "flex",
-                        border: {
-                            borderRadius: 1
+            let Style = RHU.Style = function (factory) {
+                let generatedCode = "";
+                let generator = function (first, ...interpolations) {
+                    generatedCode += first[0];
+                    for (let i = 0; i < interpolations.length; ++i) {
+                        const interpolation = interpolations[i];
+                        if (typeof interpolation === "object") {
+                            if (interpolation instanceof cn) {
+                                generatedCode += `.${interpolation}`;
+                            }
+                            else {
+                                generatedCode += css(interpolation);
+                            }
                         }
-                    },
-                    text: {
-                        __style__: {
-                            display: "block"
+                        else {
+                            generatedCode += interpolation;
                         }
-                    },
-                    ":hover": {
-                        __style__: common
+                        generatedCode += first[i + 1];
                     }
                 };
-                style.query = {
-                    __type__: "MEDIA_QUERY",
-                    __query__: "cringe",
-                    mobile: {
-                        __style__: common
-                    },
-                    nested: {
-                        __type__: "MEDIA_QUERY",
-                        __query__: "cringe",
+                generator.class = function (first, ...interpolations) {
+                    const classname = new cn();
+                    if (first.length > 1 || first[0] !== '' || interpolations.length !== 0) {
+                        generatedCode += `.${classname} {${first[0]}`;
+                        for (let i = 0; i < interpolations.length; ++i) {
+                            const interpolation = interpolations[i];
+                            if (typeof interpolation === "object") {
+                                if (interpolation instanceof cn) {
+                                    generatedCode += interpolation;
+                                }
+                                else {
+                                    generatedCode += css(interpolation);
+                                }
+                            }
+                            else {
+                                generatedCode += interpolation;
+                            }
+                            generatedCode += first[i + 1];
+                        }
+                        generatedCode += "}";
                     }
+                    return classname;
                 };
-                return style;
-            });
-            console.log(style);
+                const exports = factory({ style: generator, css, cn: () => new cn() });
+                generatedCode = generatedCode.replace(/(\r\n|\n|\r)/gm, "").replace(/ +/g, ' ').trim();
+                let el = document.createElement("style");
+                el.innerHTML = generatedCode;
+                document.head.append(el);
+                return exports;
+            };
         }
     }));
 })();

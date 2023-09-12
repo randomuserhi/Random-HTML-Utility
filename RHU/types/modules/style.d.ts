@@ -12,11 +12,30 @@ declare namespace RHU
 {
     interface Style
     {
-        
+        <T>(factory: (worker: Style.Factory) => T): T;
     }
 
     namespace Style
     {
+        interface ClassName
+        {
+            name: string;
+            [Symbol.toPrimitive]: () => string;
+        }
+
+        interface Generator
+        {
+            (first: TemplateStringsArray, ...interpolations: (string | ClassName | StyleDeclaration)[]): void;
+            class(first: TemplateStringsArray, ...interpolations: (string | StyleDeclaration)[]): ClassName;
+        }
+
+        interface Factory 
+        {
+            style: Generator;
+            css: (style: StyleDeclaration) => string;
+            cn: () => ClassName;
+        }
+
         type StyleDeclaration = {
             [Property in Style.CSSProperty]?: Property extends keyof Style.CSSPropertiesMap ? Style.CSSPropertiesMap[Property] : CSSValue;
         };
