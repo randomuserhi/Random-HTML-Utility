@@ -110,7 +110,7 @@
             if (RHU.exists(update))
                 for (let el of update)
                     Macro.parse(el, type, true);
-            return undefined;
+            return type;
         };
         let templates = new Map();
         let defaultTemplate = {

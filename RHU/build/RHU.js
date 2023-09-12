@@ -461,6 +461,7 @@
                 require: require,
                 callback: callback,
             });
+            return undefined;
         };
         RHU.definePublicAccessor(RHU, "imports", {
             get: function () {
@@ -477,7 +478,7 @@
                 return obj;
             }
         });
-        RHU.definePublicAccessor(RHU, "watching", {
+        RHU.definePublicAccessor(RHU, "waiting", {
             get: function () {
                 let obj = [...core.moduleLoader.watching];
                 obj.toString = function () {

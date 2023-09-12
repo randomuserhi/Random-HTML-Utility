@@ -141,7 +141,7 @@
             });
 
             const Macro: RHU.Macro
-            = function(constructor: Function, type: string, source: string = "", options: RHU.Macro.Options): void
+            = function<T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string = "", options: RHU.Macro.Options): T
             {
                 if (type == "") throw new SyntaxError("'type' cannot be blank.");
                 if (typeof type !== "string") throw new TypeError("'type' must be a string.");
@@ -175,7 +175,7 @@
                     for (let el of update)
                         Macro.parse(el, type, true);
 
-                return undefined;
+                return type;
             } as RHU.Macro;
             let templates = new Map<string | undefined | null, MacroTemplate>();
             let defaultTemplate: MacroTemplate = {
@@ -211,7 +211,7 @@
             let parseStack: string[] = [];
             let watching: Map<string, RHU.WeakCollection<Element>> 
             = new Map<string, RHU.WeakCollection<Element>>(); // Stores active macros that are being watched
-            Macro.parse = function(element: _Element, type: string | undefined | null, force: boolean = false): void
+            Macro.parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void
             {
                 /**
                  * NOTE(randomuserhi): Since rhu-macro elements may override their builtins, Element.prototype etc... are used

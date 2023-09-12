@@ -637,6 +637,7 @@
                 require: require,
                 callback: callback,
             });
+            return undefined as any;
         };
         RHU.definePublicAccessor(RHU, "imports", {
             get: function(): RHU.Module[] { 
@@ -654,7 +655,7 @@
                 return obj; 
             }
         });
-        RHU.definePublicAccessor(RHU, "watching", {
+        RHU.definePublicAccessor(RHU, "waiting", {
             get: function(): RHU.Module[] { 
                 let obj: RHU.Module[] = [...core.moduleLoader.watching];
                 obj.toString = function(): string {

@@ -9,7 +9,7 @@
                 this.name = name;
             }
             else {
-                this.name = `rhu_${++id}`;
+                this.name = `rhu-${++id}`;
             }
         };
         cn.prototype[Symbol.toPrimitive] = function () {

@@ -6,32 +6,71 @@ declare namespace RHU
     interface Modules
     {
         "rhu/style": RHU.Style;
+        "rhu/style/types": {
+            cn: RHU.Style.ClassNameConstructor;
+        };
+
+        "rhu/theme": RHU.Theme;
+        "rhu/theme/types": {
+            ThemeVariable: RHU.Theme.ThemeVariableConstructor;
+        };
+    }
+
+    interface Theme
+    {
+        <T extends {} = {}>(factory: (worker: Theme.Factory) => T): Style.ClassName<T>;
+    }
+
+    namespace Theme
+    {
+        type ThemeVariable<T extends {} = {}> = {
+            [Symbol.toPrimitive]: () => string;
+        } & T;
+        interface ThemeVariableConstructor
+        {
+            new<T extends{} = {}>(name?: string): ThemeVariable<T>;
+            prototype: ThemeVariable;
+        }
+
+        interface Generator
+        {
+            (first: TemplateStringsArray, ...interpolations: (string | ThemeVariable)[]): ThemeVariable;
+        }
+
+        interface Factory 
+        {
+            theme: Generator;
+        }
     }
 
     interface Style
     {
         <T>(factory: (worker: Style.Factory) => T): T;
+        cn: Style.ClassNameConstructor
     }
 
     namespace Style
     {
-        interface ClassName
-        {
-            name: string;
+        type ClassName<T extends {} = {}> = {
             [Symbol.toPrimitive]: () => string;
+        } & T;
+        interface ClassNameConstructor
+        {
+            new<T extends {} = {}>(name?: string): ClassName<T>;
+            prototype: ClassName;
         }
 
         interface Generator
         {
             (first: TemplateStringsArray, ...interpolations: (string | ClassName | StyleDeclaration)[]): void;
-            class(first: TemplateStringsArray, ...interpolations: (string | StyleDeclaration)[]): ClassName;
+            class<T extends {} = {}>(first: TemplateStringsArray, ...interpolations: (string | StyleDeclaration)[]): ClassName & T;
         }
 
         interface Factory 
         {
             style: Generator;
             css: (style: StyleDeclaration) => string;
-            cn: () => ClassName;
+            cn: <T extends {} = {}>(name?: string) => ClassName & T;
         }
 
         type StyleDeclaration = {
