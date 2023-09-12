@@ -15,6 +15,12 @@
         cn.prototype[Symbol.toPrimitive] = function () {
             return this.name;
         };
+        let interpret = function (value) {
+            if (typeof value === "number") {
+                return `${value}px`;
+            }
+            return value;
+        };
         let css = function (style) {
             let result = "";
             for (const [key, value] of Object.entries(style)) {
@@ -29,9 +35,9 @@
                     switch (prop) {
                         case "border":
                             const parse = value;
-                            result += `
-                                border-radius: ${parse["border-radius"] || parse.borderRadius};
-                                `;
+                            const borderRadius = interpret(parse["border-radius"] || parse.borderRadius);
+                            if (RHU.exists(borderRadius))
+                                result += `border-radius: ${borderRadius}; `;
                             break;
                     }
                 }
