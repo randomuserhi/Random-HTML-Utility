@@ -62,8 +62,8 @@ declare namespace RHU
 
         interface Generator
         {
-            (first: TemplateStringsArray, ...interpolations: (string | ClassName | StyleDeclaration)[]): void;
-            class<T extends {} = {}>(first: TemplateStringsArray, ...interpolations: (string | StyleDeclaration)[]): ClassName & T;
+            (first: TemplateStringsArray, ...interpolations: (string | ClassName | Theme.ThemeVariable)[]): void;
+            class<T extends {} = {}>(first: TemplateStringsArray, ...interpolations: (string | Theme.ThemeVariable)[]): ClassName & T;
         }
 
         interface Factory 

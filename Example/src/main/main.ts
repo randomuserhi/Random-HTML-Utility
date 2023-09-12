@@ -17,8 +17,7 @@ interface appmount extends HTMLDivElement
 
 RHU.module(new Error(), "Main", 
     { Style: "rhu/style", Macro: "rhu/macro" },
-    function({ Style, Macro })
-    {
+    function({ Style, Macro }) {
         const style = Style(({ style, css }) => {
             const wrapper = style.class`
             display: flex;
