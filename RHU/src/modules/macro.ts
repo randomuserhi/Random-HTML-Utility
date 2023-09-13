@@ -9,7 +9,7 @@
      *                     attach to dom with document.body.append(document.createElement("rhu-macro")), it won't do anything. 
      */
 
-    let RHU: RHU = window.RHU;
+    const RHU = window.RHU;
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module(new Error(), "rhu/macro", 
         { Weak: "rhu/weak" },

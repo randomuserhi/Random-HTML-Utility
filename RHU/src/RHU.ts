@@ -63,7 +63,7 @@
             if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) 
             {
                 s.type += ";executed=true";
-                loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
+                loaded = Function(`"use strict"; const RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
             }
         }
 
@@ -177,7 +177,7 @@
         if (core.exists(window.RHU)) 
             console.warn("Overwriting global RHU...");
 
-        let RHU: RHU = window.RHU = {
+        const RHU: typeof window.RHU = window.RHU = {
             version: "1.0.0",
 
             MODULE: "module",
@@ -320,7 +320,7 @@
                 return RHU.defineProperty(object, property, Object.assign(opt, options), flags);
             },
 
-            defineProperties: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
+            defineProperties: function(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
             {
                 for (let key of RHU.properties(properties, { hasOwn: true }).keys())
                 {
@@ -330,7 +330,7 @@
                     }
                 }
             },
-            definePublicProperties: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
+            definePublicProperties: function(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
             {
                 interface opt
                 {
@@ -353,7 +353,7 @@
                     }
                 }
             },
-            definePublicAccessors: function(object, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
+            definePublicAccessors: function(object: any, properties: { [x: PropertyKey]: PropertyDescriptor }, flags?: RHU.Properties.Flags)
             {
                 interface opt
                 {
@@ -527,7 +527,7 @@
             {
                 return new CustomEvent(type, { detail: detail });
             }
-        } as RHU;
+        } as typeof window.RHU;
 
         RHU.definePublicAccessor(RHU, "readyState", {
             get: function() { return core.readyState; }
@@ -627,7 +627,7 @@
         };
 
         // Define module functions of RHU
-        let RHU: RHU = window.RHU;
+        const RHU: typeof window.RHU = window.RHU;
         // NOTE(randomuserhi): Function used for type inference by typescript
         RHU.module = function(trace, name, require, callback)
         {
