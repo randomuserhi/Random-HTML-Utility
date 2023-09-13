@@ -11,5 +11,5 @@
     "removeComments": true,
     "sourceMap": false,
   },
-  "exclude": [ "node_modules", "build" ] 
+  "include": ["./src/**/*","./types/**/*"],
 }

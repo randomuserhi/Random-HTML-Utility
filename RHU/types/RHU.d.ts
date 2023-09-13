@@ -63,6 +63,7 @@ declare namespace RHU
     export function getElementById(id: string, clearID: boolean): HTMLElement | null;
 
     export function module<T extends RHU.Module.Require, M extends RHU.Module.Exports>(trace: Error, name: M, require: T, callback: (require: RHU.Module.Imports<T>) => RHU.Modules[M]): void;
+    export function require<T extends RHU.Module.Require>(trace: Error, require: T, callback: (require: RHU.Module.Imports<T>) => void): void;
 
     export const imports: RHU.Module[];
     export const waiting: RHU.Module[];
@@ -130,7 +131,7 @@ declare namespace RHU
 
     interface Module<T extends Module.Require = any, R = any>
     {
-        name: string;
+        name?: string;
         trace: Error;
         require: T;
         callback: (require: RHU.Module.Imports<T>) => R;

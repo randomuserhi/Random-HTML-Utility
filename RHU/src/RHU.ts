@@ -590,12 +590,14 @@
 
             execute: function(module)
             {
-                if (this.cache.has(module.name)) {
-                    console.warn(`${module.name} was skipped as a module of the same name was already imported.${core.exists(module.trace.stack) 
-                        ? "\n" + module.trace.stack.split("\n")[1] 
-                        : ""}`)
-                    this.skipped.push(module);
-                    return;
+                if (RHU.exists(module.name)) {
+                    if (this.cache.has(module.name)) {
+                        console.warn(`${module.name} was skipped as a module of the same name was already imported.${core.exists(module.trace.stack) 
+                            ? "\n" + module.trace.stack.split("\n")[1] 
+                            : ""}`)
+                        this.skipped.push(module);
+                        return;
+                    }
                 }
 
                 const missing: string[] = [];
@@ -603,7 +605,9 @@
                 require(module.require, req, missing);
                 if (missing.length === 0) {
                     const result = module.callback(req);
-                    this.set(module.name, result);
+                    if (RHU.exists(module.name)) {
+                        this.set(module.name, result);
+                    }
                     this.imported.push(module);
                 } else {
                     this.watching.push(module);
@@ -639,6 +643,15 @@
             });
             return undefined as any;
         };
+        RHU.require = function(trace, require, callback)
+        {
+            core.moduleLoader.reconcile({
+                trace: trace,
+                require: require,
+                callback: callback,
+            });
+            return undefined as any;
+        }
         RHU.definePublicAccessor(RHU, "imports", {
             get: function(): RHU.Module[] { 
                 let obj: RHU.Module[] = [...core.moduleLoader.imported];
@@ -646,7 +659,8 @@
                     let msg = "Imports in order of execution:";
                     for (let module of obj)
                     {
-                        msg += `\n${module.name}${core.exists(module.trace.stack) 
+                        let name = RHU.exists(module.name) ? module.name : "[rhu/require]";
+                        msg += `\n${name}${core.exists(module.trace.stack) 
                             ? "\n" + module.trace.stack.split("\n")[1] 
                             : ""}`;
                     }
@@ -662,7 +676,8 @@
                     let msg = "Modules being watched:";
                     for (let module of obj)
                     {
-                        msg += `\n${module.name}${core.exists(module.trace.stack) 
+                        let name = RHU.exists(module.name) ? module.name : "[rhu/require]";
+                        msg += `\n${name}${core.exists(module.trace.stack) 
                             ? "\n" + module.trace.stack.split("\n")[1] 
                             : ""}${(() => {
                                 const missing: string[] = [];
