@@ -151,7 +151,7 @@
                 // Add constructor to template map
                 if (templates.has(type))
                     console.warn(`Macro template '${type}' already exists. Definition will be overwritten.`);
-                
+
                 let opt = {
                     element: "<div></div>",
                     floating: false,
@@ -161,6 +161,14 @@
                 };
                 RHU.parseOptions(opt, options);
                 
+                // Ensure that options does not utilize <rhu-macro>
+                let doc = Macro.parseDomString(opt.element);
+                let macro = doc.children[0];                
+                if (!RHU.exists(macro)) // If macro element cannot expand, just throw an error
+                    throw new SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
+                if (macro.tagName === "RHU-MACRO")
+                    throw new Error(`Container element cannot be the tag RHU-MACRO.`);
+
                 templates.set(type, {
                     constructor: constructor,
                     type: type,
