@@ -40,7 +40,7 @@
             var type = String(s.type).replace(/ /g, "");
             if (type.match(/^text\/x-rhu-config(;.*)?$/) && !type.match(/;executed=true/)) {
                 s.type += ";executed=true";
-                loaded = Function(`"use strict"; let RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
+                loaded = Function(`"use strict"; const RHU = { config: {} }; ${s.innerHTML}; return RHU;`)();
             }
         }
         let Options = {
@@ -130,7 +130,7 @@
     (function () {
         if (core.exists(window.RHU))
             console.warn("Overwriting global RHU...");
-        let RHU = window.RHU = {
+        const RHU = window.RHU = {
             version: "1.0.0",
             MODULE: "module",
             EXTENSION: "x-module",
@@ -421,19 +421,23 @@
                 this.loading.delete(module);
             },
             execute: function (module) {
-                if (this.cache.has(module.name)) {
-                    console.warn(`${module.name} was skipped as a module of the same name was already imported.${core.exists(module.trace.stack)
-                        ? "\n" + module.trace.stack.split("\n")[1]
-                        : ""}`);
-                    this.skipped.push(module);
-                    return;
+                if (RHU.exists(module.name)) {
+                    if (this.cache.has(module.name)) {
+                        console.warn(`${module.name} was skipped as a module of the same name was already imported.${core.exists(module.trace.stack)
+                            ? "\n" + module.trace.stack.split("\n")[1]
+                            : ""}`);
+                        this.skipped.push(module);
+                        return;
+                    }
                 }
                 const missing = [];
                 const req = {};
                 require(module.require, req, missing);
                 if (missing.length === 0) {
                     const result = module.callback(req);
-                    this.set(module.name, result);
+                    if (RHU.exists(module.name)) {
+                        this.set(module.name, result);
+                    }
                     this.imported.push(module);
                 }
                 else {
@@ -453,7 +457,7 @@
                 } while (oldLen !== this.watching.length);
             },
         };
-        let RHU = window.RHU;
+        const RHU = window.RHU;
         RHU.module = function (trace, name, require, callback) {
             core.moduleLoader.reconcile({
                 trace: trace,
@@ -461,6 +465,15 @@
                 require: require,
                 callback: callback,
             });
+            return undefined;
+        };
+        RHU.require = function (trace, require, callback) {
+            core.moduleLoader.reconcile({
+                trace: trace,
+                require: require,
+                callback: callback,
+            });
+            return undefined;
         };
         RHU.definePublicAccessor(RHU, "imports", {
             get: function () {
@@ -468,7 +481,8 @@
                 obj.toString = function () {
                     let msg = "Imports in order of execution:";
                     for (let module of obj) {
-                        msg += `\n${module.name}${core.exists(module.trace.stack)
+                        let name = RHU.exists(module.name) ? module.name : "[rhu/require]";
+                        msg += `\n${name}${core.exists(module.trace.stack)
                             ? "\n" + module.trace.stack.split("\n")[1]
                             : ""}`;
                     }
@@ -477,13 +491,14 @@
                 return obj;
             }
         });
-        RHU.definePublicAccessor(RHU, "watching", {
+        RHU.definePublicAccessor(RHU, "waiting", {
             get: function () {
                 let obj = [...core.moduleLoader.watching];
                 obj.toString = function () {
                     let msg = "Modules being watched:";
                     for (let module of obj) {
-                        msg += `\n${module.name}${core.exists(module.trace.stack)
+                        let name = RHU.exists(module.name) ? module.name : "[rhu/require]";
+                        msg += `\n${name}${core.exists(module.trace.stack)
                             ? "\n" + module.trace.stack.split("\n")[1]
                             : ""}${(() => {
                             const missing = [];

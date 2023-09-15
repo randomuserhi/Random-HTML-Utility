@@ -361,16 +361,23 @@
                 }
 
                 // Get elements from parser 
-                let doc = Macro.parseDomString(RHU.exists(definition.source) ? definition.source : "");
+                let doc: DocumentFragment;
+                let source = RHU.exists(definition.source) ? definition.source : "";
 
-                // If the macro is not floating, assign parent
+                // If the macro is not floating, assign parent and parse source using parent
                 if (!options.floating)
                 {
                     slot = document.createElement("div");
 
                     element.replaceWith(slot);
-                    element.append(...doc.childNodes);
+                    element.innerHTML = source;
+                    doc = new DocumentFragment();
                     doc.append(element);
+                }
+                // otherwise parse source externally
+                else
+                {
+                    doc = Macro.parseDomString(source)
                 }
 
                 let properties: any = {};

@@ -1,5 +1,5 @@
 (function () {
-    let RHU = window.RHU;
+    const RHU = window.RHU;
     if (RHU === null || RHU === undefined)
         throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module(new Error(), "rhu/macro", { Weak: "rhu/weak" }, function ({ Weak: { WeakRefMap, WeakCollection } }) {
@@ -110,7 +110,7 @@
             if (RHU.exists(update))
                 for (let el of update)
                     Macro.parse(el, type, true);
-            return undefined;
+            return type;
         };
         let templates = new Map();
         let defaultTemplate = {
