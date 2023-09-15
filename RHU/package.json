@@ -3,13 +3,17 @@
     "version": "1.0.0",
     "description": "",
     "main": "index.js",
-    "scripts": {},
+    "scripts": {
+        "transpile": "npx tsc",
+        "clean": "npx rimraf build/",
+        "build": "npm run transpile && npx copyfiles -u 1 types/**/*.* build/@types/rhu"
+    },
     "author": "",
     "license": "ISC",
     "devDependencies": {
-      "copyfiles": "^2.4.1",
-      "rimraf": "^5.0.1",
-      "typescript": "^5.2.2"
+        "copyfiles": "^2.4.1",
+        "rimraf": "^5.0.1",
+        "typescript": "^5.2.2"
     }
   }
   

@@ -1,0 +1,1 @@
+npm run update-rhu && npm run import-rhu && npm run import-js3party

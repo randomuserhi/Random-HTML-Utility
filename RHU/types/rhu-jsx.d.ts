@@ -1,4 +1,4 @@
-declare namespace RHU {
+declare namespace rhu {
     type Node = globalThis.Node | string;
 
     interface NodeProps {

@@ -1,0 +1,22 @@
+{
+  "name": "rhu-sample",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "transpile": "npx tsc",
+    "clean": "node clean.mjs",
+    "update-rhu": "npm run --prefix ../../RHU build && npx rimraf js3party/rhu/ && npx copyfiles -u 5 ../../RHU/build/rhu/**/*.* js3party/rhu",
+    "import-rhu": "npx rimraf node_modules/@types/rhu/ && npx copyfiles -u 6 ../../RHU/build/@types/rhu/**/*.* node_modules/@types/rhu",
+    "import-js3party": "npx rimraf build/js3party/ && npx copyfiles -u 1 js3party/**/*.* build/js3party/",
+    "build": "npm run clean && npm run transpile && npm run copy-files",
+    "copy-files": "npx copyfiles -u 1 src/**/*.html src/**/*.css src/**/*.js build/"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "copyfiles": "^2.4.1",
+    "globby": "^13.2.2",
+    "rimraf": "^5.0.1",
+    "typescript": "^5.2.2"
+  }
+}

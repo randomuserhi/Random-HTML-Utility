@@ -1,5 +1,5 @@
 import Button from "./Button";
-import * as rhu from "rhu";
+import rhu from "rhu/core";
 
 const App = () => (
     <div>
