@@ -1,0 +1,16 @@
+{ 
+  "compilerOptions": {
+    "outDir": "./build/rhu",
+    "target": "ESNext",
+    "module": "AMD",
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "removeComments": true,
+    "sourceMap": false,
+  },
+  "include": ["./src/**/*", "./types/**/*"],
+}

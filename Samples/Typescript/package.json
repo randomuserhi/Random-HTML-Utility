@@ -1,0 +1,14 @@
+{
+  "name": "rhu",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "copyfiles": "^2.4.1",
+    "rimraf": "^5.0.1",
+    "typescript": "^5.2.2"
+  }
+}
