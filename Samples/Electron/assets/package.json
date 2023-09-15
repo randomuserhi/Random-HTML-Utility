@@ -5,8 +5,8 @@
   "scripts": {
     "transpile": "npx tsc",
     "clean": "node clean.mjs",
-    "update-rhu": "npx rimraf js3party/rhu/ && npx copyfiles -u 5 ../../RHU/build/rhu/**/*.* js3party/rhu",
-    "import-rhu": "npx rimraf node_modules/@types/rhu/ && npx copyfiles -u 6 ../../RHU/build/@types/rhu/**/*.* node_modules/@types/rhu",
+    "update-rhu": "npx rimraf js3party/rhu/ && npx copyfiles -u 6 ../../../RHU/build/rhu/**/*.* js3party/rhu",
+    "import-rhu": "npx rimraf node_modules/@types/rhu/ && npx copyfiles -u 7 ../../../RHU/build/@types/rhu/**/*.* node_modules/@types/rhu",
     "import-js3party": "npx rimraf build/js3party/ && npx copyfiles -u 1 js3party/**/*.* build/js3party/",
     "copy-files": "npx copyfiles -u 1 src/**/*.html src/**/*.css src/**/*.js build/",
     "offload": "copyfiles -u 1 build/**/*.* ../electron/build/assets/",
