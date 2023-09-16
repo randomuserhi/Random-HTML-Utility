@@ -6,7 +6,7 @@
     "scripts": {
         "transpile": "npx tsc",
         "clean": "npx rimraf build/",
-        "build": "npm run transpile && npx copyfiles -u 1 types/**/*.* build/@types/rhu"
+        "build": "npm run transpile"
     },
     "author": "",
     "license": "ISC",
