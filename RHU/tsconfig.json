@@ -1,6 +1,6 @@
 { 
   "compilerOptions": {
-    "outDir": "./build/rhu",
+    "outDir": "./build",
     "target": "ESNext",
     "module": "AMD",
     "strict": true,
