@@ -78,12 +78,12 @@ const createState = <T>(expr: () => T, name?: string, debugInfo?: DebugInfo): St
 // NOTE(randomuserhi): Props that get executed immediately -> no intermediate state
 const immediateProps = new Set<PropertyKey>([
     Symbol.toPrimitive,
-    ...Object.keys(symbols),
+    "valueOf",
+    ...Object.values(symbols),
 ]);
 // NOTE(randomuserhi): Props that only execute immediately when called as a function -> no intermediate function call state
 const immediateFunctionalProps = new Set<PropertyKey>([
-    "valueOf",
-    "toString",
+//    "toString",
 ]);
 const stateProxyHandler: ProxyHandler<any> = {
     get(parent, prop, receiver) {
@@ -91,7 +91,7 @@ const stateProxyHandler: ProxyHandler<any> = {
             return parent[prop];
         }
 
-        const stateName = parent[symbols.state] + `.${String(prop)}`;
+        const stateName = parent[symbols.state] + `.${typeof prop === "symbol" ? `[[${String(prop)}]]` : String(prop)}`;
         const debugInfo: DebugInfo = {
             sequence: [...parent[symbols.debugInfo].sequence, {
                 prop: prop,
@@ -143,6 +143,15 @@ const _expr = <T>(expr: () => T, name?: string, debugInfo?: DebugInfo): State<T>
 
 export const expr = <T>(expr: () => T): State<T> =>
     new Proxy(createState(expr), stateProxyHandler);
+
+export const debug = (state: State<any>): void => {
+    if (state[symbols.debug]) {
+        (state as any)[symbols.debug]();
+    }
+    else {
+        console.warn(`'${String(state)}' is not a [[RHU.State]]`);
+    }
+} 
 
 export const useState = <T>(init: T): [State<T>, SetState<T>] => {
     let value = init;

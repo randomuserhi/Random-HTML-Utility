@@ -12,6 +12,7 @@ declare namespace rhu {
     export function vof<T>(state: T): T;
     export function expr<T>(expr: () => T): T;
     export function useState<T>(init: T): [T, SetState<T>];
+    export function debug(state: any): void;
 }
 
 /* rhu-jsx.d.ts */

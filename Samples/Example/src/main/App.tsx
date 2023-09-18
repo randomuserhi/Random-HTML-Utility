@@ -1,5 +1,5 @@
 import Button from "./Button";
-import { useState, vof, expr } from "rhu";
+import { useState, vof, expr, debug } from "rhu";
 
 const App = () => (
     <div>
@@ -46,14 +46,31 @@ let strun = vof(count.toString()) === "10"; // true
 console.log(strun);
 let testStrun = count.toString();
 console.log(testStrun);
+debug(testStrun);
 console.log(+testStrun); // 10;
 let asdas = count.toString;
 //console.log(asdas()); // creates a state for the function toString
 //console.log(vof(asdas())); // calls the function for the state toString => this errors since toString requires `this`
 console.log(asdas);
+debug(asdas);
 console.log(asdas.call(vof(count))); // creates a state for the function toString.call(vof(count)) -> if you don't vof count it does toString on the state which errors since it requires `this`
 console.log(vof(asdas.call(vof(count))));
 console.log(vof(asdas).call(vof(count)));
+
+const [list, setList] = useState<number[]>([10, 10, 10, 10]);
+const case1 = list.map((m) => m + 1).map((m) => m + 1).map((m) => m + 1).map((m) => m + 1).map((m) => m + 1).map((m) => m + 1).map((m) => m + 1).map((m) => m + 1);
+console.log(case1);
+debug(case1);
+console.log(vof(case1));
+const case2 = list.push(10);
+console.log(vof(list));
+console.log(case2);
+console.log(vof(case2)); // push
+console.log(vof(list));
+setList([1, 2, 3, 4]);
+vof(case2);
+console.log(vof(list));
+console.log(vof(case1));
 
 // update when count state changes
 setCount((c) => c + 1);

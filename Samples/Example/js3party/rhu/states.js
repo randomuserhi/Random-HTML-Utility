@@ -1,7 +1,7 @@
 define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.useState = exports.expr = exports.vof = exports.isState = void 0;
+    exports.useState = exports.debug = exports.expr = exports.vof = exports.isState = void 0;
     const symbols = {
         state: Symbol("RHU.State"),
         valueOf: Symbol("RHU.State.valueOf"),
@@ -33,7 +33,6 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
                 }
             }
             console.log(logStr, ...objects);
-            return undefined;
         };
     };
     const isState = (obj) => true && obj[symbols.state];
@@ -51,18 +50,16 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     };
     const immediateProps = new Set([
         Symbol.toPrimitive,
-        ...Object.keys(symbols),
-    ]);
-    const immediateFunctionalProps = new Set([
         "valueOf",
-        "toString",
+        ...Object.values(symbols),
     ]);
+    const immediateFunctionalProps = new Set([]);
     const stateProxyHandler = {
         get(parent, prop, receiver) {
             if (immediateProps.has(prop)) {
                 return parent[prop];
             }
-            const stateName = parent[symbols.state] + `.${String(prop)}`;
+            const stateName = parent[symbols.state] + `.${typeof prop === "symbol" ? `[[${String(prop)}]]` : String(prop)}`;
             const debugInfo = {
                 sequence: [...parent[symbols.debugInfo].sequence, {
                         prop: prop,
@@ -104,6 +101,15 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     const _expr = (expr, name, debugInfo) => new Proxy(createState(expr, name, debugInfo), stateProxyHandler);
     const expr = (expr) => new Proxy(createState(expr), stateProxyHandler);
     exports.expr = expr;
+    const debug = (state) => {
+        if (state[symbols.debug]) {
+            state[symbols.debug]();
+        }
+        else {
+            console.warn(`'${String(state)}' is not a [[RHU.State]]`);
+        }
+    };
+    exports.debug = debug;
     const useState = (init) => {
         let value = init;
         const state = _expr(() => value);
