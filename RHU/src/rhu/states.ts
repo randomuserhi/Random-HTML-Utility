@@ -1,5 +1,8 @@
 import { isFunction } from "./utils";
 
+// TODO(randomuserhi): Cleanup code and add documentation
+// TODO(randomuserhi): Ability to turn off debugInfo -> takes up a lot of memory
+
 interface Symbols {
     readonly state: unique symbol;
     readonly debug: unique symbol;
@@ -67,10 +70,9 @@ const createState = <T>(expr: () => T, name?: string, debugInfo?: DebugInfo): St
     // NOTE(randomuserhi): bind expression function to undefined to prevent
     //                     use of `this` in the expression.
     const unbound = expr.bind(undefined);
-    const state: any = function(this: any, ...args: any[]): any {
-        return _expr(() => (expr() as Function).call(this, ...args));
+    const state: any = {
+        valueOf: unbound,
     };
-    state.valueOf = unbound;
     registerState(state, name, debugInfo);
     return state;
 };
@@ -86,6 +88,12 @@ const immediateFunctionalProps = new Set<PropertyKey>([
 //    "toString",
 ]);
 const stateProxyHandler: ProxyHandler<any> = {
+    construct(target, args) {
+        return _expr(() => new target.valueOf()(...args));
+    },
+    apply(target, thisArg, args) {
+        return _expr(() => target.valueOf().call(thisArg, ...args));
+    },
     get(parent, prop, receiver) {
         if (immediateProps.has(prop)) {
             return parent[prop];

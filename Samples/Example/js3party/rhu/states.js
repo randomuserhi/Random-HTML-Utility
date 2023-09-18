@@ -41,10 +41,9 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     exports.vof = vof;
     const createState = (expr, name, debugInfo) => {
         const unbound = expr.bind(undefined);
-        const state = function (...args) {
-            return _expr(() => expr().call(this, ...args));
+        const state = {
+            valueOf: unbound,
         };
-        state.valueOf = unbound;
         registerState(state, name, debugInfo);
         return state;
     };
@@ -55,6 +54,12 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     ]);
     const immediateFunctionalProps = new Set([]);
     const stateProxyHandler = {
+        construct(target, args) {
+            return new target.valueOf()(...args);
+        },
+        apply(target, thisArg, args) {
+            return _expr(() => target.valueOf().call(thisArg, ...args));
+        },
         get(parent, prop, receiver) {
             if (immediateProps.has(prop)) {
                 return parent[prop];
