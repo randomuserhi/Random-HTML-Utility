@@ -3,7 +3,7 @@
     "rootDir": "./src",
     "outDir": "build",
     "target": "ESNext",
-    "module": "AMD",
+    "module": "AMD", // For debugging set to "ESNext"
     "strict": true,
     "noImplicitAny": true,
     "noImplicitThis": true,
@@ -12,7 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "removeComments": true,
     "sourceMap": false,
-    "jsx": "react-jsx", // or "preserve" to run through babel
+    "jsx": "react-jsx", // "preserve" to run through a seperate compiler like babel, "react-jsx" to compile with typescript
     "jsxImportSource": "rhu"
   },
   "include": ["./src/**/*", "./types/**/*"],

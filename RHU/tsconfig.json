@@ -12,5 +12,5 @@
     "removeComments": true,
     "sourceMap": false,
   },
-  "include": ["./src/**/*", "./types/**/*"],
+  "include": ["./src/**/*"],
 }

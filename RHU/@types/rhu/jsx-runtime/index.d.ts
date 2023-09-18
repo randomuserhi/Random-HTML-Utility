@@ -81,3 +81,12 @@ type AllElementTagNameMap = HTMLElementTagNameMap & SVGElementTagNameMap;
 type RecursivePartial<T> = {
     [P in keyof T]?: RecursivePartial<T[P]>;
 };
+
+/* jsx-class.d.ts */
+declare namespace JSX {
+    /*
+    interface ElementClass {
+        render: any;
+    }
+    */
+}
