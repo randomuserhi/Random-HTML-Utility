@@ -20,23 +20,21 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
         _state[symbols.debugInfo] = debugInfo ? debugInfo : {
             sequence: [],
         };
-        Object.defineProperty(_state, symbols.debug, {
-            get() {
-                const debugInfo = _state[symbols.debugInfo];
-                let logStr = "[[RHU.State]]";
-                let objects = [];
-                for (const { prop, args } of debugInfo.sequence) {
-                    const functionCall = args !== undefined;
-                    const hasArgs = functionCall && args.length !== 0;
-                    logStr += `.${String(prop)}${functionCall ? hasArgs ? "(%o)" : "()" : ""}`;
-                    if (functionCall && hasArgs) {
-                        objects.push(args);
-                    }
+        _state[symbols.debug] = () => {
+            const debugInfo = _state[symbols.debugInfo];
+            let logStr = "[[RHU.State]]";
+            let objects = [];
+            for (const { prop, args } of debugInfo.sequence) {
+                const functionCall = args !== undefined;
+                const hasArgs = functionCall && args.length !== 0;
+                logStr += `.${String(prop)}${functionCall ? hasArgs ? "(%o)" : "()" : ""}`;
+                if (functionCall && hasArgs) {
+                    objects.push(args);
                 }
-                console.log(logStr, ...objects);
-                return _state[symbols.state];
-            },
-        });
+            }
+            console.log(logStr, ...objects);
+            return undefined;
+        };
     };
     const isState = (obj) => true && obj[symbols.state];
     exports.isState = isState;
@@ -93,7 +91,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
                             const target = parent.valueOf();
                             const _this = this === receiver ? target : this;
                             return target[prop].call(_this, ...args);
-                        }, `${stateName}()`, debugInfo);
+                        }, `${stateName}(${args})`, debugInfo);
                     };
                 }
                 state.valueOf = () => target[prop];

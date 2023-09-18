@@ -25,23 +25,20 @@ const registerState = (state: State<any>, name?: string, debugInfo?: DebugInfo) 
     _state[symbols.debugInfo] = debugInfo ? debugInfo : {
         sequence: [],
     };
-    Object.defineProperty(_state, symbols.debug, {
-        get() {
-            const debugInfo: DebugInfo = _state[symbols.debugInfo];
-            let logStr = "[[RHU.State]]";
-            let objects = [];
-            for (const { prop, args } of debugInfo.sequence) {
-                const functionCall = args !== undefined;
-                const hasArgs = functionCall && args.length !== 0;
-                logStr += `.${String(prop)}${functionCall ? hasArgs ? "(%o)" : "()" : ""}`;
-                if (functionCall && hasArgs) {
-                    objects.push(args);
-                }
+    _state[symbols.debug] = () => {
+        const debugInfo: DebugInfo = _state[symbols.debugInfo];
+        let logStr = "[[RHU.State]]";
+        let objects = [];
+        for (const { prop, args } of debugInfo.sequence) {
+            const functionCall = args !== undefined;
+            const hasArgs = functionCall && args.length !== 0;
+            logStr += `.${String(prop)}${functionCall ? hasArgs ? "(%o)" : "()" : ""}`;
+            if (functionCall && hasArgs) {
+                objects.push(args);
             }
-            console.log(logStr, ...objects);
-            return _state[symbols.state]; 
-        },
-    });
+        }
+        console.log(logStr, ...objects);
+    };
 };
 export const isState = <T = any>(obj: any): obj is State<T> => true && obj[symbols.state];
 
