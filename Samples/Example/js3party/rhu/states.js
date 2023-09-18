@@ -4,59 +4,111 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     exports.useState = exports.expr = exports.vof = exports.isState = void 0;
     const symbols = {
         state: Symbol("RHU.State"),
-        value: Symbol("RHU.State.valueOf"),
+        valueOf: Symbol("RHU.State.valueOf"),
+        debug: Symbol("RHU.State.debug"),
+        debugInfo: Symbol("RHU.State.debugInfo"),
     };
-    const registerState = (state, name) => {
+    const registerState = (state, name, debugInfo) => {
         const _state = state;
         _state[Symbol.toPrimitive] = state.valueOf;
         _state.toString = () => state.valueOf().toString();
         _state[Symbol.toStringTag] = "RHU.State";
-        Object.defineProperty(_state, symbols.value, {
+        Object.defineProperty(_state, symbols.valueOf, {
             get() { return _state.valueOf(); },
         });
         _state[symbols.state] = name ? name : "[[RHU.State]]";
+        _state[symbols.debugInfo] = debugInfo ? debugInfo : {
+            sequence: [],
+        };
+        Object.defineProperty(_state, symbols.debug, {
+            get() {
+                const debugInfo = _state[symbols.debugInfo];
+                let logStr = "[[RHU.State]]";
+                let objects = [];
+                for (const { prop, args } of debugInfo.sequence) {
+                    const functionCall = args !== undefined;
+                    const hasArgs = functionCall && args.length !== 0;
+                    logStr += `.${String(prop)}${functionCall ? hasArgs ? "(%o)" : "()" : ""}`;
+                    if (functionCall && hasArgs) {
+                        objects.push(args);
+                    }
+                }
+                console.log(logStr, ...objects);
+                return _state[symbols.state];
+            },
+        });
     };
     const isState = (obj) => true && obj[symbols.state];
     exports.isState = isState;
     const vof = (state) => state.valueOf();
     exports.vof = vof;
-    const createState = (_expr, name) => {
-        const unbound = _expr.bind(undefined);
+    const createState = (expr, name, debugInfo) => {
+        const unbound = expr.bind(undefined);
         const state = function (...args) {
-            return (0, exports.expr)(() => _expr().call(this, ...args));
+            return _expr(() => expr().call(this, ...args));
         };
         state.valueOf = unbound;
-        registerState(state, name);
+        registerState(state, name, debugInfo);
         return state;
     };
+    const immediateProps = new Set([
+        Symbol.toPrimitive,
+        ...Object.keys(symbols),
+    ]);
+    const immediateFunctionalProps = new Set([
+        "valueOf",
+        "toString",
+    ]);
     const stateProxyHandler = {
         get(parent, prop, receiver) {
-            if (prop === "valueOf" || prop === Symbol.toPrimitive || prop === symbols.state || prop === symbols.value) {
+            if (immediateProps.has(prop)) {
                 return parent[prop];
             }
             const stateName = parent[symbols.state] + `.${String(prop)}`;
+            const debugInfo = {
+                sequence: [...parent[symbols.debugInfo].sequence, {
+                        prop: prop,
+                    }],
+            };
             const target = parent.valueOf();
             const value = target[prop];
             if (value instanceof Function) {
-                const state = function (...args) {
-                    return (0, exports.expr)(() => {
+                let state;
+                if (immediateFunctionalProps.has(prop)) {
+                    state = function (...args) {
                         const target = parent.valueOf();
                         const _this = this === receiver ? target : this;
                         return target[prop].call(_this, ...args);
-                    }, `${stateName}()`);
-                };
+                    };
+                }
+                else {
+                    state = function (...args) {
+                        const debugInfo = {
+                            sequence: [...parent[symbols.debugInfo].sequence, {
+                                    prop: prop,
+                                    args: args,
+                                }],
+                        };
+                        return _expr(() => {
+                            const target = parent.valueOf();
+                            const _this = this === receiver ? target : this;
+                            return target[prop].call(_this, ...args);
+                        }, `${stateName}()`, debugInfo);
+                    };
+                }
                 state.valueOf = () => target[prop];
-                registerState(state, stateName);
+                registerState(state, stateName, debugInfo);
                 return new Proxy(state, stateProxyHandler);
             }
-            return (0, exports.expr)(() => target[prop], stateName);
+            return _expr(() => target[prop], stateName, debugInfo);
         }
     };
-    const expr = (expr, name) => new Proxy(createState(expr, name), stateProxyHandler);
+    const _expr = (expr, name, debugInfo) => new Proxy(createState(expr, name, debugInfo), stateProxyHandler);
+    const expr = (expr) => new Proxy(createState(expr), stateProxyHandler);
     exports.expr = expr;
     const useState = (init) => {
         let value = init;
-        const state = (0, exports.expr)(() => value);
+        const state = _expr(() => value);
         const setState = (setter) => {
             if ((0, utils_1.isFunction)(setter)) {
                 value = setter(value);
