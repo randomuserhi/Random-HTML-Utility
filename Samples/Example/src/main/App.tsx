@@ -1,5 +1,5 @@
 import Button from "./Button";
-import { useState, vof, expr, withStates } from "rhu";
+import { useState, vof, expr } from "rhu";
 
 const App = () => (
     <div>
@@ -42,10 +42,23 @@ console.log(vof(obj.x.valueOf()));
 const b = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 console.log(b[obj.x]);
 console.log(b[count]);
+let strun = vof(count.toString()) === "10"; // true
+console.log(strun);
+let testStrun = count.toString();
+console.log(testStrun);
+console.log(+testStrun); // 10;
+let asdas = count.toString;
+//console.log(asdas()); // creates a state for the function toString
+//console.log(vof(asdas())); // calls the function for the state toString => this errors since toString requires `this`
+console.log(asdas);
+console.log(asdas.call(vof(count))); // creates a state for the function toString.call(vof(count)) -> if you don't vof count it does toString on the state which errors since it requires `this`
+console.log(vof(asdas.call(vof(count))));
+console.log(vof(asdas).call(vof(count)));
 
 // update when count state changes
 setCount((c) => c + 1);
-console.log(+test); // 11;
+console.log(+test); // 10;
+console.log(+testStrun); // 11;
 let dynamic_expression_0 = expr(() => count + 1); // [[object StateObject]] -> valueOf 12
 console.log(+dynamic_expression_0);
 let dynamic_expression_1 = expr(() => count == 11); // [[object StateObject]] -> valueOf true

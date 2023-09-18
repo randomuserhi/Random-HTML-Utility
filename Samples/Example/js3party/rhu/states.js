@@ -1,61 +1,40 @@
 define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.useState = exports.expr = exports.withStates = exports.vof = void 0;
+    exports.useState = exports.expr = exports.vof = exports.isState = void 0;
+    const symbols = {
+        state: Symbol("RHU.State"),
+        value: Symbol("RHU.State.valueOf"),
+    };
+    const registerState = (state, name) => {
+        const _state = state;
+        _state[Symbol.toPrimitive] = state.valueOf;
+        _state.toString = () => state.valueOf().toString();
+        _state[Symbol.toStringTag] = "RHU.State";
+        Object.defineProperty(_state, symbols.value, {
+            get() { return _state.valueOf(); },
+        });
+        _state[symbols.state] = name ? name : "[[RHU.State]]";
+    };
+    const isState = (obj) => true && obj[symbols.state];
+    exports.isState = isState;
     const vof = (state) => state.valueOf();
     exports.vof = vof;
-    const prefix = (obj, prop, prefix) => {
-        if (!(obj[prop] instanceof Function)) {
-            throw new TypeError(`.${String(prop)} must be a function.`);
-        }
-        if (obj[prop].patched) {
-            throw new TypeError(`.${String(prop)} is already patched.`);
-        }
-        const original = obj[prop];
-        const patch = function (...args) {
-            console.log(`${String(prop)}:`);
-            console.log(args);
-            obj[prop] = original;
-            const result = this[prop](...prefix(...args));
-            obj[prop] = patch;
-            return result;
-        };
-        patch.patched = true;
-        obj[prop] = patch;
-        return original;
-    };
-    const __prefix = (...args) => {
-        return args.map((a) => {
-            if (a === undefined || a === null) {
-                return a;
-            }
-            return a.valueOf();
-        });
-    };
-    const withStates = (expr) => {
-        const __Function_call = prefix(Function.prototype, "call", __prefix);
-        const __Function_apply = prefix(Function.prototype, "apply", __prefix);
-        const __Function_bind = prefix(Function.prototype, "bind", __prefix);
-        expr();
-        Function.prototype.call = __Function_call;
-        Function.prototype.apply = __Function_apply;
-        Function.prototype.bind = __Function_bind;
-    };
-    exports.withStates = withStates;
-    const createState = (_expr) => {
+    const createState = (_expr, name) => {
         const unbound = _expr.bind(undefined);
         const state = function (...args) {
             return (0, exports.expr)(() => _expr().call(this, ...args));
         };
         state.valueOf = unbound;
-        state[Symbol.toPrimitive] = state.valueOf;
+        registerState(state, name);
         return state;
     };
     const stateProxyHandler = {
         get(parent, prop, receiver) {
-            if (prop === "valueOf" || prop === Symbol.toPrimitive) {
+            if (prop === "valueOf" || prop === Symbol.toPrimitive || prop === symbols.state || prop === symbols.value) {
                 return parent[prop];
             }
+            const stateName = parent[symbols.state] + `.${String(prop)}`;
             const target = parent.valueOf();
             const value = target[prop];
             if (value instanceof Function) {
@@ -64,16 +43,16 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
                         const target = parent.valueOf();
                         const _this = this === receiver ? target : this;
                         return target[prop].call(_this, ...args);
-                    });
+                    }, `${stateName}()`);
                 };
                 state.valueOf = () => target[prop];
-                state[Symbol.toPrimitive] = state.valueOf;
+                registerState(state, stateName);
                 return new Proxy(state, stateProxyHandler);
             }
-            return (0, exports.expr)(() => target[prop]);
+            return (0, exports.expr)(() => target[prop], stateName);
         }
     };
-    const expr = (expr) => new Proxy(createState(expr), stateProxyHandler);
+    const expr = (expr, name) => new Proxy(createState(expr, name), stateProxyHandler);
     exports.expr = expr;
     const useState = (init) => {
         let value = init;
