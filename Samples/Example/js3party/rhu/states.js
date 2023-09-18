@@ -1,7 +1,7 @@
 define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.useState = exports.expr = exports.vof = void 0;
+    exports.useState = exports.expr = exports.withStates = exports.vof = void 0;
     const vof = (state) => state.valueOf();
     exports.vof = vof;
     const prefix = (obj, prop, prefix) => {
@@ -9,7 +9,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
             throw new TypeError(`.${String(prop)} must be a function.`);
         }
         if (obj[prop].patched) {
-            return;
+            throw new TypeError(`.${String(prop)} is already patched.`);
         }
         const original = obj[prop];
         const patch = function (...args) {
@@ -22,6 +22,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
         };
         patch.patched = true;
         obj[prop] = patch;
+        return original;
     };
     const __prefix = (...args) => {
         return args.map((a) => {
@@ -31,8 +32,16 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
             return a.valueOf();
         });
     };
-    prefix(Function.prototype, "call", __prefix);
-    prefix(Function.prototype, "bind", (...args) => args);
+    const withStates = (expr) => {
+        const __Function_call = prefix(Function.prototype, "call", __prefix);
+        const __Function_apply = prefix(Function.prototype, "apply", __prefix);
+        const __Function_bind = prefix(Function.prototype, "bind", __prefix);
+        expr();
+        Function.prototype.call = __Function_call;
+        Function.prototype.apply = __Function_apply;
+        Function.prototype.bind = __Function_bind;
+    };
+    exports.withStates = withStates;
     const createState = (_expr) => {
         const unbound = _expr.bind(undefined);
         const state = function (...args) {

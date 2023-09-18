@@ -1,5 +1,5 @@
 import Button from "./Button";
-import { useState, vof, expr } from "rhu";
+import { useState, vof, expr, withStates } from "rhu";
 
 const App = () => (
     <div>
@@ -32,13 +32,16 @@ console.log(static_expression_4);
 let bruh = count.valueOf;
 console.log(vof(bruh));
 console.log(vof(bruh).call(vof(count)));
-//console.log(vof(bruh).call(count)); // Error since count is a state object not actually a number
+//withStates(({ count }) => console.log(vof(bruh).call(count)), { count }); // Error without `withStates` since count is a state object not actually a number so needs to get vof'd
 const [obj, setObj] = useState<{ x: number }>({ x: 13 });
 console.log(obj.x);
 console.log(obj.x.valueOf);
 console.log(vof(obj.x));
 console.log(obj.x.valueOf());
 console.log(vof(obj.x.valueOf()));
+const b = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+console.log(b[obj.x]);
+console.log(b[count]);
 
 // update when count state changes
 setCount((c) => c + 1);

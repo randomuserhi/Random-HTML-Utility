@@ -11,43 +11,6 @@ export interface SetState<T> {
 
 export const vof = <T>(state: State<T>) => state.valueOf();
 
-/*// Patch function calls to auto-convert states values
-const prefix = <T, P extends keyof T>(obj: T, prop: P, prefix: (...args: any[]) => any[]) => {
-    if (!(obj[prop] instanceof Function)) {
-        throw new TypeError(`.${String(prop)} must be a function.`);
-    }
-    if ((obj[prop] as any).patched) {
-        return;
-    }
-
-    const original = obj[prop];
-    const patch: any = function(this: any, ...args: any[]) {
-        console.log(`${String(prop)}:`);
-        console.log(args);
-        obj[prop] = original;
-        const result = this[prop](...prefix(...args));
-        obj[prop] = patch;
-        return result;
-    };
-    patch.patched = true; // change to local symbol?
-    obj[prop] = patch;
-};
-
-// Patch function calls to auto-convert states values
-const __prefix = (...args: any) => {
-    return args.map((a: any) => { 
-        if (a === undefined || a === null) {
-            return a;
-        }
-        
-        // TODO(randomuserhi): check if any args are states and do valueOf only if they are a state
-        return a.valueOf();
-    })
-};
-prefix(Function.prototype, "call", __prefix);
-prefix(Function.prototype, "apply", __prefix);
-prefix(Function.prototype, "bind", __prefix);*/
-
 const createState = <T>(_expr: () => T): State<T> => {
     // NOTE(randomuserhi): bind expression function to undefined to prevent
     //                     use of `this` in the expression.
