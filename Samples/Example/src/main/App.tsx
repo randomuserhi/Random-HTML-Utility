@@ -29,6 +29,16 @@ console.log(test);
 console.log(+test); // 10;
 let static_expression_4 = vof(count) === 10; // true (vof is rhu function for valueOf)
 console.log(static_expression_4);
+let bruh = count.valueOf;
+console.log(vof(bruh));
+console.log(vof(bruh).call(vof(count)));
+//console.log(vof(bruh).call(count)); // Error since count is a state object not actually a number
+const [obj, setObj] = useState<{ x: number }>({ x: 13 });
+console.log(obj.x);
+console.log(obj.x.valueOf);
+console.log(vof(obj.x));
+console.log(obj.x.valueOf());
+console.log(vof(obj.x.valueOf()));
 
 // update when count state changes
 setCount((c) => c + 1);
