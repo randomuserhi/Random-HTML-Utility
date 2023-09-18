@@ -55,7 +55,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     const immediateFunctionalProps = new Set([]);
     const stateProxyHandler = {
         construct(target, args) {
-            return new target.valueOf()(...args);
+            return _expr(() => new target.valueOf()(...args));
         },
         apply(target, thisArg, args) {
             return _expr(() => target.valueOf().call(thisArg, ...args));
