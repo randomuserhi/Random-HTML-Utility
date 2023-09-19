@@ -26,11 +26,13 @@ const registerState = (state: State<any>, name?: string, debugInfo?: DebugInfo) 
     _state[symbols.state] = name ? name : "[[RHU.State]]";
     
     _state[symbols.debugInfo] = debugInfo ? debugInfo : {
-        sequence: [],
+        sequence: [{
+            prop: "[[RHU.State]]",
+        }],
     };
     _state[symbols.debug] = () => {
         const debugInfo: DebugInfo = _state[symbols.debugInfo];
-        let logStr = "[[RHU.State]]";
+        let logStr = "";
         let objects = [];
         for (const { prop, args } of debugInfo.sequence) {
             const functionCall = args !== undefined;
@@ -70,9 +72,14 @@ const createState = <T>(expr: () => T, name?: string, debugInfo?: DebugInfo): St
     // NOTE(randomuserhi): bind expression function to undefined to prevent
     //                     use of `this` in the expression.
     const unbound = expr.bind(undefined);
-    const state: any = {
-        valueOf: unbound,
-    };
+    const state = function(this: any, ...args: any[]): any {
+        const sequence = [...state[symbols.debugInfo].sequence];
+        sequence[sequence.length - 1].args = args;
+        return _expr(() => (unbound() as Function).call(this, ...args), `${state[symbols.state]}(${args})`, {
+            sequence: sequence,
+        });
+    } as any;
+    state.valueOf = unbound;
     registerState(state, name, debugInfo);
     return state;
 };
@@ -89,10 +96,13 @@ const immediateFunctionalProps = new Set<PropertyKey>([
 ]);
 const stateProxyHandler: ProxyHandler<any> = {
     construct(target, args) {
-        return _expr(() => new target.valueOf()(...args));
-    },
-    apply(target, thisArg, args) {
-        return _expr(() => target.valueOf().call(thisArg, ...args));
+        return _expr(() => new (target.valueOf())(...args), `${target[symbols.state]}.[[construct]](${args})`, {
+            sequence: [...target[symbols.debugInfo].sequence, {
+                prop: "[[construct]]",
+                args: args,
+            }],
+        });
+        // TODO(randomuserhi): truncante args to ... if it is too long in stateName
     },
     get(parent, prop, receiver) {
         if (immediateProps.has(prop)) {

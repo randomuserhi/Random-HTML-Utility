@@ -18,11 +18,13 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
         });
         _state[symbols.state] = name ? name : "[[RHU.State]]";
         _state[symbols.debugInfo] = debugInfo ? debugInfo : {
-            sequence: [],
+            sequence: [{
+                    prop: "[[RHU.State]]",
+                }],
         };
         _state[symbols.debug] = () => {
             const debugInfo = _state[symbols.debugInfo];
-            let logStr = "[[RHU.State]]";
+            let logStr = "";
             let objects = [];
             for (const { prop, args } of debugInfo.sequence) {
                 const functionCall = args !== undefined;
@@ -41,9 +43,14 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     exports.vof = vof;
     const createState = (expr, name, debugInfo) => {
         const unbound = expr.bind(undefined);
-        const state = {
-            valueOf: unbound,
+        const state = function (...args) {
+            const sequence = [...state[symbols.debugInfo].sequence];
+            sequence[sequence.length - 1].args = args;
+            return _expr(() => unbound().call(this, ...args), `${state[symbols.state]}(${args})`, {
+                sequence: sequence,
+            });
         };
+        state.valueOf = unbound;
         registerState(state, name, debugInfo);
         return state;
     };
@@ -55,10 +62,12 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     const immediateFunctionalProps = new Set([]);
     const stateProxyHandler = {
         construct(target, args) {
-            return _expr(() => new target.valueOf()(...args));
-        },
-        apply(target, thisArg, args) {
-            return _expr(() => target.valueOf().call(thisArg, ...args));
+            return _expr(() => new (target.valueOf())(...args), `${target[symbols.state]}.[[construct]](${args})`, {
+                sequence: [...target[symbols.debugInfo].sequence, {
+                        prop: "[[construct]]",
+                        args: args,
+                    }],
+            });
         },
         get(parent, prop, receiver) {
             if (immediateProps.has(prop)) {

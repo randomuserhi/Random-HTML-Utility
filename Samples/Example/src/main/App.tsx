@@ -72,6 +72,21 @@ vof(case2);
 console.log(vof(list));
 console.log(vof(case1));
 
+const [construct, setConstruct] = useState<any>(function() { return { a: 5 }; });
+const case3 = construct();
+const case4 = new construct();
+console.log(construct());
+console.log(vof(construct()));
+console.log(vof(case3));
+console.log(case3);
+console.log(vof(case4));
+console.log(case4);
+setConstruct(() => function() { return 10; });
+console.log(vof(case3));
+console.log(case3);
+console.log(vof(case4));
+console.log(case4);
+
 // update when count state changes
 setCount((c) => c + 1);
 console.log(+test); // 10;
