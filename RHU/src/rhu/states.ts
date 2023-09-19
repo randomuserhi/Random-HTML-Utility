@@ -42,7 +42,7 @@ const registerState = (state: State<any>, name?: string, debugInfo?: DebugInfo) 
                 objects.push(args);
             }
         }
-        console.log(logStr, ...objects);
+        console.log(logStr.slice(1), ...objects);
     };
 };
 export const isState = <T = any>(obj: any): obj is State<T> => true && obj[symbols.state];
