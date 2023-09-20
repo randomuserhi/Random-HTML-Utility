@@ -1,7 +1,8 @@
 import { isFunction } from "./utils";
 
-// TODO(randomuserhi): Cleanup code and add documentation
+// TODO(randomuserhi): Cleanup code and add documentation -> fix `any` types
 // TODO(randomuserhi): Ability to turn off debugInfo -> takes up a lot of memory
+// TODO(randomuserhi): Store Reflect.apply somewhere etc... to prevent overwritten overrides breaking functionality
 
 interface Symbols {
     readonly state: unique symbol;
@@ -75,7 +76,7 @@ const createState = <T>(expr: () => T, name?: string, debugInfo?: DebugInfo): St
     const state = function(this: any, ...args: any[]): any {
         const sequence = [...state[symbols.debugInfo].sequence];
         sequence[sequence.length - 1].args = args;
-        return _expr(() => (unbound() as Function).call(this, ...args), `${state[symbols.state]}(${args})`, {
+        return _expr(() => Reflect.apply((unbound() as Function), this, args), `${state[symbols.state]}(${args})`, {
             sequence: sequence,
         });
     } as any;
@@ -95,6 +96,9 @@ const immediateFunctionalProps = new Set<PropertyKey>([
 //    "toString",
 ]);
 const stateProxyHandler: ProxyHandler<any> = {
+    setPrototypeOf() {
+        throw new TypeError("Cannot set prototype of a [[RHU.State]] object.");
+    },
     construct(target, args) {
         return _expr(() => new (target.valueOf())(...args), `${target[symbols.state]}.[[construct]](${args})`, {
             sequence: [...target[symbols.debugInfo].sequence, {
@@ -127,7 +131,7 @@ const stateProxyHandler: ProxyHandler<any> = {
                     // NOTE(randomuserhi): Get latest target and value (in case of updates) 
                     const target = parent.valueOf();
                     const _this = this === receiver ? target : this;
-                    return target[prop].call(_this, ...args); // return result immediately instead of an intermediate state
+                    return Reflect.apply(target[prop], _this, args); // return result immediately instead of an intermediate state
                 };
             } else {
                 state = function(this: any, ...args: any[]): any {
@@ -141,7 +145,7 @@ const stateProxyHandler: ProxyHandler<any> = {
                         // NOTE(randomuserhi): Get latest target and value (in case of updates) 
                         const target = parent.valueOf();
                         const _this = this === receiver ? target : this;
-                        return target[prop].call(_this, ...args);
+                        return Reflect.apply(target[prop], _this, args);
                     }, `${stateName}(${args})`, debugInfo); // return intermediate state as function call
                     // TODO(randomuserhi): truncante args to ... if it is too long in stateName
                 };

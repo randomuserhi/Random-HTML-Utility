@@ -16,7 +16,7 @@ const [count, setCount] = useState<number>(10);
 // count: [[object StateObject]] -> valueOf 10
 
 // does not update when count state changes
-let static_expression_0 = count + 10; // 20
+let static_expression_0 = vof(count) + 10; // 20
 console.log(static_expression_0);
 let static_expression_1 = count == 10; // true
 console.log(static_expression_1);
@@ -29,7 +29,7 @@ console.log(test);
 console.log(+test); // 10;
 let static_expression_4 = vof(count) === 10; // true (vof is rhu function for valueOf)
 console.log(static_expression_4);
-let bruh = count.valueOf;
+let bruh = count.toString;
 console.log(vof(bruh));
 console.log(vof(bruh).call(vof(count)));
 //withStates(({ count }) => console.log(vof(bruh).call(count)), { count }); // Error without `withStates` since count is a state object not actually a number so needs to get vof'd
@@ -72,16 +72,22 @@ vof(case2);
 console.log(vof(list));
 console.log(vof(case1));
 
-const [construct, setConstruct] = useState<any>(function() { return { a: 5 }; });
+const [construct, setConstruct] = useState<any>(function(this: any) { if (new.target === undefined) return { a:7 }; this.a = 5; });
 const case3 = construct();
+Object.setPrototypeOf(vof(construct), {b: 10});
+Object.setPrototypeOf(vof(construct).prototype, {b: 10});
+console.log(vof(construct.b));
 const case4 = new construct();
+console.log(case4.b);
+console.log(vof(case4.b));
+console.log(vof(case4));
 console.log(construct());
 console.log(vof(construct()));
 console.log(vof(case3));
 console.log(case3);
 console.log(vof(case4));
 console.log(case4);
-setConstruct(() => function() { return 10; });
+setConstruct(() => function() { return 10; } as any);
 console.log(vof(case3));
 console.log(case3);
 console.log(vof(case4));

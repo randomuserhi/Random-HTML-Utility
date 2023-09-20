@@ -34,7 +34,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
                     objects.push(args);
                 }
             }
-            console.log(logStr, ...objects);
+            console.log(logStr.slice(1), ...objects);
         };
     };
     const isState = (obj) => true && obj[symbols.state];
@@ -46,7 +46,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
         const state = function (...args) {
             const sequence = [...state[symbols.debugInfo].sequence];
             sequence[sequence.length - 1].args = args;
-            return _expr(() => unbound().call(this, ...args), `${state[symbols.state]}(${args})`, {
+            return _expr(() => Reflect.apply(unbound(), this, args), `${state[symbols.state]}(${args})`, {
                 sequence: sequence,
             });
         };
@@ -61,6 +61,9 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
     ]);
     const immediateFunctionalProps = new Set([]);
     const stateProxyHandler = {
+        setPrototypeOf() {
+            throw new TypeError("Cannot set prototype of a [[RHU.State]] object.");
+        },
         construct(target, args) {
             return _expr(() => new (target.valueOf())(...args), `${target[symbols.state]}.[[construct]](${args})`, {
                 sequence: [...target[symbols.debugInfo].sequence, {
@@ -87,7 +90,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
                     state = function (...args) {
                         const target = parent.valueOf();
                         const _this = this === receiver ? target : this;
-                        return target[prop].call(_this, ...args);
+                        return Reflect.apply(target[prop], _this, args);
                     };
                 }
                 else {
@@ -101,7 +104,7 @@ define(["require", "exports", "./utils"], function (require, exports, utils_1) {
                         return _expr(() => {
                             const target = parent.valueOf();
                             const _this = this === receiver ? target : this;
-                            return target[prop].call(_this, ...args);
+                            return Reflect.apply(target[prop], _this, args);
                         }, `${stateName}(${args})`, debugInfo);
                     };
                 }
