@@ -1,9 +1,8 @@
 { 
   "compilerOptions": {
-    "outDir": "./build",
-    "target": "ESNext",
-    "module": "AMD",
-    "strict": true,
+    "rootDir": "./src",
+    "outDir": "build",
+    "target": "ES2021",
     "noImplicitAny": true,
     "noImplicitThis": true,
     "strictNullChecks": true,
@@ -12,5 +11,5 @@
     "removeComments": true,
     "sourceMap": false,
   },
-  "include": ["./src/**/*"],
+  "include": ["./src/**/*","./types/**/*"],
 }

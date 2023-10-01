@@ -1,0 +1,19 @@
+{
+    "name": "rhu-jsx",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "transpile": "npx tsc",
+        "clean": "npx rimraf build/",
+        "build": "npm run transpile"
+    },
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "copyfiles": "^2.4.1",
+        "rimraf": "^5.0.1",
+        "typescript": "^5.2.2"
+    }
+  }
+  
