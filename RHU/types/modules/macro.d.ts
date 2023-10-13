@@ -1,3 +1,7 @@
+interface GlobalEventHandlersEventMap {
+    "mount": CustomEvent<{}>;
+}
+
 declare namespace RHU
 {
     interface Modules

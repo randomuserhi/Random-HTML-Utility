@@ -610,6 +610,7 @@
                 if (isElement(node) && Element_hasAttribute(node as Element, "rhu-macro")) 
                 {
                     Macro.parse(node as Element, Element_getAttribute(node as Element, "rhu-macro"));
+                    (node as Element).dispatchEvent(RHU.CustomEvent("mount", {}));
                     return;
                 }
                 for (let child of node.childNodes)
