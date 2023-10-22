@@ -18,6 +18,7 @@ RHU.module(new Error(), "docuscript/style",
             style`
             ${body} h1, h2, h3, h4, h5, h6 {
                 padding-bottom: 8px;
+                padding-top: 16px;
                 font-weight: 700;
             }
 

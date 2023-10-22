@@ -9,10 +9,10 @@ RHU.require(new Error(), {
     const page = docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
         h, p,
     }) => {
-        h(1, "About");
         p(
             "Random HTML Utility is a pure JS library (with TypeScript) support for developing webpages."
         );
+        h(1, "About");
     }, rhuDocuscript);
     docs.get(version)!.setCache(path, page);
     return page;
