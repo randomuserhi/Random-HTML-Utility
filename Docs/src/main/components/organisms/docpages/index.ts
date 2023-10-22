@@ -50,12 +50,12 @@ declare namespace Atoms {
 RHU.module(new Error(), "components/organisms/docpages", { 
     Macro: "rhu/macro", style: "components/organsisms/docpages/style",
     filterlist: "components/molecules/filterlist",
-    rhuDocuscript: "docuscript", rhuDocuscriptStyle: "docuscript/style",
+    rhuDocuscript: "docuscript", rhuDocuscriptStyle: "docuscript/style", rhuDocuscriptPages: "docuscript/pages",
     docs: "docs", indices: "docs/indices",
 }, function({ 
     Macro, style,
     filterlist,
-    rhuDocuscript, rhuDocuscriptStyle,
+    rhuDocuscript, rhuDocuscriptStyle, rhuDocuscriptPages,
     docs, indices,
 }) {
     const DOCUSCRIPT_ROOT = indices.DOCUSCRIPT_ROOT;
@@ -124,38 +124,6 @@ RHU.module(new Error(), "components/organisms/docpages", {
             });
         }
     };
-
-    const LoadingPage = docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
-        h
-    }) => {
-        h(1, "Page is loading.");
-    }, rhuDocuscript);
-
-    const FailedLoadingPage = docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
-        h
-    }) => {
-        h(1, "Page failed to load.");
-    }, rhuDocuscript);
-
-    const PageNotFound = docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
-        h, p
-    }) => {
-        h(1, "Page not found.");
-    }, rhuDocuscript);
-
-    const VersionNotFound = docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
-        h, p
-    }) => {
-        h(1, "Version not found.");
-    }, rhuDocuscript);
-
-    const DirectoryPage = (directory: Page) => {
-        return docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
-
-        }) => {
-
-        }, rhuDocuscript);
-    }
 
     const headeritem = Macro((() => {
         const headeritem = function(this: Atoms.Headeritem) {
@@ -383,24 +351,24 @@ RHU.module(new Error(), "components/organisms/docpages", {
                         if (RHU.exists(directory.page.cache)) {
                             this.render(directory.page.cache, index, directory, !rerender);
                         } else {
-                            this.render(LoadingPage);
+                            this.render(rhuDocuscriptPages.loadingPage);
                             loadPage(this.currentVersion, directory.page, {
                                 onload: () => {
                                     this.render(directory.page!.cache!, index, directory, !rerender);
                                 }, 
                                 onerror: () => {
-                                    this.render(FailedLoadingPage);
+                                    this.render(rhuDocuscriptPages.failedToLoadPage);
                                 }
                             });
                         }
                     } else {
-                        this.render(DirectoryPage(directory));
+                        this.render(rhuDocuscriptPages.directoryPage(directory));
                     }
                 } else {
-                    this.render(PageNotFound);
+                    this.render(rhuDocuscriptPages.pageNotFound);
                 }
             } else {
-                this.render(VersionNotFound);
+                this.render(rhuDocuscriptPages.versionNotFound);
             }
         }
 

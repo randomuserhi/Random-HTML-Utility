@@ -7,10 +7,12 @@ RHU.require(new Error(), {
     const path = "Random HTML Utility";
     
     const page = docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
-        h, p,
+        h, p, div, br
     }) => {
-        p(
-            "Random HTML Utility is a pure JS library (with TypeScript) support for developing webpages."
+        div(
+            "Random HTML Utility (RHU) is a pure JS library, with TypeScript support, for developing webpages.",
+            br(),
+            "RHU was not made as a competitive replacement to well-known frameworks such as React or Svelt. It instead was made for the learning experience and to experiment with for personal use."
         );
         h(1, "About");
     }, rhuDocuscript);
