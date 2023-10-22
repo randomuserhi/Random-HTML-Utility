@@ -22,6 +22,12 @@ declare namespace RHUDocuscript {
         };
         div: {};
         frag: {};
+        pl: {
+            path: string;
+            index?: number;
+            link?: string;
+            onclick?: () => void;
+        };
     }
     type Language = keyof NodeMap;
 
@@ -35,6 +41,8 @@ declare namespace RHUDocuscript {
     
         div: (...children: (string | Node)[]) => Node<"div">;
         frag: (...children: (string | Node)[]) => Node<"frag">;
+
+        pl: (path: string, index?: number, ...children: (string | Node)[]) => Node<"pl">;
     }
 
     type Page = Docuscript.Page<Language, FuncMap>;
@@ -48,6 +56,43 @@ RHU.module(new Error(), "docuscript", {
     type context = RHUDocuscript.Context;
     type node<T extends RHUDocuscript.Language | undefined = undefined> = RHUDocuscript.Node<T>;
     return {
+        pl: {
+            create: function(this: context, path, index, ...children) {
+                let node: node<"pl"> = {
+                    __type__: "pl",
+                    path,
+                    index,
+                };
+
+                for (let child of children) {
+                    let childNode: node;
+                    if (typeof child === "string") {
+                        childNode = this.nodes.text(child);
+                    } else {
+                        childNode = child;
+                    }
+                    
+                    this.remount(childNode, node);
+                }
+
+                return node;
+            },
+            parse: function(node) {
+                const pl = node as node<"pl">;
+                const dom = document.createElement(`a`);
+                dom.style.textDecoration = "inherit"; // TODO(randomuserhi): style properly with :hover { text-decoration: underline; }
+                if (pl.link) {
+                    dom.href = pl.link;
+                    dom.addEventListener("click", (e) => {  
+                        e.preventDefault();
+                        if (pl.onclick) {
+                            pl.onclick(); 
+                        }
+                    });
+                }
+                return dom;
+            }
+        },
         img: {
             create: function(src) {
                 return {

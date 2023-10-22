@@ -44,10 +44,12 @@ RHU.module(new Error(), "docuscript/pages", {
     
     const directoryPage = (directory: Page) => {
         return docuscript<RHUDocuscript.Language, RHUDocuscript.FuncMap>(({
-            p
+            pl, br
         }) => {
             for (const subDir of directory.sortedKeys()) {
-                p(subDir);
+                const dir = directory.subDirectories.get(subDir)!;
+                pl(dir.fullPath(), undefined, subDir);
+                br();
             }
         }, rhuDocuscript);
     }

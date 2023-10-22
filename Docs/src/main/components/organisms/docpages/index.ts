@@ -248,6 +248,17 @@ RHU.module(new Error(), "components/organisms/docpages", {
                         url.searchParams.set("index", _i);
                         const link = url.toString();
                         h.link = link;
+                    } else if (node.__type__ === "pl") {
+                        const pl = node as RHUDocuscript.Node<"pl">;
+
+                        const url = new URL(window.location.origin + window.location.pathname);
+                        url.searchParams.set("version", this.currentVersion);
+                        url.searchParams.set("page", this.currentPath);
+                        if (pl.index) {
+                            url.searchParams.set("index", pl.index.toString());
+                        }
+                        const link = url.toString();
+                        pl.link = link;
                     }
                 },
                 post: (node, dom) => {
@@ -297,6 +308,11 @@ RHU.module(new Error(), "components/organisms/docpages", {
                         } else {
                             frag.append(item);
                         }
+                    } else if (node.__type__ === "pl") {
+                        const pl = node as RHUDocuscript.Node<"pl">;
+                        pl.onclick = () => {
+                            this.view(this.currentVersion, pl.path, pl.index ? pl.index.toString() : undefined, false);
+                        };
                     }
                 }
             });
