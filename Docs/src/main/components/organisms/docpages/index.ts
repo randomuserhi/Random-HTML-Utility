@@ -346,9 +346,9 @@ RHU.module(new Error(), "components/organisms/docpages", {
                 const directory = version.get(this.currentPath);
                 if (RHU.exists(directory)) {
                     this.pageTitle.replaceChildren(directory.name);
+                    this.setPath(this.currentPath);
+                    this.filterlist.setActive(this.currentPath, seek);
                     if (RHU.exists(directory.page)) {
-                        this.setPath(this.currentPath);
-                        this.filterlist.setActive(this.currentPath, seek);
                         if (RHU.exists(directory.page.cache)) {
                             this.render(directory.page.cache, index, directory, !rerender);
                         } else {
