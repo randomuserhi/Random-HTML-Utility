@@ -341,13 +341,14 @@ RHU.module(new Error(), "components/organisms/docpages", {
             }
 
             const version = docs.get(this.currentVersion);
+            this.pageTitle.replaceChildren();
             if (RHU.exists(version)) {
                 const directory = version.get(this.currentPath);
                 if (RHU.exists(directory)) {
+                    this.pageTitle.replaceChildren(directory.name);
                     if (RHU.exists(directory.page)) {
                         this.setPath(this.currentPath);
                         this.filterlist.setActive(this.currentPath, seek);
-                        this.pageTitle.replaceChildren(directory.name);
                         if (RHU.exists(directory.page.cache)) {
                             this.render(directory.page.cache, index, directory, !rerender);
                         } else {
