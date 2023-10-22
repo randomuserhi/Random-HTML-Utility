@@ -79,7 +79,7 @@ RHU.module(new Error(), "components/organsisms/docpages/style",
             flex-shrink: 0;
             `;
             style/*css*/`
-            @media screen and (max-width: 780px) { /* if width <= 780 */
+            @media screen and (max-width: 950px) { /* if width <= 950 */
                 ${outline} {
                     display: none;
                 }
