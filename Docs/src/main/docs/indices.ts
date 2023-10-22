@@ -25,9 +25,6 @@ declare namespace RHU {
         
         ((docs: Docs) => {
             docs.set("Random HTML Utility", "RHU.js");
-            docs.set("test/nested_3");
-            docs.set("test/nested_2");
-            docs.set("test/nested_1");
         })(docs.create("1.0.0", "Random HTML Utility"));
 
         return {

@@ -28,6 +28,7 @@ declare namespace RHUDocuscript {
             link?: string;
             onclick?: () => void;
         };
+        code: {};
     }
     type Language = keyof NodeMap;
 
@@ -37,12 +38,14 @@ declare namespace RHUDocuscript {
         br: () => Node<"br">;
         p: (...children: (string | Node)[]) => Node<"p">;
         
-        h: (heading: number, label: string) => Node<"h">;
+        h: (heading: number, label: string, ...children: (string | Node)[]) => Node<"h">;
     
         div: (...children: (string | Node)[]) => Node<"div">;
         frag: (...children: (string | Node)[]) => Node<"frag">;
 
         pl: (path: string, index?: number, ...children: (string | Node)[]) => Node<"pl">;
+
+        code: (...children: (string | Node)[]) => Node<"code">;
     }
 
     type Page = Docuscript.Page<Language, FuncMap>;
@@ -51,11 +54,49 @@ declare namespace RHUDocuscript {
     type Node<T extends Language | undefined = undefined> = Docuscript.NodeDef<NodeMap, T>;
 }
 
-RHU.module(new Error(), "docuscript", { 
-}, function({}) {
+RHU.module(new Error(), "docuscript", {
+    codeblock: "docuscript/components/molecules/codeblock"
+}, function({
+    codeblock
+}) {
     type context = RHUDocuscript.Context;
     type node<T extends RHUDocuscript.Language | undefined = undefined> = RHUDocuscript.Node<T>;
+
+    const mountChildren = (context: context, node: node, children: (string | node)[], conversion: (text: string) => node) => {
+        for (let child of children) {
+            let childNode: node;
+            if (typeof child === "string") {
+                childNode = conversion(child);
+            } else {
+                childNode = child;
+            }
+            
+            context.remount(childNode, node);
+        }
+    };
+    const mountChildrenText = (context: context, node: node, children: (string | node)[]) => {
+        mountChildren(context, node, children, (text) => context.nodes.text(text));
+    }
+    const mountChildrenP = (context: context, node: node, children: (string | node)[]) => {
+        mountChildren(context, node, children, (text) => context.nodes.p(text));
+    }
+
     return {
+        code: {
+            create: function(this: context, ...children) {
+                let node: node<"code"> = {
+                    __type__: "code"
+                };
+
+                mountChildrenText(this, node, children);
+
+                return node;
+            },
+            parse: function(node) {
+                const dom = document.createMacro(codeblock);
+                return dom;
+            }
+        },
         pl: {
             create: function(this: context, path, index, ...children) {
                 let node: node<"pl"> = {
@@ -64,16 +105,7 @@ RHU.module(new Error(), "docuscript", {
                     index,
                 };
 
-                for (let child of children) {
-                    let childNode: node;
-                    if (typeof child === "string") {
-                        childNode = this.nodes.text(child);
-                    } else {
-                        childNode = child;
-                    }
-                    
-                    this.remount(childNode, node);
-                }
+                mountChildrenText(this, node, children);
 
                 return node;
             },
@@ -133,16 +165,7 @@ RHU.module(new Error(), "docuscript", {
                     __type__: "p",
                 };
 
-                for (let child of children) {
-                    let childNode: node;
-                    if (typeof child === "string") {
-                        childNode = this.nodes.text(child);
-                    } else {
-                        childNode = child;
-                    }
-                    
-                    this.remount(childNode, node);
-                }
+                mountChildrenText(this, node, children);
 
                 return node;
             },
@@ -151,12 +174,19 @@ RHU.module(new Error(), "docuscript", {
             }
         },
         h: {
-            create: function(this: context, heading, label) {
+            create: function(this: context, heading, label, ...children) {
                 let node: node<"h"> = {
                     __type__: "h",
                     heading,
                     label,
                 };
+
+                if (children.length === 0) {
+                    this.remount(this.nodes.text(label), node);
+                } else {
+                    mountChildrenText(this, node, children);
+                }
+
                 return node;
             },
             parse: function(node) {
@@ -181,7 +211,6 @@ RHU.module(new Error(), "docuscript", {
                     });
                     dom.append(link);
                 }
-                dom.append(h.label);
                 return dom;
             }
         },
@@ -191,16 +220,7 @@ RHU.module(new Error(), "docuscript", {
                     __type__: "div",
                 };
                 
-                for (let child of children) {
-                    let childNode: node;
-                    if (typeof child === "string") {
-                        childNode = this.nodes.p(child);
-                    } else {
-                        childNode = child;
-                    }
-                    
-                    this.remount(childNode, node);
-                }
+                mountChildrenP(this, node, children);
 
                 return node;
             },
@@ -214,16 +234,7 @@ RHU.module(new Error(), "docuscript", {
                     __type__: "frag",
                 };
                 
-                for (let child of children) {
-                    let childNode: node;
-                    if (typeof child === "string") {
-                        childNode = this.nodes.p(child);
-                    } else {
-                        childNode = child;
-                    }
-                    
-                    this.remount(childNode, node);
-                }
+                mountChildrenP(this, node, children);
 
                 return node;
             },
