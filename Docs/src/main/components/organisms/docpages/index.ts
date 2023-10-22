@@ -253,7 +253,7 @@ RHU.module(new Error(), "components/organisms/docpages", {
 
                         const url = new URL(window.location.origin + window.location.pathname);
                         url.searchParams.set("version", this.currentVersion);
-                        url.searchParams.set("page", this.currentPath);
+                        url.searchParams.set("page", pl.path);
                         if (pl.index) {
                             url.searchParams.set("index", pl.index.toString());
                         }
