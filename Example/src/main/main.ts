@@ -6,60 +6,56 @@ declare namespace RHU {
     namespace Macro {
         interface TemplateMap
         {
-            "appmount": appmount;
+            "App": App;
         }
     }
 }
 
-interface appmount extends HTMLDivElement
+interface App extends HTMLDivElement
 {
 }
 
-RHU.module(new Error(), "Main", 
-    { Style: "rhu/style", Macro: "rhu/macro" },
-    function({ Style, Macro }) {
-        const style = Style(({ style, css }) => {
-            const wrapper = style.class`
-            display: flex;
-            gap: 10px;
+RHU.module(new Error(), "Main", { 
+    Style: "rhu/style", Macro: "rhu/macro",
+    exampleComponent: "components/organisms/exampleComponent"
+}, function({ 
+    Style, Macro, exampleComponent 
+}) {
+    const style = Style(({ style }) => {
+        const wrapper = style.class`
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        height: 100%;
+        background-color: blue;
+        padding: 10px;
+        `;
+
+        style`
+        ${wrapper}>div {
             width: 100%;
-            height: 100%;
-            background-color: blue;
-            padding: 10px;
-            ${css({
-                border: {
-                    borderRadius: 5
-                }
-            })}
-            `;
+            height: 10px;
+            background-color: white;
+        }
+        `;
 
-            style`
-            ${wrapper}>div {
-                width: 100%;
-                height: 10px;
-                background-color: white;
-            }
-            `;
+        return {
+            wrapper
+        }
+    });
+    
+    Macro((() => {
+        const App = function(this: App)
+        {
+            
+        } as RHU.Macro.Constructor<App>;
 
-            return {
-                wrapper
-            }
+        return App;
+    })(), "App", //html
+        `
+        <rhu-macro rhu-type="${exampleComponent}"></rhu-macro>
+        `, {
+            element: //html
+            `<div class="${style.wrapper}"></div>`
         });
-        
-        Macro((() => {
-            const appmount = function(this: appmount)
-            {
-                
-            } as RHU.Macro.Constructor<appmount>;
-
-            return appmount;
-        })(), "appmount", //html
-            `
-            <div>
-            </div>
-            `, {
-                element: //html
-                `<div class="${style.wrapper}"></div>`
-            });
-    }
-);
+});

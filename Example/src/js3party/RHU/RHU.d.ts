@@ -8,9 +8,13 @@ interface Constructor
 }
 type Prototype<T extends Constructor> = T extends { new(...args: any[]): any; prototype: infer Proto; } ? Proto : never;
 
+type CustomEventMap = {
+    [K in keyof GlobalEventHandlersEventMap as GlobalEventHandlersEventMap[K] extends CustomEvent ? K : never]: GlobalEventHandlersEventMap[K] extends CustomEvent ? GlobalEventHandlersEventMap[K]["detail"] : never;
+}
+
 type ReadOnly<T> = { readonly [key in keyof T]: ReadOnly<T[key]> };
 type Mutable<T> = { -readonly [key in keyof T]: Mutable<T[key]> };
-type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 declare namespace RHU
 {
@@ -68,6 +72,7 @@ declare namespace RHU
     export const imports: RHU.Module[];
     export const waiting: RHU.Module[];
 
+    export function CustomEvent<T extends keyof CustomEventMap>(type: T, detail: CustomEventMap[T]): GlobalEventHandlersEventMap[T];
     export function CustomEvent<T = any>(type: string, detail: T): CustomEvent<T>;
 
     // NOTE(randomuserhi): Type definitions to get around https://github.com/microsoft/TypeScript/issues/28357

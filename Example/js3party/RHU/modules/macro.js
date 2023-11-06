@@ -99,6 +99,12 @@
                 content: undefined
             };
             RHU.parseOptions(opt, options);
+            let doc = Macro.parseDomString(opt.element);
+            let macro = doc.children[0];
+            if (!RHU.exists(macro))
+                throw new SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
+            if (macro.tagName === "RHU-MACRO")
+                throw new Error(`Container element cannot be the tag RHU-MACRO.`);
             templates.set(type, {
                 constructor: constructor,
                 type: type,
@@ -199,12 +205,17 @@
                 }
                 Object.setPrototypeOf(target, proxy);
             }
-            let doc = Macro.parseDomString(RHU.exists(definition.source) ? definition.source : "");
+            let doc;
+            let source = RHU.exists(definition.source) ? definition.source : "";
             if (!options.floating) {
                 slot = document.createElement("div");
                 element.replaceWith(slot);
-                element.append(...doc.childNodes);
+                element.innerHTML = source;
+                doc = new DocumentFragment();
                 doc.append(element);
+            }
+            else {
+                doc = Macro.parseDomString(source);
             }
             let properties = {};
             let checkProperty = (identifier) => {
@@ -356,6 +367,7 @@
         let recursiveParse = function (node) {
             if (isElement(node) && Element_hasAttribute(node, "rhu-macro")) {
                 Macro.parse(node, Element_getAttribute(node, "rhu-macro"));
+                node.dispatchEvent(RHU.CustomEvent("mount", {}));
                 return;
             }
             for (let child of node.childNodes)
