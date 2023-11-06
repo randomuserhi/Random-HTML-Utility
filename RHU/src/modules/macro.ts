@@ -599,18 +599,28 @@
 
                 // Parse macros on document
                 let macros = document.querySelectorAll("[rhu-macro]");
-                for (let el of macros) Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
+                for (let el of macros) {
+                    Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
+                    recursiveDispatch(el);
+                }
 
                 // Initialize observer
                 Macro.observe(document);
             };
 
+            let recursiveDispatch = function(node: Node): void 
+            {
+                if (isElement(node) && Element_hasAttribute(node as Element, "rhu-macro")) 
+                    (node as Element).dispatchEvent(RHU.CustomEvent("mount", {}));
+                for (let child of node.childNodes)
+                    recursiveDispatch(child);
+            }
             let recursiveParse = function(node: Node): void
             {
                 if (isElement(node) && Element_hasAttribute(node as Element, "rhu-macro")) 
                 {
                     Macro.parse(node as Element, Element_getAttribute(node as Element, "rhu-macro"));
-                    (node as Element).dispatchEvent(RHU.CustomEvent("mount", {}));
+                    recursiveDispatch(node);
                     return;
                 }
                 for (let child of node.childNodes)
