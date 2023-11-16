@@ -12,7 +12,7 @@ declare namespace RHU
     interface Macro
     {
         
-        <T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string, options: RHU.Macro.Options): T;
+        <T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string, options: RHU.Macro.Options): Macro.Template<T>;
         
         parseDomString(str: string): DocumentFragment;
         
@@ -23,6 +23,13 @@ declare namespace RHU
 
     namespace Macro
     {
+        interface Template<T extends RHU.Macro.Templates> {
+            (first: TemplateStringsArray, ...interpolations: (string | { [Symbol.toPrimitive]: (...args: any[]) => string })[]): string;
+            type: T;
+            toString: () => T;
+            [Symbol.toPrimitive]: () => string;
+        }
+
         interface Options
         {
 
@@ -61,9 +68,9 @@ interface Node
 interface Document
 {
     
-    createMacro<T extends string & keyof RHU.Macro.TemplateMap>(type: T): RHU.Macro.TemplateMap[T];
+    createMacro<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>): RHU.Macro.TemplateMap[T];
     
-    Macro<T extends string & keyof RHU.Macro.TemplateMap>(type: T, attributes: Record<string, string>): string;
+    Macro<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>, attributes: Record<string, string>): string;
 }
 
 interface Element

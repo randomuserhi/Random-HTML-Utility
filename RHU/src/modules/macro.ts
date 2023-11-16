@@ -85,9 +85,10 @@
             if (!RHU.exists(Descriptor_parentNode)) throw new ReferenceError("Node.prototype.parentNode is null or undefined.");
             Node_parentNode = Function.call.bind(Descriptor_parentNode.get);
 
-            Document.prototype.createMacro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T): RHU.Macro.TemplateMap[T]
+            Document.prototype.createMacro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>): RHU.Macro.TemplateMap[T]
             {
-                let definition = templates.get(type);
+                let T = type.toString();
+                let definition = templates.get(T);
                 if (!RHU.exists(definition)) definition = defaultTemplate;
                 let options = definition.options;
 
@@ -95,23 +96,24 @@
 
                 let doc = Macro.parseDomString(options.element);
                 let el: _Element = doc.children[0];
-                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
+                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${T}'.`);
                 el.remove(); //un bind element from temporary doc
-                Element_setAttribute(el, "rhu-macro", type);
-                Macro.parse(el, type);
+                Element_setAttribute(el, "rhu-macro", T);
+                Macro.parse(el, T);
                 return el[symbols.macro] as RHU.Macro.TemplateMap[T];
             };
 
-            Document.prototype.Macro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T, attributes: Record<string, string>): string
+            Document.prototype.Macro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>, attributes: Record<string, string>): string
             {
-                let definition = templates.get(type);
+                let T = type.toString();
+                let definition = templates.get(T);
                 if (!RHU.exists(definition)) definition = defaultTemplate;
                 let options = definition.options;
 
                 let doc = Macro.parseDomString(options.element);
                 let el = doc.children[0];
-                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
-                Element_setAttribute(el, "rhu-macro", type);
+                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${T}'.`);
+                Element_setAttribute(el, "rhu-macro", T);
                 for (let key in attributes) el.setAttribute(key, attributes[key]);
                 el.remove(); //un bind element from temporary doc
                 return el.outerHTML;
@@ -140,8 +142,28 @@
                 }
             });
 
+            const Template = function<T extends RHU.Macro.Templates>(type: T): RHU.Macro.Template<T> {
+                let template = function(first: TemplateStringsArray, ...interpolations: (string)[]): string {
+                    let generatedCode: string = `<rhu-macro rhu-type="${type}" ${first[0]}`;
+                    for (let i = 0; i < interpolations.length; ++i)
+                    {
+                        const interpolation = interpolations[i];
+                        generatedCode += interpolation;
+                        generatedCode += first[i + 1];
+                    }
+                    generatedCode += `></rhu-macro>`;
+                    return generatedCode;
+                } as RHU.Macro.Template<T>;
+
+                template.type = type;
+                template.toString = () => type,
+                template[Symbol.toPrimitive] = () => `<rhu-macro rhu-type="${type}"></rhu-macro>`
+
+                return template;
+            };
+
             const Macro: RHU.Macro
-            = function<T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string = "", options: RHU.Macro.Options): T
+            = function<T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string = "", options: RHU.Macro.Options): RHU.Macro.Template<T>
             {
                 if (type == "") throw new SyntaxError("'type' cannot be blank.");
                 if (typeof type !== "string") throw new TypeError("'type' must be a string.");
@@ -183,7 +205,7 @@
                     for (let el of update)
                         Macro.parse(el, type, true);
 
-                return type;
+                return Template(type);
             } as RHU.Macro;
             let templates = new Map<string | undefined | null, MacroTemplate>();
             let defaultTemplate: MacroTemplate = {
