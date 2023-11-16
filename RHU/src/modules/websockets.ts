@@ -74,7 +74,7 @@
                     // TODO(randomuserhi): Not sure about saving args like this, seems dodgy way of handling reconnect
                     this.args = args;
 
-                    eventTarget.call(this);
+                    eventTarget(this);
 
                     let params: RHU.WebSockets.Options = {
                         url: "",
