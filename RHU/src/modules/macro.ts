@@ -2,6 +2,7 @@
     /**
      * TODO(randomuserhi): Better Error handling => locate root cause of failed parses
      * TODO(randomuserhi): Anonymous macros => create dom from macro string and return fragment + js object containing dom by rhu-id
+     * TODO(randomuserhi): Replace floating macros with fragments
      */
 
     /**
@@ -216,10 +217,23 @@
                 return RHU.clone(prototype, clonePrototypeChain(next, last));
             };
 
-            let parseStack: string[] = [];
+            const errorHandle = function(type: "parser" | "constructor", macro: string & {} | RHU.Macro.Templates, e: any, root: boolean) {
+                switch(type) {
+                case "parser": {
+                    if (typeof e === "string") {
+                        throw e;
+                    }
+                    // falls through
+                }
+                default: {
+                    const message = typeof e === "string" ? e : `\n\n${e.stack}`;
+                    throw `\n[__${type}__] ${root ? "Macro.Parse(" : "__parse__("}${macro})${message}`;
+                }
+                }
+            };
             const watching: Map<string, RHU.WeakCollection<Element>> 
             = new Map<string, RHU.WeakCollection<Element>>(); // Stores active macros that are being watched
-            const _parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void {
+            const _parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, parseStack: string[], root: boolean = true, force: boolean = false): void {
                 /**
                  * NOTE(randomuserhi): Since rhu-macro elements may override their builtins, Element.prototype etc... are used
                  *                     to prevent undefined behaviour when certain builtins are overridden.
@@ -415,7 +429,11 @@
                                 get: function() { return el[symbols.macro]; }
                             });
                         }
-                        _parse(el, type);
+                        try {
+                            _parse(el, type, parseStack);
+                        } catch (e) {
+                            errorHandle("parser", type, e, root);
+                        }
                     } else {
                         // If the macro is not floating, parse it and create the container the macro needs to be inside
                         const doc = Macro.parseDomString(options.element);
@@ -446,7 +464,12 @@
                 // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
                 for (const el of doc.querySelectorAll("*[rhu-macro]")) {
                     if (el === element) continue;
-                    _parse(el, Element_getAttribute(el, "rhu-macro"));
+                    const type = Element_getAttribute(el, "rhu-macro");
+                    try {
+                        _parse(el, type, parseStack);
+                    } catch (e) {
+                        errorHandle("parser", type, e, root);
+                    }
                 }
 
                 // If element was floating, place children onto element
@@ -491,7 +514,6 @@
                 
                 // Add properties to target
                 if (RHU.exists(options.encapsulate)) {            
-                    //if (typeof options.encapsulate !== "string") throw new TypeError("Option 'encapsulate' must be a string.");
                     checkProperty(options.encapsulate);
                     RHU.definePublicAccessor(proxy, options.encapsulate, {
                         get: function() { return properties; }
@@ -501,7 +523,7 @@
                 try {
                     constructor.call(target);
                 } catch (e) {
-                    throw new Error(`Constructor for macro of type '${type}' failed unexpectedly:\n${e.toString()}`);
+                    errorHandle("constructor", type, e, root);
                 }
 
                 // Update live map
@@ -535,12 +557,7 @@
                 parseStack.pop();
             };
             Macro.parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void {
-                try {
-                    parseStack = [];
-                    _parse(element, type, force);
-                } catch (e) {
-                    throw new Error(`Failed to parse macro of type '${type}':\n${e.toString()}\n\nParse Stack:\n${parseStack.join("\n- ")}`);
-                }
+                _parse(element, type, [], true, force);
             };
 
             const load: () => void = function(): void {
