@@ -72,6 +72,7 @@ declare namespace RHU
     export function status(): void;
     export const imports: RHU.Module[];
     export const waiting: RHU.Module[];
+    export const failed: RHU.Module[];
 
     export function CustomEvent<T extends keyof CustomEventMap>(type: T, detail: CustomEventMap[T]): GlobalEventHandlersEventMap[T];
     export function CustomEvent<T = any>(type: string, detail: T): CustomEvent<T>;

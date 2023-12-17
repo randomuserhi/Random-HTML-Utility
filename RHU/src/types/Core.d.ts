@@ -72,6 +72,7 @@ declare namespace Core
     interface ModuleLoader
     {
         loading: Set<ModuleLoader.Import>;
+        failed: RHU.Module[];
         watching: RHU.Module[];
         imported: RHU.Module[];
         skipped: RHU.Module[];

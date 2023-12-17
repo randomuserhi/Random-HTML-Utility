@@ -15,6 +15,8 @@
         "@typescript-eslint"
     ],
     "rules": {
+        "@typescript-eslint/no-this-alias": "off",
+        "@typescript-eslint/no-namespace": "off",
         "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/ban-types": "off",

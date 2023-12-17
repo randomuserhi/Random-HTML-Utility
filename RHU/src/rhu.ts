@@ -492,6 +492,7 @@
         // Define core module loader
         core.moduleLoader = {
             loading: new Set<Core.ModuleLoader.Import>(),
+            failed: [],
             watching: [],
             imported: [],
             skipped: [],
@@ -530,11 +531,19 @@
                 const req = {};
                 require(module.require, req, missing);
                 if (missing.length === 0) {
-                    const result = module.callback(req);
-                    if (RHU.exists(module.name)) {
-                        this.set(module.name, result);
+                    try {
+                        const result = module.callback(req);
+                        if (RHU.exists(module.name)) {
+                            this.set(module.name, result);
+                        }
+                        this.imported.push(module);
+                    } catch (e) {
+                        console.error(`Failed to import ${module.name} ${core.exists(module.trace.stack) 
+                            ? "\n" + module.trace.stack.split("\n")[1] 
+                            : ""}`);
+                        console.error(e.toString());
+                        this.failed.push(module);
                     }
-                    this.imported.push(module);
                 } else {
                     this.watching.push(module);
                 }
@@ -578,6 +587,7 @@
         RHU.status = function() {
             console.log(RHU.imports.toString());
             console.log(RHU.waiting.toString());
+            console.error(RHU.failed.toString());
         };
         RHU.definePublicAccessor(RHU, "imports", {
             get: function(): RHU.Module[] { 
@@ -613,6 +623,22 @@
                             }
                             return list;
                         })()}`;
+                    }
+                    return msg;
+                };
+                return obj; 
+            }
+        });
+        RHU.definePublicAccessor(RHU, "failed", {
+            get: function(): RHU.Module[] { 
+                const obj: RHU.Module[] = [...core.moduleLoader.failed];
+                obj.toString = function(): string {
+                    let msg = "Modules that failed to import:";
+                    for (const module of obj) {
+                        const name = RHU.exists(module.name) ? module.name : "[rhu/require]";
+                        msg += `\n${name}${core.exists(module.trace.stack) 
+                            ? "\n" + module.trace.stack.split("\n")[1] 
+                            : ""}`;
                     }
                     return msg;
                 };

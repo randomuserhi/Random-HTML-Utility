@@ -1,7 +1,6 @@
 (function() {
     /**
      * TODO(randomuserhi): Better Error handling => locate root cause of failed parses
-     * TODO(randomuserhi): Refactor how properties work to allow nesting
      * TODO(randomuserhi): Anonymous macros => create dom from macro string and return fragment + js object containing dom by rhu-id
      */
 
@@ -217,10 +216,10 @@
                 return RHU.clone(prototype, clonePrototypeChain(next, last));
             };
 
-            const parseStack: string[] = [];
+            let parseStack: string[] = [];
             const watching: Map<string, RHU.WeakCollection<Element>> 
             = new Map<string, RHU.WeakCollection<Element>>(); // Stores active macros that are being watched
-            Macro.parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void {
+            const _parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void {
                 /**
                  * NOTE(randomuserhi): Since rhu-macro elements may override their builtins, Element.prototype etc... are used
                  *                     to prevent undefined behaviour when certain builtins are overridden.
@@ -416,12 +415,12 @@
                                 get: function() { return el[symbols.macro]; }
                             });
                         }
-                        Macro.parse(el, type);
+                        _parse(el, type);
                     } else {
                         // If the macro is not floating, parse it and create the container the macro needs to be inside
                         const doc = Macro.parseDomString(options.element);
                         const macro = doc.children[0];
-                        if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
+                        if (!RHU.exists(macro)) throw new SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
                         else {
                             for (let i = 0; i < el.attributes.length; ++i)
                                 macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
@@ -447,7 +446,7 @@
                 // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
                 for (const el of doc.querySelectorAll("*[rhu-macro]")) {
                     if (el === element) continue;
-                    Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
+                    _parse(el, Element_getAttribute(el, "rhu-macro"));
                 }
 
                 // If element was floating, place children onto element
@@ -499,7 +498,11 @@
                     });
                 } else RHU.assign(proxy, properties);
 
-                constructor.call(target);
+                try {
+                    constructor.call(target);
+                } catch (e) {
+                    throw new Error(`Constructor for macro of type '${type}' failed unexpectedly:\n${e.toString()}`);
+                }
 
                 // Update live map
                 // Handle old type
@@ -530,6 +533,14 @@
                 element[symbols.constructed] = type;
 
                 parseStack.pop();
+            };
+            Macro.parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void {
+                try {
+                    parseStack = [];
+                    _parse(element, type, force);
+                } catch (e) {
+                    throw new Error(`Failed to parse macro of type '${type}':\n${e.toString()}\n\nParse Stack:\n${parseStack.join("\n- ")}`);
+                }
             };
 
             const load: () => void = function(): void {
