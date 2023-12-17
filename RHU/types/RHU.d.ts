@@ -69,6 +69,7 @@ declare namespace RHU
     export function module<T extends RHU.Module.Require, M extends RHU.Module.Exports>(trace: Error, name: M, require: T, callback: (require: RHU.Module.Imports<T>) => RHU.Modules[M]): void;
     export function require<T extends RHU.Module.Require>(trace: Error, require: T, callback: (require: RHU.Module.Imports<T>) => void): void;
 
+    export function status(): void;
     export const imports: RHU.Module[];
     export const waiting: RHU.Module[];
 

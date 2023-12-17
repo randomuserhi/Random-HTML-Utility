@@ -1,7 +1,5 @@
 # Random HTML Utility (RHU)
 
-[GitBook](https://randomuserhi.gitbook.io/rhu/)
-
-This a pure javascript library that I maintain as I make random web apps.
+A typescript library I use for making webpages the traditional way. It avoids the package hell of other libraries and relies on being simple to traditional web development.
 
 **DISCLAIMER: This library is purely used for personal reasons and I add or remove features depending on my requirements. Use at your own risk.**

@@ -1,7 +1,6 @@
 (function() {
     /**
-     * TODO(randomuserhi): Integrate an in-javascript css solution
-     * TODO(randomuserhi): Error handling
+     * TODO(randomuserhi): Better Error handling => locate root cause of failed parses
      * TODO(randomuserhi): Refactor how properties work to allow nesting
      * TODO(randomuserhi): Anonymous macros => create dom from macro string and return fragment + js object containing dom by rhu-id
      */
@@ -16,10 +15,8 @@
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module(new Error(), "rhu/macro", 
         { Weak: "rhu/weak" },
-        function({ Weak: { WeakRefMap, WeakCollection } })
-        {   
-            interface MacroOptions
-            {
+        function({ Weak: { WeakRefMap, WeakCollection } }) {   
+            interface MacroOptions {
                 element: string,
                 floating: boolean,
                 strict: boolean,
@@ -27,8 +24,7 @@
                 content?: PropertyKey
             }
 
-            interface MacroTemplate
-            {
+            interface MacroTemplate {
                 constructor: Function,
                 type?: string,
                 source?: string,
@@ -36,18 +32,15 @@
                 protoCache: RHU.WeakRefMap<any, any> // TODO(randomuserhi): Update types
             }
 
-            interface SymbolCollection
-            { 
+            interface SymbolCollection { 
                 readonly macro: unique symbol;
                 readonly constructed: unique symbol;
                 readonly prototype: unique symbol;
             }
-            interface _Node extends Node
-            {
+            interface _Node extends Node {
                 [symbols.macro]?: Macro;
             }
-            interface _Element extends Element
-            {
+            interface _Element extends Element {
                 [symbols.macro]?: Macro;
                 [symbols.prototype]?: any;
                 [symbols.constructed]?: string;
@@ -66,71 +59,59 @@
             });
 
             // NOTE(randomuserhi): Store a reference to base functions that will be overridden
-            let isElement:(object: any) => boolean;
-            let Element_setAttribute:(element: Element, qualifiedName: string, value: string) => void;
-            let Element_getAttribute:(element: Element, qualifiedName: string) => string;
-            let Element_hasAttribute:(element: Element, qualifiedName: string) => boolean;
-            let Element_removeAttribute:(element: Element, qualifiedName: string) => void;
-            let Node_childNodes:(node: Node) => NodeListOf<ChildNode>;
-            let Node_parentNode:(node: Node) => ParentNode;
-
-            isElement = Object.prototype.isPrototypeOf.bind(Element.prototype);
-            Element_setAttribute = Function.call.bind(Element.prototype.setAttribute);
-            Element_getAttribute = Function.call.bind(Element.prototype.getAttribute);
-            Element_hasAttribute = Function.call.bind(Element.prototype.hasAttribute);
-            Element_removeAttribute = Function.call.bind(Element.prototype.removeAttribute);
+            const isElement:(object: any) => boolean = Object.prototype.isPrototypeOf.bind(Element.prototype);
+            const Element_setAttribute:(element: Element, qualifiedName: string, value: string) => void = Function.call.bind(Element.prototype.setAttribute);
+            const Element_getAttribute:(element: Element, qualifiedName: string) => string = Function.call.bind(Element.prototype.getAttribute);
+            const Element_hasAttribute:(element: Element, qualifiedName: string) => boolean = Function.call.bind(Element.prototype.hasAttribute);
+            const Element_removeAttribute:(element: Element, qualifiedName: string) => void = Function.call.bind(Element.prototype.removeAttribute);
             
-            let Descriptor_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes");
+            const Descriptor_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes");
             if (!RHU.exists(Descriptor_childNodes)) throw new ReferenceError("Node.prototype.childNodes is null or undefined.");
-            Node_childNodes = Function.call.bind(Descriptor_childNodes.get);
+            const Node_childNodes:(node: Node) => NodeListOf<ChildNode> = Function.call.bind(Descriptor_childNodes.get);
             
-            let Descriptor_parentNode = Object.getOwnPropertyDescriptor(Node.prototype, "parentNode");
+            const Descriptor_parentNode = Object.getOwnPropertyDescriptor(Node.prototype, "parentNode");
             if (!RHU.exists(Descriptor_parentNode)) throw new ReferenceError("Node.prototype.parentNode is null or undefined.");
-            Node_parentNode = Function.call.bind(Descriptor_parentNode.get);
+            const Node_parentNode:(node: Node) => ParentNode = Function.call.bind(Descriptor_parentNode.get);
 
-            Document.prototype.createMacro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>): RHU.Macro.TemplateMap[T]
-            {
-                let T = type.toString();
-                let definition = templates.get(T);
+            Document.prototype.createMacro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>): RHU.Macro.TemplateMap[T] {
+                const t = type.toString();
+                let definition = templates.get(t);
                 if (!RHU.exists(definition)) definition = defaultTemplate;
-                let options = definition.options;
+                const options = definition.options;
 
                 //TODO(randomuserhi): for performance, if it is floating, dont parse a doc, just make a <div> with createElement
 
-                let doc = Macro.parseDomString(options.element);
-                let el: _Element = doc.children[0];
-                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${T}'.`);
+                const doc = Macro.parseDomString(options.element);
+                const el: _Element = doc.children[0];
+                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${t}'.`);
                 el.remove(); //un bind element from temporary doc
-                Element_setAttribute(el, "rhu-macro", T);
-                Macro.parse(el, T);
+                Element_setAttribute(el, "rhu-macro", t);
+                Macro.parse(el, t);
                 return el[symbols.macro] as RHU.Macro.TemplateMap[T];
             };
 
-            Document.prototype.Macro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>, attributes: Record<string, string>): string
-            {
-                let T = type.toString();
-                let definition = templates.get(T);
+            Document.prototype.Macro = function<T extends string & keyof RHU.Macro.TemplateMap>(type: T | RHU.Macro.Template<T>, attributes: Record<string, string>): string {
+                const t = type.toString();
+                let definition = templates.get(t);
                 if (!RHU.exists(definition)) definition = defaultTemplate;
-                let options = definition.options;
+                const options = definition.options;
 
-                let doc = Macro.parseDomString(options.element);
-                let el = doc.children[0];
-                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${T}'.`);
-                Element_setAttribute(el, "rhu-macro", T);
-                for (let key in attributes) el.setAttribute(key, attributes[key]);
+                const doc = Macro.parseDomString(options.element);
+                const el = doc.children[0];
+                if (!RHU.exists(el)) throw SyntaxError(`No valid container element to convert into macro was found for '${t}'.`);
+                Element_setAttribute(el, "rhu-macro", t);
+                for (const key in attributes) el.setAttribute(key, attributes[key]);
                 el.remove(); //un bind element from temporary doc
                 return el.outerHTML;
             };
 
-            Element.prototype.setAttribute = function(qualifiedName: string, value: string): void
-            {
+            Element.prototype.setAttribute = function(qualifiedName: string, value: string): void {
                 // Remove macro functionality if element is no longer considered a macro
                 if (qualifiedName === "rhu-macro") Macro.parse(this, value);
                 return Element_setAttribute(this, qualifiedName, value);
             };
 
-            Element.prototype.removeAttribute = function(qualifiedName): void
-            {
+            Element.prototype.removeAttribute = function(qualifiedName): void {
                 // Remove macro functionality if element is no longer considered a macro
                 if (qualifiedName === "rhu-macro") Macro.parse(this);
                 return Element_removeAttribute(this, qualifiedName);
@@ -138,18 +119,16 @@
 
             RHU.definePublicAccessor(Element.prototype, "rhuMacro", {
                 get: function(this: Element) { return Element_getAttribute(this, "rhu-macro"); },
-                set: function(this: Element, value) 
-                { 
+                set: function(this: Element, value) { 
                     Element_setAttribute(this, "rhu-macro", value);
                     Macro.parse(this, value);
                 }
             });
 
             const Template = function<T extends RHU.Macro.Templates>(type: T): RHU.Macro.Template<T> {
-                let template = function(first: TemplateStringsArray, ...interpolations: (string)[]): string {
+                const template = function(first: TemplateStringsArray, ...interpolations: (string)[]): string {
                     let generatedCode: string = `<rhu-macro rhu-type="${type}" ${first[0]}`;
-                    for (let i = 0; i < interpolations.length; ++i)
-                    {
+                    for (let i = 0; i < interpolations.length; ++i) {
                         const interpolation = interpolations[i];
                         generatedCode += interpolation;
                         generatedCode += first[i + 1];
@@ -160,14 +139,13 @@
 
                 template.type = type;
                 template.toString = () => type,
-                template[Symbol.toPrimitive] = () => `<rhu-macro rhu-type="${type}"></rhu-macro>`
+                template[Symbol.toPrimitive] = () => `<rhu-macro rhu-type="${type}"></rhu-macro>`;
 
                 return template;
             };
 
             const Macro: RHU.Macro
-            = function<T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string = "", options: RHU.Macro.Options): RHU.Macro.Template<T>
-            {
+            = function<T extends RHU.Macro.Templates>(constructor: Function, type: T, source: string = "", options: RHU.Macro.Options): RHU.Macro.Template<T> {
                 if (type == "") throw new SyntaxError("'type' cannot be blank.");
                 if (typeof type !== "string") throw new TypeError("'type' must be a string.");
                 if (typeof source !== "string") throw new TypeError("'source' must be a string.");
@@ -177,7 +155,7 @@
                 if (templates.has(type))
                     console.warn(`Macro template '${type}' already exists. Definition will be overwritten.`);
 
-                let opt = {
+                const opt = {
                     element: "<div></div>",
                     floating: false,
                     strict: false,
@@ -187,8 +165,8 @@
                 RHU.parseOptions(opt, options);
                 
                 // Ensure that options does not utilize <rhu-macro>
-                let doc = Macro.parseDomString(opt.element);
-                let macro = doc.children[0];                
+                const doc = Macro.parseDomString(opt.element);
+                const macro = doc.children[0];                
                 if (!RHU.exists(macro)) // If macro element cannot expand, just throw an error
                     throw new SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
                 if (macro.tagName === "RHU-MACRO")
@@ -203,15 +181,15 @@
                 });
 
                 // parse macros currently of said type
-                let update = watching.get(type);
+                const update = watching.get(type);
                 if (RHU.exists(update))
-                    for (let el of update)
+                    for (const el of update)
                         Macro.parse(el, type, true);
 
                 return Template(type);
             } as RHU.Macro;
-            let templates = new Map<string | undefined | null, MacroTemplate>();
-            let defaultTemplate: MacroTemplate = {
+            const templates = new Map<string | undefined | null, MacroTemplate>();
+            const defaultTemplate: MacroTemplate = {
                 constructor: function() {},
                 type: undefined,
                 source: undefined,
@@ -225,27 +203,24 @@
                 protoCache: new WeakRefMap()
             };
 
-            let xPathEvaluator = new XPathEvaluator();
-            Macro.parseDomString = function(str: string): DocumentFragment
-            {
+            const xPathEvaluator = new XPathEvaluator();
+            Macro.parseDomString = function(str: string): DocumentFragment {
                 /* NOTE(randomuserhi): template is used to handle parsing of fragments like <td> which don't work on document */
-                let template: HTMLTemplateElement = document.createElement("template");
+                const template: HTMLTemplateElement = document.createElement("template");
                 template.innerHTML = str;
                 return template.content;
             };
 
-            let clonePrototypeChain = function(prototype: any, last: any): any
-            {
-                let next = Object.getPrototypeOf(prototype);
+            const clonePrototypeChain = function(prototype: any, last: any): any {
+                const next = Object.getPrototypeOf(prototype);
                 if (next === Object.prototype) return RHU.clone(prototype, last);
                 return RHU.clone(prototype, clonePrototypeChain(next, last));
             };
 
-            let parseStack: string[] = [];
-            let watching: Map<string, RHU.WeakCollection<Element>> 
+            const parseStack: string[] = [];
+            const watching: Map<string, RHU.WeakCollection<Element>> 
             = new Map<string, RHU.WeakCollection<Element>>(); // Stores active macros that are being watched
-            Macro.parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void
-            {
+            Macro.parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, force: boolean = false): void {
                 /**
                  * NOTE(randomuserhi): Since rhu-macro elements may override their builtins, Element.prototype etc... are used
                  *                     to prevent undefined behaviour when certain builtins are overridden.
@@ -270,17 +245,17 @@
 
                 // Check if element is <rhu-macro>, 
                 // if it is then expand it to parse the element it represents
-                if (element.tagName === "RHU-MACRO") // NOTE(randomuserhi): tagName is a string thats all upper case.
-                {
-                    let definition = templates.get(type);
+                // NOTE(randomuserhi): tagName is a string thats all upper case.
+                if (element.tagName === "RHU-MACRO") {
+                    const definition = templates.get(type);
 
                     // If the definition does not exist, simply do not expand this <rhu-macro>
                     if (!RHU.exists(definition)) return;
 
-                    let options = definition.options;
+                    const options = definition.options;
 
-                    let doc = Macro.parseDomString(options.element);
-                    let macro = doc.children[0];
+                    const doc = Macro.parseDomString(options.element);
+                    const macro = doc.children[0];
 
                     // If macro element cannot expand, just throw an error
                     if (!RHU.exists(macro))
@@ -318,7 +293,7 @@
                 let slot: HTMLDivElement;
 
                 // get old type of element, prior to purging old properties
-                let oldType: string | undefined = element[symbols.constructed];
+                const oldType: string | undefined = element[symbols.constructed];
                 // get prototype of element, prior to purging old properties
                 let proto: object = element[symbols.prototype];
 
@@ -331,8 +306,8 @@
                 // Get constructor for type and type definition
                 let definition = templates.get(type);
                 if (!RHU.exists(definition)) definition = defaultTemplate;
-                let constructor = definition.constructor;
-                let options = definition.options;
+                const constructor = definition.constructor;
+                const options = definition.options;
 
                 // NOTE(randomuserhi): Create an inbetween object that will hold properties etc...
                 let proxy: any = Object.create(constructor.prototype);
@@ -345,8 +320,7 @@
                 // Set target object
                 let target: any = element;
                 if (options.floating) target = Object.create(proxy);
-                else
-                { 
+                else { 
                     // Handle inheritance
                     if (!RHU.exists(proto))
                         proto = element[symbols.prototype] = Object.getPrototypeOf(element);
@@ -371,17 +345,14 @@
                      */
 
                     // load cached cloned prototypes for performance
-                    let protoCache = definition.protoCache;
-                    let cachedProto = protoCache.get(proto);
-                    if (RHU.exists(cachedProto))
-                    {
+                    const protoCache = definition.protoCache;
+                    const cachedProto = protoCache.get(proto);
+                    if (RHU.exists(cachedProto)) {
                         //console.log(`${definition === defaultDefinition ? "undefined" : type} cached: ${proto}`);
                         proxy = Object.create(cachedProto);
-                    }
-                    else
-                    {
+                    } else {
                         //console.log(`${definition === defaultDefinition ? "undefined" : type} not cached: ${proto}`);
-                        let clonedProto = clonePrototypeChain(constructor.prototype, proto);
+                        const clonedProto = clonePrototypeChain(constructor.prototype, proto);
                         protoCache.set(proto, clonedProto);
                         proxy = Object.create(clonedProto);
                     }
@@ -395,26 +366,23 @@
 
                 // Get elements from parser 
                 let doc: DocumentFragment;
-                let source = RHU.exists(definition.source) ? definition.source : "";
+                const source = RHU.exists(definition.source) ? definition.source : "";
 
-                // If the macro is not floating, assign parent and parse source using parent
-                if (!options.floating)
-                {
+                if (!options.floating) {
+                    // If the macro is not floating, assign parent and parse source using parent
                     slot = document.createElement("div");
 
                     element.replaceWith(slot);
                     element.innerHTML = source;
                     doc = new DocumentFragment();
                     doc.append(element);
-                }
-                // otherwise parse source externally
-                else
-                {
-                    doc = Macro.parseDomString(source)
+                } else {
+                    // otherwise parse source externally
+                    doc = Macro.parseDomString(source);
                 }
 
-                let properties: any = {};
-                let checkProperty = (identifier: PropertyKey): boolean => {
+                const properties: any = {};
+                const checkProperty = (identifier: PropertyKey): boolean => {
                     if (Object.hasOwnProperty.call(properties, identifier)) 
                         throw new SyntaxError(`Identifier '${identifier.toString()}' already exists.`);
                     if (!options.encapsulate && options.strict && identifier in target) 
@@ -424,27 +392,24 @@
                 };
 
                 // Expand <rhu-macro> tags into their original macros
-                let nested: _Element[] = [...doc.querySelectorAll("rhu-macro")];
-                for (let el of nested)
-                {
+                const nested: _Element[] = [...doc.querySelectorAll("rhu-macro")];
+                for (const el of nested) {
                     if (el === element) continue;
 
                     const typename: string = "rhu-type";
-                    let type = Element_getAttribute(el, typename);
+                    const type = Element_getAttribute(el, typename);
                     Element.prototype.removeAttribute.call(el, typename);
-                    let definition = templates.get(type);
+                    const definition = templates.get(type);
                     if (!RHU.exists(definition)) 
                         throw new TypeError(`Could not expand <rhu-macro> of type '${type}'. Macro definition does not exist.`);
-                    let options = definition.options;
+                    const options = definition.options;
 
                     // If the macro is floating, check for id, and create its property and parse it
                     // we have to parse it manually here as floating macros don't have containers to 
                     // convert to for the parser later to use.
-                    if (options.floating)
-                    {
-                        if (Element_hasAttribute(el, "rhu-id"))
-                        {
-                            let identifier = Element_getAttribute(el, "rhu-id");
+                    if (options.floating) {
+                        if (Element_hasAttribute(el, "rhu-id")) {
+                            const identifier = Element_getAttribute(el, "rhu-id");
                             Element.prototype.removeAttribute.call(el, "rhu-id");
                             checkProperty(identifier);
                             RHU.definePublicAccessor(properties, identifier, {
@@ -452,15 +417,12 @@
                             });
                         }
                         Macro.parse(el, type);
-                    }
-                    // If the macro is not floating, parse it and create the container the macro needs to be inside
-                    else
-                    {
-                        let doc = Macro.parseDomString(options.element);
-                        let macro = doc.children[0];
+                    } else {
+                        // If the macro is not floating, parse it and create the container the macro needs to be inside
+                        const doc = Macro.parseDomString(options.element);
+                        const macro = doc.children[0];
                         if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
-                        else
-                        {
+                        else {
                             for (let i = 0; i < el.attributes.length; ++i)
                                 macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                             el.replaceWith(macro);
@@ -470,12 +432,11 @@
                 }
 
                 // Create properties
-                let referencedElements = doc.querySelectorAll("*[rhu-id]") as NodeListOf<_Element>;
-                for (let el of referencedElements)
-                {
+                const referencedElements = doc.querySelectorAll("*[rhu-id]") as NodeListOf<_Element>;
+                for (const el of referencedElements) {
                     if (el === element) continue;
 
-                    let identifier = Element_getAttribute(el, "rhu-id");
+                    const identifier = Element_getAttribute(el, "rhu-id");
                     Element.prototype.removeAttribute.call(el, "rhu-id");
                     checkProperty(identifier);
                     RHU.definePublicAccessor(properties, identifier, {
@@ -484,8 +445,7 @@
                 }
 
                 // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
-                for (let el of doc.querySelectorAll("*[rhu-macro]")) 
-                {
+                for (const el of doc.querySelectorAll("*[rhu-macro]")) {
                     if (el === element) continue;
                     Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
                 }
@@ -499,24 +459,21 @@
 
                 // Remove comment nodes:
                 const xPath = "//comment()";
-                let query = xPathEvaluator.evaluate(xPath, element, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
-                for (let i = 0, length = query.snapshotLength; i < length; ++i)
-                {
-                    let self: Node = query.snapshotItem(i)!;
+                const query = xPathEvaluator.evaluate(xPath, element, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
+                for (let i = 0, length = query.snapshotLength; i < length; ++i) {
+                    const self: Node = query.snapshotItem(i)!;
                     if (RHU.exists(self.parentNode))
                         self.parentNode.removeChild(self);
                 }
 
                 // Set content variable if set:
-                if (RHU.exists(options.content))
-                {            
+                if (RHU.exists(options.content)) {            
                     //if (typeof options.content !== "string") throw new TypeError("Option 'content' must be a string.");
                     checkProperty(options.content);
                     properties[options.content] = [...Node_childNodes(element)];
                 }
 
-                if (options.floating)
-                {
+                if (options.floating) {
                     // If we are floating, replace children
                     // If no parent, unbind children
                     if (RHU.exists(Node_parentNode(element))) Element.prototype.replaceWith.call(element, ...Node_childNodes(element));
@@ -534,22 +491,19 @@
                 }
                 
                 // Add properties to target
-                if (RHU.exists(options.encapsulate))
-                {            
+                if (RHU.exists(options.encapsulate)) {            
                     //if (typeof options.encapsulate !== "string") throw new TypeError("Option 'encapsulate' must be a string.");
                     checkProperty(options.encapsulate);
                     RHU.definePublicAccessor(proxy, options.encapsulate, {
                         get: function() { return properties; }
                     });
-                }
-                else RHU.assign(proxy, properties);
+                } else RHU.assign(proxy, properties);
 
                 constructor.call(target);
 
                 // Update live map
                 // Handle old type
-                if (RHU.exists(oldType))
-                {
+                if (RHU.exists(oldType)) {
                     let old = templates.get(oldType);
                     if (!RHU.exists(old)) old = defaultTemplate;
                     // check if old type was not floating
@@ -560,13 +514,11 @@
                 // Handle new type
                 // check if new type is floating
                 // - floating macros are 1 time use (get consumed) and thus aren't watched
-                if (!options.floating)
-                {
-                    if (RHU.exists(type))
-                    {
+                if (!options.floating) {
+                    if (RHU.exists(type)) {
                         if (!watching.has(type))
                             watching.set(type, new WeakCollection<Element>());    
-                        let typeCollection = watching.get(type);
+                        const typeCollection = watching.get(type);
                         typeCollection!.add(element);
                     }
                 }
@@ -578,43 +530,38 @@
                 element[symbols.constructed] = type;
 
                 parseStack.pop();
-            }
+            };
 
-            let load: () => void = function(): void
-            {
+            const load: () => void = function(): void {
                 // Expand <rhu-macro> tags into their original macros if the original macro exists
                 // TODO(randomuserhi): consider using a custom element to convert <rhu-macro>, also allows for document.createElement();
                 // NOTE(randomuserhi): this expansion is the same as done in Macro.parse, consider
                 //                     converting into a function
-                let expand: Element[] = [...document.getElementsByTagName("rhu-macro")];
-                for (let el of expand)
-                { 
+                const expand: Element[] = [...document.getElementsByTagName("rhu-macro")];
+                for (const el of expand) { 
                     const typename = "rhu-type";
-                    let type = Element_getAttribute(el, typename);
+                    const type = Element_getAttribute(el, typename);
                     Element.prototype.removeAttribute.call(el, typename);
-                    let definition = templates.get(type);
+                    const definition = templates.get(type);
 
                     // If the definition does not exist, simply do not expand this <rhu-macro>
-                    if (!RHU.exists(definition))
-                    { 
+                    if (!RHU.exists(definition)) { 
                         // Add <rhu-macro> to watchlist to expand in the future
-                        if (RHU.exists(type))
-                        {
+                        if (RHU.exists(type)) {
                             if (!watching.has(type))
                                 watching.set(type, new WeakCollection<Element>());    
-                            let typeCollection = watching.get(type);
+                            const typeCollection = watching.get(type);
                             typeCollection!.add(el);
                         }
                         continue;
                     }
 
-                    let options = definition.options;
+                    const options = definition.options;
 
-                    let doc = Macro.parseDomString(options.element);
-                    let macro = doc.children[0];
+                    const doc = Macro.parseDomString(options.element);
+                    const macro = doc.children[0];
                     if (!RHU.exists(macro)) console.error(`No valid container element to convert into macro was found for '${type}'.`);
-                    else
-                    {
+                    else {
                         for (let i = 0; i < el.attributes.length; ++i)
                             macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                         el.replaceWith(macro);
@@ -623,8 +570,8 @@
                 }
 
                 // Parse macros on document
-                let macros = document.querySelectorAll("[rhu-macro]");
-                for (let el of macros) {
+                const macros = document.querySelectorAll("[rhu-macro]");
+                for (const el of macros) {
                     Macro.parse(el, Element_getAttribute(el, "rhu-macro"));
                     recursiveDispatch(el);
                 }
@@ -633,27 +580,24 @@
                 Macro.observe(document);
             };
 
-            let recursiveDispatch = function(node: Node): void 
-            {
+            const recursiveDispatch = function(node: Node): void {
                 if (isElement(node) && Element_hasAttribute(node as Element, "rhu-macro")) 
                     (node as Element).dispatchEvent(RHU.CustomEvent("mount", {}));
-                for (let child of node.childNodes)
+                for (const child of node.childNodes)
                     recursiveDispatch(child);
-            }
-            let recursiveParse = function(node: Node): void
-            {
-                if (isElement(node) && Element_hasAttribute(node as Element, "rhu-macro")) 
-                {
+            };
+            const recursiveParse = function(node: Node): void {
+                if (isElement(node) && Element_hasAttribute(node as Element, "rhu-macro")) {
                     Macro.parse(node as Element, Element_getAttribute(node as Element, "rhu-macro"));
                     recursiveDispatch(node);
                     return;
                 }
-                for (let child of node.childNodes)
+                for (const child of node.childNodes)
                     recursiveParse(child);
             };
 
             // Setup mutation observer to detect macros being created
-            let observer = new MutationObserver(function(mutationList) {
+            const observer = new MutationObserver(function(mutationList) {
                 /**
                  * NOTE(randomuserhi): Since mutation observers are asynchronous, the current attribute value
                  *                     as read from .getAttribute may not be correct. To remedy this, a dictionary
@@ -661,18 +605,14 @@
                  *                     a mutation occurs.
                  *                     ref: https://stackoverflow.com/questions/60593551/get-the-new-attribute-value-for-the-current-mutationrecord-when-using-mutationob
                  */
-                let attributes = new Map();
-                for (const mutation of mutationList) 
-                {
-                    switch (mutation.type)
-                    {
+                const attributes = new Map();
+                for (const mutation of mutationList) {
+                    switch (mutation.type) {
                     case "attributes":
                         {
-                            if (mutation.attributeName === "rhu-macro")
-                            {
+                            if (mutation.attributeName === "rhu-macro") {
                                 if (!attributes.has(mutation.target)) attributes.set(mutation.target, mutation.oldValue);
-                                else if (attributes.get(mutation.target) !== mutation.oldValue)
-                                {
+                                else if (attributes.get(mutation.target) !== mutation.oldValue) {
                                     attributes.set(mutation.target, mutation.oldValue);
 
                                     /**
@@ -688,23 +628,21 @@
                         break;
                     case "childList":
                         {
-                            for (let node of mutation.addedNodes)
+                            for (const node of mutation.addedNodes)
                                 recursiveParse(node);
                         }
                         break;
                     }
                 }
 
-                for (let el of attributes.keys()) 
-                {
-                    let attr = Element_getAttribute(el, "rhu-macro");
+                for (const el of attributes.keys()) {
+                    const attr = Element_getAttribute(el, "rhu-macro");
                     if (attributes.get(el) !== attr)
                         Macro.parse(el, attr);
                 }
             });
             // Allows you to assign macro observation to other docs to trigger macro updates
-            Macro.observe = function(target: Node): void
-            {
+            Macro.observe = function(target: Node): void {
                 observer.observe(target, {
                     attributes: true,
                     attributeOldValue: true,
@@ -714,8 +652,7 @@
                 });
             };
 
-            let onDocumentLoad = function()
-            {
+            const onDocumentLoad = function() {
                 // NOTE(randomuserhi): We must call load event first so user-defined types are set first before we load
                 //                     custom element otherwise custom element will parse with undefined macros (since
                 //                     they just have not been loaded yet).

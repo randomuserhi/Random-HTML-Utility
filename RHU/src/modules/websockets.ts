@@ -4,9 +4,8 @@
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module(new Error(), "rhu/websockets", 
         { eventTarget: "rhu/event" },
-        function({ eventTarget })
-        {
-            let WebSockets: RHU.WebSockets = {} as RHU.WebSockets;
+        function({ eventTarget }) {
+            const WebSockets: RHU.WebSockets = {} as RHU.WebSockets;
 
             RHU.definePublicAccessors(WebSockets, {
                 CONNECTING: {
@@ -23,28 +22,22 @@
                 }
             });
 
-            let ws: RHU.WebSockets.wsConstructor = RHU.reflectConstruct(WebSocket, "RHU.ws", 
-            function(this: RHU.WebSockets.ws, url: string | URL, protocols: string | string[] = [])
-            {
-                /**
-                 * @property{public}    queue{List[String]}     List of enqueued messages to be sent.   
-                 */
+            const ws: RHU.WebSockets.wsConstructor = RHU.reflectConstruct(WebSocket, "RHU.ws", 
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                function(this: RHU.WebSockets.ws, url: string | URL, protocols: string | string[] = []) {
+                    this.queue = [];
 
-                this.queue = [];
-
-                this.addEventListener("open", () => {
+                    this.addEventListener("open", () => {
                     // Send messages in queue, NOTE(randomuserhi): A simple for loop can be used, but this
                     //                                             just shows shift() function exists :)
-                    while (this.queue.length) 
-                        WebSocket.prototype.send.call(this, this.queue.shift());
-                });
-            }) as RHU.WebSockets.wsConstructor;
-            ws.__args__ = function(url: string | URL, protocols: string | string[] = [])
-            {
+                        while (this.queue.length) 
+                            WebSocket.prototype.send.call(this, this.queue.shift());
+                    });
+                }) as RHU.WebSockets.wsConstructor;
+            ws.__args__ = function(url: string | URL, protocols: string | string[] = []) {
                 return [url, protocols];
             };
-            ws.prototype.send = function(data)
-            {
+            ws.prototype.send = function(data) {
                 if (this.readyState === WebSockets!.OPEN)
                     WebSocket.prototype.send.call(this, data);
                 else
@@ -53,8 +46,7 @@
             RHU.inherit(ws, WebSocket);
             WebSockets.ws = ws;
 
-            WebSockets.wsClient = function<T extends WebSocketConstructor, Construct extends (...args: any[]) => RHU.WebSockets.Options>(webSocket: T, constructor: Construct)
-            {
+            WebSockets.wsClient = function<T extends WebSocketConstructor, Construct extends (...args: any[]) => RHU.WebSockets.Options>(webSocket: T, constructor: Construct) {
                 // Aliases for generic types
                 type wsClient = RHU.WebSockets.wsClient<Socket<T>, Construct>;
                 type wsClientConstructor = RHU.WebSockets.wsClientConstructor<Socket<T>, Construct>;
@@ -69,14 +61,13 @@
                     throw new TypeError("WebSocket must be inherited from or of type 'WebSocket'.");
 
                 // TODO(randomuserhi): Documentation...
-                let construct = function(this: wsClient, ...args: any[])
-                {
+                const construct = function(this: wsClient, ...args: any[]) {
                     // TODO(randomuserhi): Not sure about saving args like this, seems dodgy way of handling reconnect
                     this.args = args;
 
                     eventTarget(this);
 
-                    let params: RHU.WebSockets.Options = {
+                    const params: RHU.WebSockets.Options = {
                         url: "",
                         protocols: []
                     };
@@ -88,16 +79,13 @@
                     this.ws.addEventListener("message", (e) => { this.dispatchEvent(RHU.CustomEvent("message", e)); if (RHU.exists(this.onmessage)) this.onmessage(e); });
                     this.ws.addEventListener("open", (e) => { this.dispatchEvent(RHU.CustomEvent("open", e)); if (RHU.exists(this.onopen)) this.onopen(e); });
                 } as Function as wsClientConstructor;
-                construct.prototype.reconnect = function(this: wsClient, ...args: Parameters<Construct>)
-                {
+                construct.prototype.reconnect = function(this: wsClient, ...args: Parameters<Construct>) {
                     construct.call(this, ...(args.length === 0 ? this.args : args));
                 };
-                construct.prototype.send = function(this: wsClient, data)
-                {
+                construct.prototype.send = function(this: wsClient, data) {
                     this.ws.send(data);
                 };
-                construct.prototype.close = function(this: wsClient, code?: number, reason?: string)
-                {
+                construct.prototype.close = function(this: wsClient, code?: number, reason?: string) {
                     this.ws.close(code, reason);
                 };
 

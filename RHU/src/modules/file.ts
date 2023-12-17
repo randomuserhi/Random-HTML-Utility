@@ -4,9 +4,8 @@
     if (RHU === null || RHU === undefined) throw new Error("No RHU found. Did you import RHU before running?");
     RHU.module(new Error(), "rhu/file",
         {},
-        function()
-        {
-            let File: RHU.File = {
+        function() {
+            const File: RHU.File = {
                 Type: {
                     unknown: "unknown",
                     png: "png",
@@ -17,11 +16,9 @@
                     mp4: "video/mp4",
                     mkv: "video/x-matroska",
 
-                    toType: function(this: RHU.File.Type, blobType: string): string
-                    {
+                    toType: function(this: RHU.File.Type, blobType: string): string {
                         let type: string;
-                        switch (blobType) 
-                        {
+                        switch (blobType) {
                         case "text/javascript":
                             type = this.js;
                             break;
@@ -45,7 +42,7 @@
             } as RHU.File;
 
             // obtain an alias for Type since we access it frequently
-            let Type: RHU.File.Type = File.Type;
+            const Type: RHU.File.Type = File.Type;
 
             /**
              * NOTE(randomuserhi): Implementation based on:
@@ -56,14 +53,12 @@
              * TODO(randomuserhi): Consider FileReader.progress event => https://developer.mozilla.org/en-US/docs/Web/API/FileReader/progress_event
              */
 
-            File.getType = function(blob: Blob): Promise<[string, string]>
-            {
+            File.getType = function(blob: Blob): Promise<[string, string]> {
                 return new Promise<[string, string]>((resolve, reject) => {
-                    let fr = new FileReader();
-                    fr.onloadend = function(e) 
-                    {
+                    const fr = new FileReader();
+                    fr.onloadend = function(e) {
                         // only grab first 4 bytes
-                        let arr = (new Uint8Array(e.target!.result as ArrayBuffer)).subarray(0, 4);
+                        const arr = (new Uint8Array(e.target!.result as ArrayBuffer)).subarray(0, 4);
                         
                         // convert bytes to hex string
                         let header = "";
@@ -72,8 +67,7 @@
                         
                         // get file signature type based on hex string
                         let type;
-                        switch (header) 
-                        {
+                        switch (header) {
                         case "89504e47":
                             type = Type.png;
                             break;
@@ -98,8 +92,7 @@
                         // return blob type and file signature type
                         resolve([Type.toType(blob.type), type]);
                     };
-                    fr.onerror = function(e)
-                    {
+                    fr.onerror = function(e) {
                         reject(e);
                     };
                     fr.readAsArrayBuffer(blob);
