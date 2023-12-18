@@ -1,6 +1,5 @@
 (function() {
     /**
-     * TODO(randomuserhi): Anonymous macros => create dom from macro string and return fragment + js object containing dom by rhu-id
      * TODO(randomuserhi): Replace floating macros with fragments
      */
 
