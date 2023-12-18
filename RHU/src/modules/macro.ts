@@ -1,6 +1,5 @@
 (function() {
     /**
-     * TODO(randomuserhi): Better Error handling => locate root cause of failed parses
      * TODO(randomuserhi): Anonymous macros => create dom from macro string and return fragment + js object containing dom by rhu-id
      * TODO(randomuserhi): Replace floating macros with fragments
      */
@@ -64,6 +63,7 @@
             const Element_getAttribute:(element: Element, qualifiedName: string) => string = Function.call.bind(Element.prototype.getAttribute);
             const Element_hasAttribute:(element: Element, qualifiedName: string) => boolean = Function.call.bind(Element.prototype.hasAttribute);
             const Element_removeAttribute:(element: Element, qualifiedName: string) => void = Function.call.bind(Element.prototype.removeAttribute);
+            const Element_append:(element: Element, ...nodes: (string | Node)[]) => void = Function.call.bind(Element.prototype.append);
             
             const Descriptor_childNodes = Object.getOwnPropertyDescriptor(Node.prototype, "childNodes");
             if (!RHU.exists(Descriptor_childNodes)) throw new ReferenceError("Node.prototype.childNodes is null or undefined.");
@@ -211,6 +211,114 @@
                 return template.content;
             };
 
+            const _anon = function<T extends {} = any>(source: string, parseStack: string[], donor?: Element, root: boolean = false): [T, DocumentFragment] {
+                let doc;
+                if (RHU.exists(donor)) {
+                    donor.innerHTML = source;
+                    doc = new DocumentFragment();
+                    doc.append(donor);
+                } else {
+                    doc = Macro.parseDomString(source);
+                }
+
+                const properties: any = {};
+                const checkProperty = (identifier: PropertyKey): boolean => {
+                    if (Object.hasOwnProperty.call(properties, identifier)) 
+                        throw new SyntaxError(`Identifier '${identifier.toString()}' already exists.`);
+                    return true;
+                };
+
+                // Expand <rhu-macro> tags into their original macros
+                const nested: _Element[] = [...doc.querySelectorAll("rhu-macro")];
+                for (const el of nested) {
+                    if (el === donor) continue;
+
+                    const typename: string = "rhu-type";
+                    const type = Element_getAttribute(el, typename);
+                    Element.prototype.removeAttribute.call(el, typename);
+                    const definition = templates.get(type);
+                    if (!RHU.exists(definition)) 
+                        throw new TypeError(`Could not expand <rhu-macro> of type '${type}'. Macro definition does not exist.`);
+                    const options = definition.options;
+
+                    // If the macro is floating, check for id, and create its property and parse it
+                    // we have to parse it manually here as floating macros don't have containers to 
+                    // convert to for the parser later to use.
+                    if (options.floating) {
+                        if (Element_hasAttribute(el, "rhu-id")) {
+                            const identifier = Element_getAttribute(el, "rhu-id");
+                            Element.prototype.removeAttribute.call(el, "rhu-id");
+                            checkProperty(identifier);
+                            RHU.definePublicAccessor(properties, identifier, {
+                                get: function() { return el[symbols.macro]; }
+                            });
+                        }
+                        try {
+                            _parse(el, type, parseStack);
+                        } catch (e) {
+                            errorHandle("parser", type, e, root);
+                        }
+                    } else {
+                        // If the macro is not floating, parse it and create the container the macro needs to be inside
+                        const doc = Macro.parseDomString(options.element);
+                        const macro = doc.children[0];
+                        if (!RHU.exists(macro)) throw new SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
+                        else {
+                            for (let i = 0; i < el.attributes.length; ++i)
+                                macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
+                            el.replaceWith(macro);
+                            Element_setAttribute(macro, "rhu-macro", type);
+                        }
+                    }
+                }
+
+                // Create properties
+                const referencedElements = doc.querySelectorAll("*[rhu-id]") as NodeListOf<_Element>;
+                for (const el of referencedElements) {
+                    if (el === donor) continue;
+
+                    const identifier = Element_getAttribute(el, "rhu-id");
+                    Element.prototype.removeAttribute.call(el, "rhu-id");
+                    checkProperty(identifier);
+                    RHU.definePublicAccessor(properties, identifier, {
+                        get: function() { return el[symbols.macro]; }
+                    });
+                }
+
+                // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
+                for (const el of doc.querySelectorAll("*[rhu-macro]")) {
+                    if (el === donor) continue;
+
+                    const type = Element_getAttribute(el, "rhu-macro");
+                    try {
+                        _parse(el, type, parseStack);
+                    } catch (e) {
+                        errorHandle("parser", type, e, root);
+                    }
+                }
+
+                // Place elements into a temporary container
+                const tempContainer = document.createElement("div");
+                Element_append(tempContainer, ...doc.childNodes);
+
+                // Remove comment nodes:
+                const xPath = "//comment()";
+                const query = xPathEvaluator.evaluate(xPath, tempContainer, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
+                for (let i = 0, length = query.snapshotLength; i < length; ++i) {
+                    const self: Node = query.snapshotItem(i)!;
+                    if (RHU.exists(self.parentNode))
+                        self.parentNode.removeChild(self);
+                }
+
+                // Re-add child nodes to fragment
+                doc.append(...tempContainer.childNodes);
+
+                return [properties, doc];
+            };
+            Macro.anon = function<T extends {} = {}>(source: string): [T, DocumentFragment] {
+                return _anon(source, [], undefined, true);
+            };
+
             const clonePrototypeChain = function(prototype: any, last: any): any {
                 const next = Object.getPrototypeOf(prototype);
                 if (next === Object.prototype) return RHU.clone(prototype, last);
@@ -233,7 +341,7 @@
             };
             const watching: Map<string, RHU.WeakCollection<Element>> 
             = new Map<string, RHU.WeakCollection<Element>>(); // Stores active macros that are being watched
-            const _parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, parseStack: string[], root: boolean = true, force: boolean = false): void {
+            const _parse = function(element: _Element, type: string & {} | RHU.Macro.Templates | undefined | null, parseStack: string[], root: boolean = false, force: boolean = false): void {
                 /**
                  * NOTE(randomuserhi): Since rhu-macro elements may override their builtins, Element.prototype etc... are used
                  *                     to prevent undefined behaviour when certain builtins are overridden.
@@ -377,120 +485,35 @@
                     //    RHU.assign(target, proto, { replace: false });
                 }
 
-                // Get elements from parser 
-                let doc: DocumentFragment;
-                const source = RHU.exists(definition.source) ? definition.source : "";
-
+                let donor: Element | undefined = undefined;
                 if (!options.floating) {
-                    // If the macro is not floating, assign parent and parse source using parent
+                    // If the macro is not floating, use element as donor for parsing
                     slot = document.createElement("div");
-
                     element.replaceWith(slot);
-                    element.innerHTML = source;
-                    doc = new DocumentFragment();
-                    doc.append(element);
-                } else {
-                    // otherwise parse source externally
-                    doc = Macro.parseDomString(source);
+                    donor = element;
                 }
 
-                const properties: any = {};
+                // Get elements from parser 
+                const [properties, fragment] = _anon(RHU.exists(definition.source) ? definition.source : "", parseStack, donor);
                 const checkProperty = (identifier: PropertyKey): boolean => {
                     if (Object.hasOwnProperty.call(properties, identifier)) 
                         throw new SyntaxError(`Identifier '${identifier.toString()}' already exists.`);
                     if (!options.encapsulate && options.strict && identifier in target) 
                         throw new SyntaxError(`Identifier '${identifier.toString()}' already exists.`);
-
                     return true;
                 };
 
-                // Expand <rhu-macro> tags into their original macros
-                const nested: _Element[] = [...doc.querySelectorAll("rhu-macro")];
-                for (const el of nested) {
-                    if (el === element) continue;
-
-                    const typename: string = "rhu-type";
-                    const type = Element_getAttribute(el, typename);
-                    Element.prototype.removeAttribute.call(el, typename);
-                    const definition = templates.get(type);
-                    if (!RHU.exists(definition)) 
-                        throw new TypeError(`Could not expand <rhu-macro> of type '${type}'. Macro definition does not exist.`);
-                    const options = definition.options;
-
-                    // If the macro is floating, check for id, and create its property and parse it
-                    // we have to parse it manually here as floating macros don't have containers to 
-                    // convert to for the parser later to use.
-                    if (options.floating) {
-                        if (Element_hasAttribute(el, "rhu-id")) {
-                            const identifier = Element_getAttribute(el, "rhu-id");
-                            Element.prototype.removeAttribute.call(el, "rhu-id");
-                            checkProperty(identifier);
-                            RHU.definePublicAccessor(properties, identifier, {
-                                get: function() { return el[symbols.macro]; }
-                            });
-                        }
-                        try {
-                            _parse(el, type, parseStack);
-                        } catch (e) {
-                            errorHandle("parser", type, e, root);
-                        }
-                    } else {
-                        // If the macro is not floating, parse it and create the container the macro needs to be inside
-                        const doc = Macro.parseDomString(options.element);
-                        const macro = doc.children[0];
-                        if (!RHU.exists(macro)) throw new SyntaxError(`No valid container element to convert into macro was found for '${type}'.`);
-                        else {
-                            for (let i = 0; i < el.attributes.length; ++i)
-                                macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
-                            el.replaceWith(macro);
-                            Element_setAttribute(macro, "rhu-macro", type);
-                        }
-                    }
-                }
-
-                // Create properties
-                const referencedElements = doc.querySelectorAll("*[rhu-id]") as NodeListOf<_Element>;
-                for (const el of referencedElements) {
-                    if (el === element) continue;
-
-                    const identifier = Element_getAttribute(el, "rhu-id");
-                    Element.prototype.removeAttribute.call(el, "rhu-id");
-                    checkProperty(identifier);
-                    RHU.definePublicAccessor(properties, identifier, {
-                        get: function() { return el[symbols.macro]; }
-                    });
-                }
-
-                // Parse nested rhu-macros (can't parse floating macros as they don't have containers)
-                for (const el of doc.querySelectorAll("*[rhu-macro]")) {
-                    if (el === element) continue;
-                    const type = Element_getAttribute(el, "rhu-macro");
-                    try {
-                        _parse(el, type, parseStack);
-                    } catch (e) {
-                        errorHandle("parser", type, e, root);
-                    }
-                }
-
                 // If element was floating, place children onto element
                 // otherwise place element back onto document
-                if (options.floating)
-                    Element.prototype.append.call(element, ...doc.childNodes);
-                else
-                    slot!.replaceWith(element);
-
-                // Remove comment nodes:
-                const xPath = "//comment()";
-                const query = xPathEvaluator.evaluate(xPath, element, null, XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE, null);
-                for (let i = 0, length = query.snapshotLength; i < length; ++i) {
-                    const self: Node = query.snapshotItem(i)!;
-                    if (RHU.exists(self.parentNode))
-                        self.parentNode.removeChild(self);
+                if (options.floating) {
+                    Element_append(element, fragment);
+                } else {
+                    slot!.replaceWith(fragment);
                 }
 
                 // Set content variable if set:
                 if (RHU.exists(options.content)) {            
-                    //if (typeof options.content !== "string") throw new TypeError("Option 'content' must be a string.");
+                    if (typeof options.content !== "string") throw new TypeError("Option 'content' must be a string.");
                     checkProperty(options.content);
                     properties[options.content] = [...Node_childNodes(element)];
                 }
