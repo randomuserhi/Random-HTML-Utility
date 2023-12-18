@@ -477,8 +477,8 @@
         const require = (object: RHU.Module.Require, result: any, missing: string[]) => {
             for (const [key, value] of Object.entries(object)) {
                 if (typeof value === "string" || value instanceof String) {
-                    const module = core.moduleLoader.get(value as string);
-                    if (RHU.exists(module)) {
+                    const [loaded, module] = core.moduleLoader.get(value as string);
+                    if (loaded) {
                         result[key] = module;
                     } else {
                         missing.push(value as string);
@@ -506,9 +506,9 @@
             },
             get: function(module: string) {
                 if (this.cache.has(module)) {
-                    return this.cache.get(module);
+                    return [true, this.cache.get(module)];
                 } else {
-                    return undefined;
+                    return [false, undefined];
                 }
             },
             onLoad: function(module) {
@@ -593,7 +593,7 @@
             get: function(): RHU.Module[] { 
                 const obj: RHU.Module[] = [...core.moduleLoader.imported];
                 obj.toString = function(): string {
-                    let msg = "Imports in order of execution:";
+                    let msg = `Imports in order of execution [${obj.length}]:`;
                     for (const module of obj) {
                         const name = RHU.exists(module.name) ? module.name : "[rhu/require]";
                         msg += `\n${name}${core.exists(module.trace.stack) 
@@ -609,7 +609,7 @@
             get: function(): RHU.Module[] { 
                 const obj: RHU.Module[] = [...core.moduleLoader.watching];
                 obj.toString = function(): string {
-                    let msg = "Modules being watched:";
+                    let msg = `Modules being watched [${obj.length}]:`;
                     for (const module of obj) {
                         const name = RHU.exists(module.name) ? module.name : "[rhu/require]";
                         msg += `\n${name}${core.exists(module.trace.stack) 
@@ -633,7 +633,7 @@
             get: function(): RHU.Module[] { 
                 const obj: RHU.Module[] = [...core.moduleLoader.failed];
                 obj.toString = function(): string {
-                    let msg = "Modules that failed to import:";
+                    let msg = `Modules that failed to import [${obj.length}]:`;
                     for (const module of obj) {
                         const name = RHU.exists(module.name) ? module.name : "[rhu/require]";
                         msg += `\n${name}${core.exists(module.trace.stack) 

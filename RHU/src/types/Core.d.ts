@@ -79,7 +79,7 @@ declare namespace Core
         cache: Map<string, any>;
         
         set(module: string, obj: any): void;
-        get(module: string): any;
+        get(module: string): [loaded: boolean, value: any];
         onLoad(module: Core.ModuleLoader.Import): void;
 
         execute(module: RHU.Module): void;
