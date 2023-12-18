@@ -334,7 +334,7 @@
                 }
                 default: {
                     const message = typeof e === "string" ? e : `\n\n${e.stack}`;
-                    throw `\n[__${type}__] ${root ? "Macro.Parse(" : "__parse__("}${macro})${message}`;
+                    throw `\n[__${type}__] ${root ? "Macro.Parse(" : "_parse("}${macro})${message}`;
                 }
                 }
             };
