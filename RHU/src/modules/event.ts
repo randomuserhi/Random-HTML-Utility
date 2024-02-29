@@ -21,6 +21,7 @@
                     else
                         addEventListener(type, ((e: CustomEvent) => { callback.handleEvent.call(context, e.detail); }) as EventListener, options);
                 };
+                // TODO(randomuserhi): this doesnt work since the callbacks added are new functions everytime...
                 target.removeEventListener = node.removeEventListener.bind(node);
                 target.dispatchEvent = node.dispatchEvent.bind(node);
             };
