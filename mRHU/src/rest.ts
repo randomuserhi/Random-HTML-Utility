@@ -1,4 +1,4 @@
-import { exists, parseOptions } from "./rhu";
+import { exists, parseOptions } from "./rhu.js";
 
 const _fetch = fetch;
 export namespace Rest {
