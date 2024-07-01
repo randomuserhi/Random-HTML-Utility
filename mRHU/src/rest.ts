@@ -29,7 +29,7 @@ export declare namespace Rest
     }
 }
 
-export const rest: Rest = {
+export const Rest: Rest = {
     fetch: function<T, P extends (...params: any[]) => Rest.Payload>(options: Rest.Options<T, P>): Rest.FetchFunc<T, P> | Rest.FetchFunc<T, Rest.ParserFunc> {
         interface partialOpt extends Omit<Omit<Rest.Options<T, P>, "fetch">, "callback">
         {
@@ -137,6 +137,6 @@ export const rest: Rest = {
             } as Parser;
         }
         
-        return rest.fetch<T, Parser>(opt);
+        return Rest.fetch<T, Parser>(opt);
     }
 };
