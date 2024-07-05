@@ -1,3 +1,5 @@
+import { WeakCollection } from "./weak";
+
 const isDirty = Symbol("isDirty");
 
 interface SignalEvent<T = any> {
@@ -15,13 +17,13 @@ interface Signal<T = any> extends SignalEvent<T> {
 type Callback<T = any> = (value: T) => void;
 type Equality<T = any> = (a: T, b: T) => boolean;
 
-const dependencyMap = new Map<SignalEvent, Computed[]>();
+const dependencyMap = new WeakMap<SignalEvent, WeakCollection<Computed>>();
 function markDirty(signal: SignalEvent) {
-    const list = dependencyMap.get(signal);
-    if (list === undefined) return;
-    for (const dependency of list) {
-        dependency[isDirty] = true;
-        markDirty(dependency);
+    const dependencies = dependencyMap.get(signal);
+    if (dependencies === undefined) return;
+    for (const computed of dependencies) {
+        computed[isDirty] = true;
+        markDirty(computed);
     }
 }
 
@@ -49,7 +51,7 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
             }
         }
         return ref.value;
-    };
+    } as Signal<T>;
     signal.on = function(callback: Callback<T>): Callback<T> {
         callbacks.add(callback);
         return callback;
@@ -64,7 +66,7 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
         return equality(ref.value, other);
     };
     Object.setPrototypeOf(signal, proto);
-    return signal as Signal<T>;
+    return signal;
 }
 
 interface Computed<T = any> extends SignalEvent<T> {
@@ -80,7 +82,7 @@ export function computed<T = any>(expression: () => T, dependencies: Signal[], e
             ref.value = expression();
         }
         return ref.value;
-    };
+    } as Computed<T>;
     computed.on = function(callback: Callback<T>): Callback<T> {
         callbacks.add(callback);
         return callback;
@@ -94,17 +96,17 @@ export function computed<T = any>(expression: () => T, dependencies: Signal[], e
         }
         return equality(ref.value, other);
     };
-    computed[isDirty] = false;
+    (computed as any)[isDirty] = false;
     Object.setPrototypeOf(computed, proto);
 
     // Add computed to dependency map
     for (const signal of dependencies) {
         if (!dependencyMap.has(signal)) {
-            dependencyMap.set(signal, []);
+            dependencyMap.set(signal, new WeakCollection());
         }
-        const list = dependencyMap.get(signal)!;
-        list.push(computed);
+        const dependencies = dependencyMap.get(signal)!;
+        dependencies.add(computed);
     }
 
-    return computed as Computed<T>;
+    return computed;
 }
