@@ -1,16 +1,17 @@
 import { WeakCollection } from "./weak";
 
-const isDirty = Symbol("isDirty");
+const _isDirty = Symbol("isDirty");
+const _callbacks = Symbol("callbacks");
 
 interface SignalEvent<T = any> {
+    (): T;
     equals(other: T): boolean;
     on(callback: Callback<T>): Callback<T>;
     off(handle: Callback<T>): boolean;
 }
 const proto = {};
 
-interface Signal<T = any> extends SignalEvent<T> {
-    (): T;
+export interface Signal<T = any> extends SignalEvent<T> {
     (value: T): T;
 }
 
@@ -18,14 +19,26 @@ type Callback<T = any> = (value: T) => void;
 type Equality<T = any> = (a: T, b: T) => boolean;
 
 const dependencyMap = new WeakMap<SignalEvent, WeakCollection<Computed>>();
-function markDirty(signal: SignalEvent) {
+const dirtySet = new Set<Computed>();
+function markDirty(signal: SignalEvent, root: boolean = true) {
     const dependencies = dependencyMap.get(signal);
     if (dependencies === undefined) return;
     for (const computed of dependencies) {
-        computed[isDirty] = true;
-        markDirty(computed);
+        computed[_isDirty] = true;
+        dirtySet.add(computed);
+        markDirty(computed, false);
+    }
+
+    if (root) {
+        for (const dirty of dirtySet) {
+            for (const callback of dirty[_callbacks]) {
+                callback(dirty());
+            }
+        }
+        dirtySet.clear();
     }
 }
+(globalThis as any).signals = dependencyMap;
 
 export function isSignalType<T = any>(obj: any): obj is SignalEvent<T> {
     return Object.prototype.isPrototypeOf.call(proto, obj);
@@ -47,13 +60,19 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
                 (equality !== undefined && !equality(ref.value, value))
             ) {
                 ref.value = value;
+                for (const callback of callbacks) {
+                    callback(ref.value);
+                }
                 markDirty(signal);
             }
         }
         return ref.value;
     } as Signal<T>;
     signal.on = function(callback: Callback<T>): Callback<T> {
-        callbacks.add(callback);
+        if (!callbacks.has(callback)) {
+            callback(ref.value);
+            callbacks.add(callback);
+        }
         return callback;
     };
     signal.off = function(callback: Callback<T>): boolean {
@@ -69,22 +88,25 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
     return signal;
 }
 
-interface Computed<T = any> extends SignalEvent<T> {
-    (): T;
-    [isDirty]: boolean;
+export interface Computed<T = any> extends SignalEvent<T> {
+    [_isDirty]: boolean;
+    [_callbacks]: Set<Callback<T>>;
 }
 
 export function computed<T = any>(expression: () => T, dependencies: Signal[], equality?: Equality<T>): Computed<T> {
     const ref: { value: T } = { value: undefined! };
     const callbacks = new Set<Callback<T>>();
     const computed = function() {
-        if (computed[isDirty]) {
+        if (computed[_isDirty]) {
             ref.value = expression();
         }
         return ref.value;
     } as Computed<T>;
     computed.on = function(callback: Callback<T>): Callback<T> {
-        callbacks.add(callback);
+        if (!callbacks.has(callback)) {
+            callback(computed());
+            callbacks.add(callback);
+        }
         return callback;
     };
     computed.off = function(callback: Callback<T>): boolean {
@@ -96,7 +118,8 @@ export function computed<T = any>(expression: () => T, dependencies: Signal[], e
         }
         return equality(ref.value, other);
     };
-    (computed as any)[isDirty] = false;
+    computed[_isDirty] = false;
+    computed[_callbacks] = callbacks;
     Object.setPrototypeOf(computed, proto);
 
     // Add computed to dependency map
