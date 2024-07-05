@@ -1,4 +1,4 @@
-import { WeakCollection } from "./weak";
+import { WeakCollection } from "./weak.js";
 
 const _isDirty = Symbol("isDirty");
 const _callbacks = Symbol("callbacks");
