@@ -1,4 +1,4 @@
-import { WeakCollection } from "./weak.js";
+import { WeakCollectionMap } from "./weak.js";
 
 const _isDirty = Symbol("isDirty");
 const _callbacks = Symbol("callbacks");
@@ -18,12 +18,14 @@ export interface Signal<T = any> extends SignalEvent<T> {
 type Callback<T = any> = (value: T) => void;
 type Equality<T = any> = (a: T, b: T) => boolean;
 
-const dependencyMap = new WeakMap<SignalEvent, WeakCollection<Computed>>();
+const dependencyMap = new WeakCollectionMap<SignalEvent, Computed>();
 const dirtySet = new Set<Computed>();
 function markDirty(signal: SignalEvent, root: boolean = true) {
     const dependencies = dependencyMap.get(signal);
     if (dependencies === undefined) return;
     for (const computed of dependencies) {
+        if (computed[_isDirty]) continue;
+        
         computed[_isDirty] = true;
         dirtySet.add(computed);
         markDirty(computed, false);
@@ -125,11 +127,7 @@ export function computed<T = any>(expression: () => T, dependencies: Signal[], e
 
     // Add computed to dependency map
     for (const signal of dependencies) {
-        if (!dependencyMap.has(signal)) {
-            dependencyMap.set(signal, new WeakCollection());
-        }
-        const dependencies = dependencyMap.get(signal)!;
-        dependencies.add(computed);
+        dependencyMap.set(signal, computed);
     }
 
     return computed;
