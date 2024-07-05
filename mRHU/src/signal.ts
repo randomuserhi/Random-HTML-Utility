@@ -9,9 +9,14 @@ interface Signal<T = any> extends SignalEvent<T> {
     (value: T): T;
 }
 
-type Callback<T> = (value: T) => void;
-type Equality<T> = (a: T, b: T) => boolean;
+type Callback<T = any> = (value: T) => void;
+type Equality<T = any> = (a: T, b: T) => boolean;
 
+// NOTE(randomuserhi): pass into equality to always update signal regardless of if the value is equal or not
+export const always: Equality = () => false;
+
+// NOTE(randomuserhi): Exact same issue as React where if you change an object instead of treating it as immutable, the change does not propagate through the signal
+//                     to change an object you need to pass a new object into the signal or repass the old reference with a custom equality operator
 export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
     const ref = { value };
     const callbacks = new Set<Callback<T>>();
