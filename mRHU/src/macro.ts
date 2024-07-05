@@ -39,7 +39,7 @@ interface MacroObject {
     anon<T extends {} = {}>(source: string): [T, DocumentFragment];
     parse(element: Element, type?: string & {} | Templates | undefined | null, force?: boolean): void;
     observe(target: Node): void;
-    signal(name: string): string;
+    signal(name: string, initial?: string): string;
 }
 
 type Macro = HTMLElement | {};
@@ -283,7 +283,7 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
                     const textNode = document.createTextNode(RHU.exists(el.textContent) ? el.textContent : "");
                     el.replaceWith(textNode);
                     const prop = signal(textNode.nodeValue);
-                    prop.on((value) => el.nodeValue = value);
+                    prop.on((value) => textNode.nodeValue = value);
                     RHU.definePublicAccessor(properties, identifier, {
                         get: function() { return prop; }
                     });
@@ -325,7 +325,7 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
             const textNode = document.createTextNode(RHU.exists(el.textContent) ? el.textContent : "");
             el.replaceWith(textNode);
             const prop = signal(textNode.nodeValue);
-            prop.on((value) => el.nodeValue = value);
+            prop.on((value) => textNode.nodeValue = value);
             RHU.definePublicAccessor(properties, identifier, {
                 get: function() { return prop; }
             });
@@ -369,8 +369,8 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
 Macro.anon = function<T extends {} = {}>(source: string): [T, DocumentFragment] {
     return _anon(source, [], undefined, true);
 };
-Macro.signal = function(name) {
-    return `<rhu-signal rhu-id="${name}"/>`;
+Macro.signal = function(name, initial = "") {
+    return `<rhu-signal rhu-id="${name}">${initial}</rhu-signal>`;
 };
 
 const clonePrototypeChain = function(prototype: any, last: any): any {
