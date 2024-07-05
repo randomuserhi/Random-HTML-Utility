@@ -99,6 +99,7 @@ export function computed<T = any>(expression: () => T, dependencies: Signal[], e
     const computed = function() {
         if (computed[_isDirty]) {
             ref.value = expression();
+            computed[_isDirty] = false;
         }
         return ref.value;
     } as Computed<T>;
@@ -118,7 +119,7 @@ export function computed<T = any>(expression: () => T, dependencies: Signal[], e
         }
         return equality(ref.value, other);
     };
-    computed[_isDirty] = false;
+    computed[_isDirty] = true;
     computed[_callbacks] = callbacks;
     Object.setPrototypeOf(computed, proto);
 
