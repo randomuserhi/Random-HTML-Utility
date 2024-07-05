@@ -283,7 +283,7 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
                     const textNode = document.createTextNode(RHU.exists(el.textContent) ? el.textContent : "");
                     el.replaceWith(textNode);
                     const prop = signal(textNode.nodeValue);
-                    prop.on((value) => textNode.nodeValue = value);
+                    prop.on((value) => textNode.nodeValue = `${value}`);
                     RHU.definePublicAccessor(properties, identifier, {
                         get: function() { return prop; }
                     });
@@ -325,7 +325,7 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
             const textNode = document.createTextNode(RHU.exists(el.textContent) ? el.textContent : "");
             el.replaceWith(textNode);
             const prop = signal(textNode.nodeValue);
-            prop.on((value) => textNode.nodeValue = value);
+            prop.on((value) => textNode.nodeValue = `${value}`);
             RHU.definePublicAccessor(properties, identifier, {
                 get: function() { return prop; }
             });
