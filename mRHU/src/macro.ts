@@ -8,12 +8,18 @@ export interface TemplateMap {
 }
 interface Template<T extends Templates> {
     (first: TemplateStringsArray, ...interpolations: (string | { [Symbol.toPrimitive]: (...args: any[]) => string })[]): string;
+    open: {
+        (first: TemplateStringsArray, ...interpolations: (string | { [Symbol.toPrimitive]: (...args: any[]) => string })[]): string;
+        toString: () => string;
+        [Symbol.toPrimitive]: () => string;
+    }
+    close: { [Symbol.toPrimitive]: () => string; toString: () => string };
     type: T;
     toString: () => T;
     [Symbol.toPrimitive]: () => string;
 }
 interface Macro<T extends Element | undefined = Element, P = any> {
-    new (element: T | undefined, bindings: P): object;
+    new (element: T | undefined, bindings: P, children: Node[]): object;
 }
 
 export class MacroWrapper<T extends Element | undefined = undefined> {
@@ -148,6 +154,14 @@ RHU.definePublicAccessor(Element.prototype, "rhuMacro", {
     }
 });
 
+const closure = {
+    toString() {
+        return "</rhu-macro>";
+    },
+    [Symbol.toPrimitive]() {
+        return "</rhu-macro>";
+    }
+};
 const Template = function<T extends Templates>(type: T): Template<T> {
     const template = function(first: TemplateStringsArray, ...interpolations: (string)[]): string {
         let generatedCode: string = `<rhu-macro rhu-type="${type}" ${first[0]}`;
@@ -159,6 +173,21 @@ const Template = function<T extends Templates>(type: T): Template<T> {
         generatedCode += `></rhu-macro>`;
         return generatedCode;
     } as Template<T>;
+
+    template.open = function(first: TemplateStringsArray, ...interpolations: (string)[]): string {
+        let generatedCode: string = `<rhu-macro rhu-type="${type}" ${first[0]}`;
+        for (let i = 0; i < interpolations.length; ++i) {
+            const interpolation = interpolations[i];
+            generatedCode += interpolation;
+            generatedCode += first[i + 1];
+        }
+        generatedCode += `>`;
+        return generatedCode;
+    } as Template<T>["open"];
+    template.open.toString = () => `<rhu-macro rhu-type="${type}">`;
+    template.open[Symbol.toPrimitive] = () => `<rhu-macro rhu-type="${type}">`;
+
+    template.close = closure;
 
     template.type = type;
     template.toString = () => type,
@@ -229,6 +258,7 @@ Macro.parseDomString = function(str: string): DocumentFragment {
     return template.content;
 };
 
+const childMap = new Map<Node, Node[]>();
 const _anon = function<T extends {} = any>(source: string, parseStack: string[], donor?: Element, root: boolean = false): [T, DocumentFragment] {
     let doc;
     if (RHU.exists(donor)) {
@@ -259,6 +289,8 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
             throw new TypeError(`Could not expand <rhu-macro> of type '${type}'. Macro definition does not exist.`);
         const options = definition.options;
 
+        const children = [...el.childNodes];
+
         // If the macro is floating, check for id, and create its property and parse it
         // we have to parse it manually here as floating macros don't have containers to 
         // convert to for the parser later to use.
@@ -283,7 +315,7 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
                 }
             }
             try {
-                _parse(el, type, parseStack);
+                _parse(el, type, children, parseStack);
             } catch (e) {
                 errorHandle("parser", type, e, root);
             }
@@ -297,6 +329,7 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
                     macro.setAttribute(el.attributes[i].name, el.attributes[i].value);
                 el.replaceWith(macro);
                 Element_setAttribute(macro, "rhu-macro", type);
+                childMap.set(macro, children);
             }
         }
     }
@@ -330,11 +363,14 @@ const _anon = function<T extends {} = any>(source: string, parseStack: string[],
         if (el === donor) continue;
 
         const type = Element_getAttribute(el, "rhu-macro");
+        let children: Node[] | undefined = childMap.get(el);
+        if (children === undefined) children = [];
         try {
-            _parse(el, type, parseStack);
+            _parse(el, type, children, parseStack);
         } catch (e) {
             errorHandle("parser", type, e, root);
         }
+        childMap.delete(el);
     }
 
     // Place elements into a temporary container
@@ -378,7 +414,7 @@ const errorHandle = function(type: "parser" | "constructor", macro: string & {} 
 };
 const watching: Map<string, WeakCollection<Element>> 
 = new Map<string, WeakCollection<Element>>(); // Stores active macros that are being watched
-const _parse = function(element: _Element, type: string & {} | Templates | undefined | null, parseStack: string[], root: boolean = false, force: boolean = false): void {
+const _parse = function(element: _Element, type: string & {} | Templates | undefined | null, children: Node[], parseStack: string[], root: boolean = false, force: boolean = false): void {
     // Normalize type undefined / null to blank type
     if (!RHU.exists(type)) type = "";
 
@@ -390,6 +426,9 @@ const _parse = function(element: _Element, type: string & {} | Templates | undef
 
         // If the definition does not exist, simply do not expand this <rhu-macro>
         if (!RHU.exists(definition)) return;
+
+        // get children of macro
+        children.push(...element.childNodes);
 
         const options = definition.options;
 
@@ -468,7 +507,7 @@ const _parse = function(element: _Element, type: string & {} | Templates | undef
 
     let obj: any | undefined = undefined;
     try {
-        obj = new constructor(RHU.exists(options.element) ? element : undefined, properties);
+        obj = new constructor(RHU.exists(options.element) ? element : undefined, properties, children);
     } catch (e) {
         errorHandle("constructor", type, e, root);
     }
@@ -516,7 +555,7 @@ const _parse = function(element: _Element, type: string & {} | Templates | undef
     parseStack.pop();
 };
 Macro.parse = function(element: _Element, type: string & {} | Templates | undefined | null, force: boolean = false): void {
-    _parse(element, type, [], true, force);
+    _parse(element, type, [], [], true, force);
 };
 
 const load: () => void = function(): void {
