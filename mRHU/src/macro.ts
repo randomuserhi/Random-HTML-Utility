@@ -18,8 +18,12 @@ interface Macro<T extends Element | undefined = Element, P = any> {
 
 export class MacroWrapper<T extends Element | undefined = undefined> {
     element: T;
+    readonly weak: WeakRef<this>["deref"];
 
     constructor(element: T, bindings: any, target?: any) {
+        const weak = new WeakRef(this);
+        this.weak = weak.deref.bind(weak);
+
         this.element = element;
         if (RHU.exists(target)) {
             Object.assign(target, bindings);

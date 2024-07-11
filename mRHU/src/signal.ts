@@ -6,7 +6,7 @@ const _callbacks = Symbol("callbacks");
 interface SignalEvent<T = any> {
     (): T;
     equals(other: T): boolean;
-    on(callback: Callback<T>): Callback<T>;
+    on(callback: Callback<T>, options?: { signal?: AbortSignal }): Callback<T>;
     off(handle: Callback<T>): boolean;
 }
 const proto = {};
@@ -74,17 +74,20 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
         }
         return ref.value;
     } as Signal<T>;
-    signal.on = function(callback: Callback<T>): Callback<T> {
+    signal.on = function(callback, options): Callback<T> {
         if (!callbacks.has(callback)) {
             callback(ref.value);
             callbacks.add(callback);
+            if (options?.signal !== undefined) {
+                options.signal.addEventListener("abort", () => callbacks.delete(callback), { once: true });
+            }
         }
         return callback;
     };
-    signal.off = function(callback: Callback<T>): boolean {
+    signal.off = function(callback): boolean {
         return callbacks.delete(callback);
     };
-    signal.equals = function(other: T): boolean {
+    signal.equals = function(other): boolean {
         if (equality === undefined) {
             return ref.value === other;
         }
@@ -109,17 +112,20 @@ export function computed<T = any>(expression: () => T, dependencies: Signal[], e
         }
         return ref.value;
     } as Computed<T>;
-    computed.on = function(callback: Callback<T>): Callback<T> {
+    computed.on = function(callback, options): Callback<T> {
         if (!callbacks.has(callback)) {
             callback(computed());
             callbacks.add(callback);
+            if (options?.signal !== undefined) {
+                options.signal.addEventListener("abort", () => callbacks.delete(callback), { once: true });
+            }
         }
         return callback;
     };
-    computed.off = function(callback: Callback<T>): boolean {
+    computed.off = function(callback): boolean {
         return callbacks.delete(callback);
     };
-    computed.equals = function(other: T): boolean {
+    computed.equals = function(other): boolean {
         if (equality === undefined) {
             return ref.value === other;
         }
