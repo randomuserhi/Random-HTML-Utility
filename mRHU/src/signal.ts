@@ -13,6 +13,7 @@ const proto = {};
 
 export interface Signal<T = any> extends SignalEvent<T> {
     (value: T): T;
+    guard?: (value: T) => T;
 }
 
 type Callback<T = any> = (value: T) => void;
@@ -56,7 +57,10 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
     const callbacks = new Set<Callback<T>>();
     const signal = function(...args: [T, ...any[]]) {
         if (args.length !== 0) {
-            const [ value ] = args;
+            let [ value ] = args;
+            if (signal.guard !== undefined) {
+                value = signal.guard(value);
+            }
             if (
                 (equality === undefined && ref.value !== value) || 
                 (equality !== undefined && !equality(ref.value, value))
