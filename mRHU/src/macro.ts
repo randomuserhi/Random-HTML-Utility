@@ -81,6 +81,7 @@ class MACRO<T extends MacroClass = MacroClass> extends ELEMENT {
 
     public then(callback: (macro: InstanceType<T>) => void) {
         this.callbacks.add(callback);
+        return this;
     }
 
     static is: (object: any) => object is MACRO = Object.prototype.isPrototypeOf.bind(MACRO.prototype);
@@ -233,6 +234,7 @@ interface FACTORY<T extends MacroClass> {
     readonly [symbols.factory]: boolean;
 }
 function isFactory(object: any): object is FACTORY<typeof MacroElement> {
+    if (object === null || object === undefined) return false;
     return object[symbols.factory] === true;
 } 
 export type Macro<F extends FACTORY<any>> = F extends FACTORY<infer T> ? InstanceType<T> : any;
