@@ -43,7 +43,7 @@ class SIGNAL extends ELEMENT {
         return this;
     }
 
-    static is: (object: any) => object is SIGNAL = Object.prototype.isPrototypeOf.bind(SIGNAL);
+    static is: (object: any) => object is SIGNAL = Object.prototype.isPrototypeOf.bind(SIGNAL.prototype);
 }
 
 export class MacroElement {
@@ -130,6 +130,8 @@ class HTML {
             source += this.first[i];
         }
 
+        console.log(source);
+
         // parse source
         const template = document.createElement("template");
         template.innerHTML = source;
@@ -151,6 +153,7 @@ class HTML {
             if (slot === undefined || slot === null) throw new Error("Unable to find slot for signal.");
 
             const sig = signals[i];
+            console.log(sig);
 
             // create text node and signal
             const node = document.createTextNode("");
