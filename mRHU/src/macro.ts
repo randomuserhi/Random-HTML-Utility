@@ -113,11 +113,11 @@ class HTML {
             if (NODE.is(interp)) {
                 if (CLOSURE.is(interp)) {
                     source += `</rhu-macro>`;
-                } else if (MACRO.is(interp)) {
-                    source += `<rhu-macro rhu-internal="${macros.length}"></rhu-macro>`;
-                    macros.push(interp);
                 } else if (MACRO_OPEN.is(interp)) {
                     source += `<rhu-macro rhu-internal="${macros.length}">`;
+                    macros.push(interp);
+                }  else if (MACRO.is(interp)) {
+                    source += `<rhu-macro rhu-internal="${macros.length}"></rhu-macro>`;
                     macros.push(interp);
                 } else if (SIGNAL.is(interp)) {
                     source += `<rhu-signal rhu-internal="${signals.length}"></rhu-signal>`;
