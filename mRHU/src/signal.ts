@@ -1,8 +1,5 @@
 import { WeakCollectionMap } from "./weak.js";
 
-const _isDirty = Symbol("isDirty");
-const _callbacks = Symbol("callbacks");
-
 interface SignalEvent<T = any> {
     (): T;
     equals(other: T): boolean;
@@ -11,48 +8,22 @@ interface SignalEvent<T = any> {
 }
 const proto = {};
 
-export interface Signal<T = any> extends SignalEvent<T> {
+export interface Signal<T> extends SignalEvent<T> {
     (value: T): T;
     guard?: (value: T) => T;
 }
 
-type Callback<T = any> = (value: T) => void;
-type Equality<T = any> = (a: T, b: T) => boolean;
+type Callback<T> = (value: T) => void;
+type Equality<T> = (a: T, b: T) => boolean;
 
-const dependencyMap = new WeakCollectionMap<SignalEvent, Computed>();
-const dirtySet = new Set<Computed>();
-function markDirty(signal: SignalEvent, root: boolean = true) {
-    const dependencies = dependencyMap.get(signal);
-    if (dependencies === undefined) return;
-    for (const computed of dependencies) {
-        if (computed[_isDirty]) continue;
-        
-        computed[_isDirty] = true;
-        dirtySet.add(computed);
-        markDirty(computed, false);
-    }
-
-    if (root) {
-        for (const dirty of dirtySet) {
-            for (const callback of dirty[_callbacks]) {
-                callback(dirty());
-            }
-        }
-        dirtySet.clear();
-    }
-}
-(globalThis as any).signals = dependencyMap;
-
-export function isSignalType<T = any>(obj: any): obj is SignalEvent<T> {
-    return Object.prototype.isPrototypeOf.call(proto, obj);
-}
+export const isSignal: <T>(obj: any) => obj is SignalEvent<T> = Object.prototype.isPrototypeOf.bind(proto);
 
 // NOTE(randomuserhi): pass into equality to always update signal regardless of if the value is equal or not
-export const always: Equality = () => false;
+export const always: Equality<any> = () => false;
 
 // NOTE(randomuserhi): Exact same issue as React where if you change an object instead of treating it as immutable, the change does not propagate through the signal
 //                     to change an object you need to pass a new object into the signal or repass the old reference with a custom equality operator
-export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
+export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
     const ref = { value };
     const callbacks = new Set<Callback<T>>();
     const signal = function(...args: [T, ...any[]]) {
@@ -69,7 +40,7 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
                 for (const callback of callbacks) {
                     callback(ref.value);
                 }
-                markDirty(signal);
+                triggerEffects(signal);
             }
         }
         return ref.value;
@@ -97,48 +68,60 @@ export function signal<T = any>(value: T, equality?: Equality<T>): Signal<T> {
     return signal;
 }
 
-export interface Computed<T = any> extends SignalEvent<T> {
-    [_isDirty]: boolean;
-    [_callbacks]: Set<Callback<T>>;
+export interface Effect {
+    (): void;
 }
 
-export function computed<T = any>(expression: () => T, dependencies: Signal[], equality?: Equality<T>): Computed<T> {
-    const ref: { value: T } = { value: undefined! };
-    const callbacks = new Set<Callback<T>>();
+const effectProto = {};
+Object.setPrototypeOf(effectProto, proto);
+export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototypeOf.bind(effectProto);
+
+export function effect(expression: () => void, dependencies: SignalEvent[]): Effect {
+    expression();
+    const effect = function() {
+        expression();
+    } as Effect;
+    Object.setPrototypeOf(effect, effectProto);
+
+    // Add effect to dependency map
+    for (const signal of dependencies) {
+        if (isEffect(signal)) throw new Error("Effect cannot be used as a dependency.");
+        dependencyMap.set(signal, effect);
+    }
+
+    return effect;
+}
+const dependencyMap = new WeakCollectionMap<SignalEvent, Effect>();
+function triggerEffects(signal: SignalEvent) {
+    const dependencies = dependencyMap.get(signal);
+    if (dependencies === undefined) return;
+    for (const effect of dependencies) {
+        effect();
+    }
+}
+
+export interface Computed<T> extends SignalEvent<T> {
+    (): T;
+    effect: Effect;
+}
+
+export function computed<T>(expression: () => T, dependencies: SignalEvent[], equality?: Equality<T>): Computed<T> {
+    const value = signal(expression(), equality);
     const computed = function() {
-        if (computed[_isDirty]) {
-            ref.value = expression();
-            computed[_isDirty] = false;
-        }
-        return ref.value;
+        return value();
     } as Computed<T>;
     computed.on = function(callback, options): Callback<T> {
-        if (!callbacks.has(callback)) {
-            callback(computed());
-            callbacks.add(callback);
-            if (options?.signal !== undefined) {
-                options.signal.addEventListener("abort", () => callbacks.delete(callback), { once: true });
-            }
-        }
+        value.on(callback, options);
         return callback;
     };
     computed.off = function(callback): boolean {
-        return callbacks.delete(callback);
+        return value.off(callback);
     };
     computed.equals = function(other): boolean {
-        if (equality === undefined) {
-            return ref.value === other;
-        }
-        return equality(ref.value, other);
+        return value.equals(other);
     };
-    computed[_isDirty] = true;
-    computed[_callbacks] = callbacks;
+    computed.effect = effect(() => value(expression()), dependencies);
     Object.setPrototypeOf(computed, proto);
-
-    // Add computed to dependency map
-    for (const signal of dependencies) {
-        dependencyMap.set(signal, computed);
-    }
 
     return computed;
 }

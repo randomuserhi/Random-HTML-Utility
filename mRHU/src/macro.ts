@@ -12,18 +12,14 @@ class CLOSURE extends NODE {
 
 const symbols: {
     readonly factory: unique symbol;
-    readonly bind: unique symbol;
-    readonly value: unique symbol;
 } = {
     factory: Symbol("factory"),
-    bind: Symbol("macro.bind"),
-    value: Symbol("macro.value")
 } as any;
 
 class ELEMENT extends NODE {
-    public [symbols.bind]?: PropertyKey;
+    private _bind?: PropertyKey;
     public bind(key?: PropertyKey) {
-        this[symbols.bind] = key;
+        this._bind = key;
         return this;
     }
 
@@ -37,9 +33,9 @@ class SIGNAL extends ELEMENT {
         this.bind(binding);
     }
 
-    public [symbols.value]?: string;
+    private _value?: string;
     public value(value?: string) {
-        this[symbols.value] = value;
+        this._value = value;
         return this;
     }
 
@@ -160,7 +156,7 @@ class HTML {
 
             // create text node and signal
             const node = document.createTextNode("");
-            const sig_value = sig[symbols.value];
+            const sig_value: SIGNAL["_value"] = (sig as any)._value;
             const instance = signal(sig_value !== undefined && sig_value !== null ? sig_value : "");
             instance.on((value) => node.nodeValue = value);
 
@@ -168,7 +164,7 @@ class HTML {
             slot.replaceWith(node);
 
             // create binding
-            const sig_bind = sig[symbols.bind];
+            const sig_bind: ELEMENT["_bind"] = (sig as any)._bind;
             if (sig_bind !== undefined && sig_bind !== null) {
                 if (sig_bind in bindings) throw new SyntaxError(`The binding '${sig_bind.toString()}' already exists.`);
                 bindings[sig_bind] = instance; 
@@ -219,7 +215,7 @@ class HTML {
             }
 
             // create binding
-            const macro_bind = macro[symbols.bind];
+            const macro_bind: ELEMENT["_bind"] = (macro as any)._bind;
             if (macro_bind !== undefined && macro_bind !== null) {
                 if (macro_bind in bindings) throw new SyntaxError(`The binding '${macro_bind.toString()}' already exists.`);
                 bindings[macro_bind] = instance; 
