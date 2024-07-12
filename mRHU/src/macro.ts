@@ -216,6 +216,7 @@ interface MacroNamespace {
     <T extends MacroClass>(type: T, html: HTML): FACTORY<T>;
     signal(binding: string, value?: string): SIGNAL;
     create<T extends MACRO>(macro: T): T extends MACRO<infer R> ? InstanceType<R> : never;
+    observe(node: Node): void;
 }
 
 export const Macro = (<T extends MacroClass>(type: T, html: HTML): FACTORY<T> => {
@@ -239,3 +240,43 @@ Macro.create = <M extends MACRO>(macro: M): M extends MACRO<infer T> ? InstanceT
     // create instance
     return new macro.type(dom, b, [], ...macro.args);
 };
+
+declare global {
+    interface GlobalEventHandlersEventMap {
+        "mount": CustomEvent;
+    }
+}
+
+// Custom event and observer to add some nice events
+const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype);
+const recursiveDispatch = function(node: Node): void {
+    if (isElement(node)) node.dispatchEvent(new CustomEvent("mount"));
+    for (const child of node.childNodes)
+        recursiveDispatch(child);
+};
+const observer = new MutationObserver(function(mutationList) {
+    for (const mutation of mutationList) {
+        switch (mutation.type) {
+        case "childList": {
+            for (const node of mutation.addedNodes)
+                recursiveDispatch(node);
+        } break;
+        }
+    }
+});
+// Allows you to assign macro observation to other docs to trigger macro updates
+Macro.observe = function(target: Node): void {
+    observer.observe(target, {
+        childList: true,
+        subtree: true
+    });
+};
+
+const onDocumentLoad = function() {
+    Macro.observe(document);
+};
+if (document.readyState === "loading") 
+    document.addEventListener("DOMContentLoaded", onDocumentLoad);
+// Document may have loaded already if the script is declared as defer, in this case just call onload
+else 
+    onDocumentLoad();
