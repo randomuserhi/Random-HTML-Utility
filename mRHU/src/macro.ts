@@ -161,6 +161,9 @@ class HTML {
             const instance = signal(sig_value !== undefined && sig_value !== null ? sig_value : "");
             instance.on((value) => node.nodeValue = value);
 
+            // replace slot
+            slot.replaceWith(node);
+
             // create binding
             const sig_bind = sig[symbols.bind];
             if (sig_bind !== undefined && sig_bind !== null) {
