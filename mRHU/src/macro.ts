@@ -70,12 +70,17 @@ class MACRO<T extends MacroClass = MacroClass> extends ELEMENT {
     public type: T;
     public html: HTML;
     public args: MacroParameters<T>;
+    public callbacks = new Set<(macro: InstanceType<T>) => void>();
     
     constructor(html: HTML, type: T, args: MacroParameters<T>) {
         super();
         this.html = html;
         this.type = type;
         this.args = args;
+    }
+
+    public then(callback: (macro: InstanceType<T>) => void) {
+        this.callbacks.add(callback);
     }
 
     static is: (object: any) => object is MACRO = Object.prototype.isPrototypeOf.bind(MACRO.prototype);
@@ -199,6 +204,11 @@ class HTML {
             // create instance
             const instance = new macro.type(dom, b, children, ...macro.args);
 
+            // trigger callbacks
+            for (const callback of macro.callbacks) {
+                callback(instance);
+            }
+
             // create binding
             const macro_bind = macro[symbols.bind];
             if (macro_bind !== undefined && macro_bind !== null) {
@@ -253,7 +263,12 @@ Macro.create = <M extends MACRO>(macro: M): M extends MACRO<infer T> ? InstanceT
     frag.replaceChildren();
 
     // create instance
-    return new macro.type(dom, b, [], ...macro.args);
+    const instance = new macro.type(dom, b, [], ...macro.args);
+    // trigger callbacks
+    for (const callback of macro.callbacks) {
+        callback(instance);
+    }
+    return instance;
 };
 
 declare global {
