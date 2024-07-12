@@ -185,11 +185,19 @@ class HTML {
             }
         }).nextNode();
 
-        // handle nested macros
+        // find slots
+        const slots = new Array(macros.length);
         for (let i = 0; i < macros.length; ++i) {
             // find slot on fragment
             const slot = fragment.querySelector(`rhu-macro[rhu-internal="${i}"]`);
             if (slot === undefined || slot === null) throw new Error("Unable to find slot for macro.");
+            slots[i] = slot;
+        }
+
+        // handle nested macros
+        for (let i = 0; i < macros.length; ++i) {
+            // get slot
+            const slot = slots[i];
 
             // get children
             const children = [...slot.childNodes];
