@@ -177,6 +177,8 @@ class HTML {
 
             // get children
             const children = [...slot.childNodes];
+            // remove children
+            slot.replaceChildren();
 
             // parse macro
             const macro = macros[i];
