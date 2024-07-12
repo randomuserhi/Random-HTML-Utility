@@ -134,7 +134,6 @@ class HTML {
         const template = document.createElement("template");
         template.innerHTML = source;
         const fragment = template.content;
-        fragment.normalize();
         
         // create bindings
         const bindings: any = {};
@@ -169,6 +168,16 @@ class HTML {
                 bindings[sig_bind] = instance; 
             }
         }
+
+        // Remove nonsense text nodes
+        document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                const value = node.nodeValue;
+                if (value === null || value === undefined) node.parentNode?.removeChild(node);
+                else if (value.trim() === "") node.parentNode?.removeChild(node);
+                return NodeFilter.FILTER_REJECT;
+            }
+        }).nextNode();
 
         // handle nested macros
         for (let i = 0; i < macros.length; ++i) {
