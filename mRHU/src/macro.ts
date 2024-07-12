@@ -134,6 +134,7 @@ class HTML {
         const template = document.createElement("template");
         template.innerHTML = source;
         const fragment = template.content;
+        fragment.normalize();
         
         // create bindings
         const bindings: any = {};
