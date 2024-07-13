@@ -1,4 +1,3 @@
-import { WeakCollectionMap } from "./weak.js";
 
 interface SignalEvent<T = any> {
     (): T;
@@ -86,12 +85,15 @@ export function effect(expression: () => void, dependencies: SignalEvent[]): Eff
     // Add effect to dependency map
     for (const signal of dependencies) {
         if (isEffect(signal)) throw new Error("Effect cannot be used as a dependency.");
-        dependencyMap.set(signal, effect);
+        if (!dependencyMap.has(signal)) {
+            dependencyMap.set(signal, []);
+        }
+        dependencyMap.get(signal)!.push(effect);
     }
 
     return effect;
 }
-const dependencyMap = new WeakCollectionMap<SignalEvent, Effect>();
+const dependencyMap = new WeakMap<SignalEvent, Effect[]>();
 function triggerEffects(signal: SignalEvent) {
     const dependencies = dependencyMap.get(signal);
     if (dependencies === undefined) return;
