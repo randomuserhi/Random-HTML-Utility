@@ -146,6 +146,16 @@ class HTML {
             bindings[key] = el; 
         }
 
+        // Remove nonsense text nodes
+        document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                const value = node.nodeValue;
+                if (value === null || value === undefined) node.parentNode?.removeChild(node);
+                else if (value.trim() === "") node.parentNode?.removeChild(node);
+                return NodeFilter.FILTER_REJECT;
+            }
+        }).nextNode();
+
         // handle signals
         for (let i = 0; i < signals.length; ++i) {
             // find slot on fragment
@@ -170,16 +180,6 @@ class HTML {
                 bindings[sig_bind] = instance; 
             }
         }
-
-        // Remove nonsense text nodes
-        document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
-            acceptNode(node) {
-                const value = node.nodeValue;
-                if (value === null || value === undefined) node.parentNode?.removeChild(node);
-                else if (value.trim() === "") node.parentNode?.removeChild(node);
-                return NodeFilter.FILTER_REJECT;
-            }
-        }).nextNode();
 
         // find slots
         const slots = new Array(macros.length);
