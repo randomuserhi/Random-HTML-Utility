@@ -88,10 +88,10 @@ class MACRO_OPEN<T extends MacroClass = MacroClass> extends MACRO<T> {
     static is: (object: any) => object is MACRO_OPEN = Object.prototype.isPrototypeOf.bind(MACRO_OPEN.prototype);
 }
 
-export function html(first: HTML["first"], ...interpolations: HTML["interpolations"]): HTML {
-    return new HTML(first, interpolations);
+export function html<T extends {} = any>(first: HTML["first"], ...interpolations: HTML["interpolations"]): HTML<T> {
+    return new HTML<T>(first, interpolations);
 }
-class HTML {
+export class HTML<T extends {} = any> {
     public static empty = html``;
     
     private first: TemplateStringsArray;
@@ -102,9 +102,22 @@ class HTML {
         this.interpolations = interpolations;
     }
 
-    public dom<T extends Record<PropertyKey, any> = any>(): [bindings: T, fragment: DocumentFragment] {
+    private _bind?: PropertyKey;
+    public bind(key?: PropertyKey) {
+        this._bind = key;
+        return this;
+    }
+
+    public callbacks = new Set<(bindings: T) => void>();
+    public then(callback: (bindings: T) => void) {
+        this.callbacks.add(callback);
+        return this;
+    }
+
+    public dom<B extends Record<PropertyKey, any> | unknown = unknown>(): [bindings: B extends unknown ? T : B, fragment: DocumentFragment] {
         // stitch together source
         let source = this.first[0];
+        const html: HTML[] = [];
         const macros: MACRO[] = [];
         const signals: SIGNAL[] = [];
         for (let i = 1; i < this.first.length; ++i) {
@@ -112,7 +125,10 @@ class HTML {
             if (isFactory(interp)) {
                 throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
             }
-            if (NODE.is(interp)) {
+            if (HTML.is(interp)) {
+                source += `<rhu-html rhu-internal="${html.length}"></rhu-macro>`;
+                html.push(interp);
+            } if (NODE.is(interp)) {
                 if (CLOSURE.is(interp)) {
                     source += `</rhu-macro>`;
                 } else if (MACRO_OPEN.is(interp)) {
@@ -181,6 +197,33 @@ class HTML {
             }
         }
 
+        // handle html
+        for (let i = 0; i < html.length; ++i) {
+            // find slot on fragment
+            const slot = fragment.querySelector(`rhu-html[rhu-internal="${i}"]`);
+            if (slot === undefined || slot === null) throw new Error("Unable to find slot for HTML.");
+
+            const HTML = html[i];
+
+            // get fragment
+            const [instance, frag] = HTML.dom();
+
+            // trigger callbacks
+            for (const callback of HTML.callbacks) {
+                callback(instance);
+            }
+            
+            // create binding
+            const html_bind: HTML["_bind"] = (HTML as any)._bind;
+            if (html_bind !== undefined && html_bind !== null) {
+                if (html_bind in bindings) throw new SyntaxError(`The binding '${html_bind.toString()}' already exists.`);
+                bindings[html_bind] = instance; 
+            }
+
+            // replace slot
+            slot.replaceWith(frag);
+        }
+
         // find slots
         const slots = new Array(macros.length);
         for (let i = 0; i < macros.length; ++i) {
@@ -225,7 +268,7 @@ class HTML {
             slot.replaceWith(...dom);
         }
 
-        return [bindings as T, fragment];
+        return [bindings as B extends unknown ? T : B, fragment];
     }
 
     static is: (object: any) => object is HTML = Object.prototype.isPrototypeOf.bind(HTML.prototype);
