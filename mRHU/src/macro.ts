@@ -233,7 +233,7 @@ class HTML {
 
 interface FACTORY<T extends MacroClass> {
     (...args: MacroParameters<T>): MACRO<T>;
-    readonly open: () => MACRO_OPEN<T>;
+    readonly open: (...args: MacroParameters<T>) => MACRO_OPEN<T>;
     readonly close: CLOSURE;
     readonly [symbols.factory]: boolean;
 }
