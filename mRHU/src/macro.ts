@@ -114,7 +114,7 @@ export class HTML<T extends {} = any> {
         return this;
     }
 
-    public dom(): [bindings: T, fragment: DocumentFragment] {
+    public dom<B extends Record<PropertyKey, any> | void = void>(): [bindings: B extends void ? T : B, fragment: DocumentFragment] {
         // stitch together source
         let source = this.first[0];
         const html: HTML[] = [];
@@ -268,7 +268,7 @@ export class HTML<T extends {} = any> {
             slot.replaceWith(...dom);
         }
 
-        return [bindings as T, fragment];
+        return [bindings as B extends void ? T : B, fragment];
     }
 
     static is: (object: any) => object is HTML = Object.prototype.isPrototypeOf.bind(HTML.prototype);
