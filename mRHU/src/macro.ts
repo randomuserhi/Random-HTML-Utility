@@ -1,4 +1,4 @@
-import { signal } from "./signal.js";
+import { Signal, signal } from "./signal.js";
 
 abstract class NODE {
 
@@ -180,21 +180,24 @@ export class HTML<T extends {} = any> {
 
             const sig = signals[i];
 
-            // create text node and signal
-            const node = document.createTextNode("");
+            let instance: Signal<string> | undefined = undefined;
             const sig_value: SIGNAL["_value"] = (sig as any)._value;
-            const instance = signal(sig_value !== undefined && sig_value !== null ? sig_value : "");
-            instance.on((value) => node.nodeValue = value);
+
+            // create binding, or share signal if binding already exists
+            const sig_bind: ELEMENT["_bind"] = (sig as any)._bind;
+            if (sig_bind !== undefined && sig_bind !== null) {
+                if (!(sig_bind in bindings)) {
+                    bindings[sig_bind] = signal(sig_value !== undefined && sig_value !== null ? sig_value : "");
+                }
+                instance = bindings[sig_bind]; 
+            }
+
+            // create text node and signal event
+            const node = document.createTextNode(sig_value === undefined ? "" : sig_value);
+            instance?.on((value) => node.nodeValue = value);
 
             // replace slot
             slot.replaceWith(node);
-
-            // create binding
-            const sig_bind: ELEMENT["_bind"] = (sig as any)._bind;
-            if (sig_bind !== undefined && sig_bind !== null) {
-                if (sig_bind in bindings) throw new SyntaxError(`The binding '${sig_bind.toString()}' already exists.`);
-                bindings[sig_bind] = instance; 
-            }
         }
 
         // handle html
