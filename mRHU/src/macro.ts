@@ -1,4 +1,4 @@
-import { always, Signal, signal } from "./signal.js";
+import { Signal, signal } from "./signal.js";
 
 abstract class NODE {
 
@@ -88,58 +88,6 @@ class MACRO_OPEN<T extends MacroClass = MacroClass> extends MACRO<T> {
     static is: (object: any) => object is MACRO_OPEN = Object.prototype.isPrototypeOf.bind(MACRO_OPEN.prototype);
 }
 
-interface MACRO_MAP_ITEM<K, V> {
-    key: K;
-    value: V;
-}
-class MACRO_MAP<K, V, T extends {} = any> extends ELEMENT {
-    private _update = new Set<(key: K, value: V, bindings: T) => void>();
-    public update(fn: (key: K, value: V, bindings: T) => void) {
-        this._update.add(fn);
-        return this;
-    }
-    
-    private _delete = new Set<(bindings: T) => void>();
-    public delete(fn: (bindings: T) => void) {
-        this._delete.add(fn);
-        return this;
-    }
-
-    constructor(binding: string) {
-        super();
-        this.bind(binding);
-    }
-
-    static is: (object: any) => object is MACRO_MAP<any, any> = Object.prototype.isPrototypeOf.bind(MACRO_MAP.prototype);
-}
-export class MAP<K, V, T extends {} = any> {
-    values: Signal<MACRO_MAP_ITEM<K, V>[]>;
-    private _create?: (key: K, value: V) => HTML<T> = undefined;
-    private _update: MACRO_MAP<K, V>["_update"];
-    private  _delete: MACRO_MAP<K, V>["_delete"];
-
-    public create(fn: (key: K, value: V) => HTML<T>) {
-        this._create = fn;
-        return this;
-    }
-
-    public update(fn: (key: K, value: V, bindings: T) => void) {
-        this._update.add(fn);
-        return this;
-    }
-    
-    public delete(fn: (bindings: T) => void) {
-        this._delete.add(fn);
-        return this;
-    }
-    
-    constructor(values: Signal<MACRO_MAP_ITEM<K, V>[]>, _update: MACRO_MAP<K, V, T>["_update"], _delete: MACRO_MAP<K, V, T>["_delete"]) {
-        this.values = values;
-        this._delete = _delete;
-        this._update = _update;
-    }
-}
-
 export function html<T extends {} = any>(first: HTML["first"], ...interpolations: HTML["interpolations"]): HTML<T> {
     return new HTML<T>(first, interpolations);
 }
@@ -171,7 +119,6 @@ export class HTML<T extends {} = any> {
         let source = this.first[0];
         const html: HTML[] = [];
         const macros: MACRO[] = [];
-        const maps: MACRO_MAP<any, any>[] = [];
         const signals: SIGNAL[] = [];
         for (let i = 1; i < this.first.length; ++i) {
             const interp = this.interpolations[i - 1];
@@ -187,15 +134,12 @@ export class HTML<T extends {} = any> {
                 } else if (MACRO_OPEN.is(interp)) {
                     source += `<rhu-macro rhu-internal="${macros.length}">`;
                     macros.push(interp);
-                } else if (MACRO.is(interp)) {
+                }  else if (MACRO.is(interp)) {
                     source += `<rhu-macro rhu-internal="${macros.length}"></rhu-macro>`;
                     macros.push(interp);
                 } else if (SIGNAL.is(interp)) {
                     source += `<rhu-signal rhu-internal="${signals.length}"></rhu-signal>`;
                     signals.push(interp);
-                } else if (MACRO_MAP.is(interp)) {
-                    source += `<rhu-map rhu-internal="${maps.length}"></rhu-map>`;
-                    maps.push(interp);
                 }
             } else {
                 source += interp;
@@ -256,82 +200,6 @@ export class HTML<T extends {} = any> {
             slot.replaceWith(node);
         }
 
-        // handle maps
-        for (let i = 0; i < maps.length; ++i) {
-            // find slot on fragment
-            const slot = fragment.querySelector(`rhu-map[rhu-internal="${i}"]`);
-            if (slot === undefined || slot === null) throw new Error("Unable to find slot for MAP.");
-
-            const MAP_DESC = maps[i];
-
-            // get handles
-            const update: MACRO_MAP<any, any>["_update"] = (MAP_DESC as any)._update;
-            const del: MACRO_MAP<any, any>["_delete"] = (MAP_DESC as any)._delete;
-            
-            // create slot element
-            const content  = document.createElement("div");
-            content.style.display = "contents";
-            
-            // create signal
-            const values = signal<MACRO_MAP_ITEM<any, any>[]>([], always);
-
-            const instance = new MAP(values, update, del);
-        
-            // item maps
-            let _items = new Map<any, { bindings: any, dom: Node[] }>(); 
-            let items = new Map<any, { bindings: any, dom: Node[] }>();
-
-            // render algo
-            values.on((values) => {
-                const create: MAP<any, any>["_create"] = (instance as any)._create;
-                if (create === undefined) return;
-
-                for (const { key, value } of values) {
-                    let item = items.get(key);
-                    if (item === undefined) {
-                        const [bindings, frag] = create(key, value).dom();
-                        const dom = [...frag.childNodes];
-
-                        item = { bindings, dom };
-
-                        content.append(frag);
-                    }
-                    _items.set(key, item);
-
-                    for (const fn of update) {
-                        fn(key, value, item.bindings);
-                    }
-                }
-                
-                for (const [key, item] of items) {
-                    if (_items.has(key)) continue;
-                    
-                    for (const node of item.dom) {
-                        content.removeChild(node);
-                    }
-
-                    for (const fn of del) {
-                        fn(item.bindings);
-                    }
-                }
-    
-                const temp = items;
-                items = _items;
-                _items = temp;
-                _items.clear();
-            });
-
-            // create binding
-            const map_bind: ELEMENT["_bind"] = (MAP_DESC as any)._bind;
-            if (map_bind !== undefined && map_bind !== null) {
-                if (map_bind in bindings) throw new SyntaxError(`The binding '${map_bind.toString()}' already exists.`);
-                bindings[map_bind] = instance; 
-            }
-
-            // replace slot
-            slot.replaceWith(content);
-        }
-
         // handle html
         for (let i = 0; i < html.length; ++i) {
             // find slot on fragment
@@ -342,6 +210,11 @@ export class HTML<T extends {} = any> {
 
             // get fragment
             const [instance, frag] = HTML.dom();
+
+            // trigger callbacks
+            for (const callback of HTML.callbacks) {
+                callback(instance);
+            }
             
             // create binding
             const html_bind: HTML["_bind"] = (HTML as any)._bind;
@@ -398,11 +271,6 @@ export class HTML<T extends {} = any> {
             slot.replaceWith(...dom);
         }
 
-        // trigger callbacks
-        for (const callback of this.callbacks) {
-            callback(bindings);
-        }
-
         return [bindings as B extends void ? T : B, fragment];
     }
 
@@ -425,7 +293,6 @@ interface MacroNamespace {
     <T extends MacroClass>(type: T, html: HTML): FACTORY<T>;
     signal(binding: string, value?: string): SIGNAL;
     create<T extends MACRO>(macro: T): T extends MACRO<infer R> ? InstanceType<R> : never;
-    map<K, V, T extends {} = any>(binding: string): MACRO_MAP<K, V, T>;
     observe(node: Node): void;
 }
 
@@ -454,9 +321,6 @@ Macro.create = <M extends MACRO>(macro: M): M extends MACRO<infer T> ? InstanceT
         callback(instance);
     }
     return instance;
-};
-Macro.map = <K, V, T extends {} = any>(binding: string): MACRO_MAP<K, V, T> => {
-    return new MACRO_MAP<K, V, T>(binding);
 };
 
 declare global {
