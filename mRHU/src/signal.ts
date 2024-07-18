@@ -75,7 +75,7 @@ const effectProto = {};
 Object.setPrototypeOf(effectProto, proto);
 export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototypeOf.bind(effectProto);
 
-export function effect(expression: () => void, dependencies: SignalEvent[]): Effect {
+export function effect(expression: () => void, dependencies: SignalEvent[], options?: { signal?: AbortSignal }): Effect {
     expression();
     const effect = function() {
         expression();
@@ -86,14 +86,19 @@ export function effect(expression: () => void, dependencies: SignalEvent[]): Eff
     for (const signal of dependencies) {
         if (isEffect(signal)) throw new Error("Effect cannot be used as a dependency.");
         if (!dependencyMap.has(signal)) {
-            dependencyMap.set(signal, []);
+            dependencyMap.set(signal, new Set());
         }
-        dependencyMap.get(signal)!.push(effect);
+        const dependency = dependencyMap.get(signal)!;
+        dependency.add(effect);
+        
+        if (options?.signal !== undefined) {
+            options.signal.addEventListener("abort", () => dependency.delete(effect), { once: true });
+        }
     }
 
     return effect;
 }
-const dependencyMap = new WeakMap<SignalEvent, Effect[]>();
+const dependencyMap = new WeakMap<SignalEvent, Set<Effect>>();
 function triggerEffects(signal: SignalEvent) {
     const dependencies = dependencyMap.get(signal);
     if (dependencies === undefined) return;
