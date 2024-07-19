@@ -67,19 +67,26 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
     return signal;
 }
 
+const destructors = Symbol("effect.destructors");
 export interface Effect {
     (): void;
+    [destructors]: (() => void)[];
 }
 
 const effectProto = {};
 Object.setPrototypeOf(effectProto, proto);
 export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototypeOf.bind(effectProto);
 
-export function effect(expression: () => void, dependencies: SignalEvent[], options?: { signal?: AbortSignal }): Effect {
-    expression();
+export function effect(expression: () => (() => void), dependencies: SignalEvent[], options?: { signal?: AbortSignal }): Effect {
     const effect = function() {
+        for (const destructor of effect[destructors]) {
+            destructor();
+        }
+        effect[destructors] = [];
+
         expression();
     } as Effect;
+    effect[destructors] = [expression()];
     Object.setPrototypeOf(effect, effectProto);
 
     // Add effect to dependency map
@@ -112,8 +119,8 @@ export interface Computed<T> extends SignalEvent<T> {
     effect: Effect;
 }
 
-export function computed<T>(expression: () => T, dependencies: SignalEvent[], equality?: Equality<T>): Computed<T> {
-    const value = signal(expression(), equality);
+export function computed<T>(expression: (value: Signal<T>) => (() => void), dependencies: SignalEvent[], equality?: Equality<T>, options?: { signal?: AbortSignal }): Computed<T> {
+    const value = signal(undefined as T, equality);
     const computed = function() {
         return value();
     } as Computed<T>;
@@ -127,7 +134,7 @@ export function computed<T>(expression: () => T, dependencies: SignalEvent[], eq
     computed.equals = function(other): boolean {
         return value.equals(other);
     };
-    computed.effect = effect(() => value(expression()), dependencies);
+    computed.effect = effect(() => expression(value), dependencies, options);
     Object.setPrototypeOf(computed, proto);
 
     return computed;
