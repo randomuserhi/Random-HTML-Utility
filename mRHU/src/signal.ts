@@ -129,7 +129,7 @@ export interface Computed<T> extends SignalEvent<T> {
     effect: Effect;
 }
 
-export function computed<T>(expression: (value: Signal<T>) => ((() => void) | void), dependencies: SignalEvent[], equality?: Equality<T>, options?: { signal?: AbortSignal }): Computed<T> {
+export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void), dependencies: SignalEvent[], equality?: Equality<T>, options?: { signal?: AbortSignal }): Computed<T> {
     const value = signal(undefined as T, equality);
     const computed = function() {
         return value();
