@@ -13,7 +13,7 @@ export interface Signal<T> extends SignalEvent<T> {
 }
 
 type Callback<T> = (value: T) => void;
-type Equality<T> = (a: T, b: T) => boolean;
+type Equality<T> = (a?: T, b?: T) => boolean;
 
 export const isSignal: <T>(obj: any) => obj is SignalEvent<T> = Object.prototype.isPrototypeOf.bind(proto);
 
