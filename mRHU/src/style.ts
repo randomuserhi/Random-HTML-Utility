@@ -127,7 +127,14 @@ type CSSPropertiesMap = CSSProperties.All &
 
 type CSSProperty = CSSKey | keyof CSSPropertiesMap;   
 
-export function Style<T>(factory: (worker: Factory) => T): T {
+const element: unique symbol = Symbol("style.element");
+
+interface Style {
+    <T>(factory: (worker: Factory) => T): T;
+    dispose(obj: any): void;
+}
+
+export const Style: Style = (<T>(factory: (worker: Factory) => T): T => {
     let generatedCode = "";
     const generator = function (first: TemplateStringsArray, ...interpolations: (string | ClassName | StyleDeclaration)[]): void {
         generatedCode += first[0];
@@ -171,11 +178,19 @@ export function Style<T>(factory: (worker: Factory) => T): T {
         return classname as ClassName & T;
     };
     const exports = factory({ style: generator });
-    
+
     generatedCode = generatedCode.replace(/(\r\n|\n|\r)/gm, "").replace(/ +/g, ' ').trim();
     const el = document.createElement("style");
     el.innerHTML = generatedCode;
     document.head.append(el);
 
+    (exports as any)[element] = el;
+
     return exports;
-}
+}) as any;
+
+Style.dispose = (style) => {
+    const el: HTMLStyleElement | undefined = style[element];
+    if (el === undefined) throw new Error("Cannot dispose a non-style object.");
+    el.remove();
+};
