@@ -130,7 +130,7 @@ export class HTML<T extends {} = any> {
             if (HTML.is(interp)) {
                 source += `<rhu-html rhu-internal="${html.length}"></rhu-html>`;
                 html.push(interp);
-            } if (NODE.is(interp)) {
+            } else if (NODE.is(interp)) {
                 if (CLOSURE.is(interp)) {
                     source += `</rhu-macro>`;
                 } else if (MACRO_OPEN.is(interp)) {
