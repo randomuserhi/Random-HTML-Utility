@@ -1,5 +1,7 @@
 import { Signal, signal } from "./signal.js";
 
+// TODO(randomuserhi): Re-write and cleanup code
+
 abstract class NODE {
 
     static is: (object: any) => object is NODE = Object.prototype.isPrototypeOf.bind(NODE.prototype);
@@ -126,7 +128,7 @@ export class HTML<T extends {} = any> {
                 throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
             }
             if (HTML.is(interp)) {
-                source += `<rhu-html rhu-internal="${html.length}"></rhu-macro>`;
+                source += `<rhu-html rhu-internal="${html.length}"></rhu-html>`;
                 html.push(interp);
             } if (NODE.is(interp)) {
                 if (CLOSURE.is(interp)) {
