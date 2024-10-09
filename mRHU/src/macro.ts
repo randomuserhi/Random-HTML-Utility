@@ -178,7 +178,7 @@ export class HTML<T extends {} = any> {
         for (let i = 0; i < signals.length; ++i) {
             // find slot on fragment
             const slot = fragment.querySelector(`rhu-signal[rhu-internal="${i}"]`);
-            if (slot === undefined || slot === null) throw new Error("Unable to find slot for signal.");
+            if (slot === undefined || slot === null) throw new Error(`Unable to find slot for signal '${i}'.`);
 
             const sig = signals[i];
 
@@ -206,7 +206,7 @@ export class HTML<T extends {} = any> {
         for (let i = 0; i < html.length; ++i) {
             // find slot on fragment
             const slot = fragment.querySelector(`rhu-html[rhu-internal="${i}"]`);
-            if (slot === undefined || slot === null) throw new Error("Unable to find slot for HTML.");
+            if (slot === undefined || slot === null) throw new Error(`Unable to find slot for HTML '${i}'.`);
 
             const HTML = html[i];
 
@@ -234,7 +234,7 @@ export class HTML<T extends {} = any> {
         for (let i = 0; i < macros.length; ++i) {
             // find slot on fragment
             const slot = fragment.querySelector(`rhu-macro[rhu-internal="${i}"]`);
-            if (slot === undefined || slot === null) throw new Error("Unable to find slot for macro.");
+            if (slot === undefined || slot === null) throw new Error(`Unable to find slot for macro '${i}'.`);
             slots[i] = slot;
         }
 
