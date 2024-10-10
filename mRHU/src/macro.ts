@@ -46,7 +46,7 @@ class SIGNAL extends ELEMENT {
 }
 
 export class MacroElement {
-    public dom: Node[];
+    public readonly dom: Node[];
 
     constructor(dom: Node[], bindings?: any, target?: any) {
         this.dom = dom;
@@ -99,7 +99,7 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
     public static empty = html``;
     
     private first: TemplateStringsArray;
-    private interpolations: (string | NODE)[];
+    private interpolations: (string | NODE | (string | NODE)[])[];
     
     constructor(first: HTML["first"], interpolations: HTML["interpolations"]) {
         this.first = first;
@@ -118,6 +118,31 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
         return this;
     }
 
+    private stitch(interp: string | NODE | (string | NODE)[], html: HTML[], macros: _MACRO[], signals: SIGNAL[]): string | undefined {
+        let result: string | undefined = undefined;
+        if (isFactory(interp)) {
+            throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
+        }
+        if (HTML.is(interp)) {
+            result = `<rhu-html rhu-internal="${html.length}"></rhu-html>`;
+            html.push(interp);
+        } else if (NODE.is(interp)) {
+            if (CLOSURE.is(interp)) {
+                result = `</rhu-macro>`;
+            } else if (MACRO_OPEN.is(interp)) {
+                result = `<rhu-macro rhu-internal="${macros.length}">`;
+                macros.push(interp);
+            }  else if (_MACRO.is(interp)) {
+                result = `<rhu-macro rhu-internal="${macros.length}"></rhu-macro>`;
+                macros.push(interp);
+            } else if (SIGNAL.is(interp)) {
+                result = `<rhu-signal rhu-internal="${signals.length}"></rhu-signal>`;
+                signals.push(interp);
+            }
+        }
+        return result;
+    }
+
     public dom<B extends Record<PropertyKey, any> | void = void>(): [bindings: B extends void ? T : B, fragment: DocumentFragment] {
         // stitch together source
         let source = this.first[0];
@@ -126,24 +151,18 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
         const signals: SIGNAL[] = [];
         for (let i = 1; i < this.first.length; ++i) {
             const interp = this.interpolations[i - 1];
-            if (isFactory(interp)) {
-                throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
-            }
-            if (HTML.is(interp)) {
-                source += `<rhu-html rhu-internal="${html.length}"></rhu-html>`;
-                html.push(interp);
-            } else if (NODE.is(interp)) {
-                if (CLOSURE.is(interp)) {
-                    source += `</rhu-macro>`;
-                } else if (MACRO_OPEN.is(interp)) {
-                    source += `<rhu-macro rhu-internal="${macros.length}">`;
-                    macros.push(interp);
-                }  else if (_MACRO.is(interp)) {
-                    source += `<rhu-macro rhu-internal="${macros.length}"></rhu-macro>`;
-                    macros.push(interp);
-                } else if (SIGNAL.is(interp)) {
-                    source += `<rhu-signal rhu-internal="${signals.length}"></rhu-signal>`;
-                    signals.push(interp);
+            const result = this.stitch(interp, html, macros, signals);
+            if (result !== undefined) {
+                source += result;
+            } else if (Array.isArray(interp)) {
+                const array = interp as (string | NODE)[];
+                for (const interp of array) {
+                    const result = this.stitch(interp, html, macros, signals);
+                    if (result !== undefined) {
+                        source += result;
+                    } else {
+                        source += interp;
+                    }
                 }
             } else {
                 source += interp;
