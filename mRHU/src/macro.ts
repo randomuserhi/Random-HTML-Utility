@@ -95,6 +95,7 @@ class MACRO_OPEN<T extends MacroClass = MacroClass> extends _MACRO<T> {
 export function html<T extends {} = any>(first: HTML["first"], ...interpolations: HTML["interpolations"]): HTML<T> {
     return new HTML<T>(first, interpolations);
 }
+// TODO(randomuserhi): Nested parsing error handling -> display stack trace of parser to make debugging easier
 export class HTML<T extends Record<PropertyKey, any> | void = any> {
     public static empty = html``;
     
