@@ -233,11 +233,6 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
 
             // get fragment
             const [instance, frag] = HTML.dom();
-
-            // trigger callbacks
-            for (const callback of HTML.callbacks) {
-                callback(instance);
-            }
             
             // create binding
             const html_bind: HTML["_bind"] = (HTML as any)._bind;
@@ -292,6 +287,11 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
 
             // attach macro back to fragment
             slot.replaceWith(...dom);
+        }
+
+        // trigger callbacks
+        for (const callback of this.callbacks) {
+            callback(bindings);
         }
 
         return [bindings as B extends void ? T : B, fragment];
@@ -461,6 +461,7 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map
     }
 }
 export type MacroMap<K, V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroMap<K, V, Wrapper, Item, Map<K, V>>; 
+// NOTE(randomuserhi): Bindings on wrapper or item are ignored.
 const MapFactory = function<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
     return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroMap<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
