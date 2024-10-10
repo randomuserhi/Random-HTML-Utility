@@ -358,8 +358,14 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map
     private onupdate: (item: HTMLMACROInstance<Item>, key: K, value: V) => void;
     private onremove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
 
-    private _items = new Map<K, { bindings: HTMLMACROInstance<Item>, dom: Node[] }>(); 
-    private items = new Map<K, { bindings: HTMLMACROInstance<Item>, dom: Node[] }>();
+    private _items = new Map<K, { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }>(); 
+    private items = new Map<K, { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }>();
+
+    public *entries(): IterableIterator<[key: K, value: V, item: HTMLMACROInstance<Item>]> {
+        for (const [key, item] of this.items.entries()) {
+            yield [key, item.value, item.bindings];
+        }
+    }
 
     public get(key: K) {
         return this.items.get(key)?.bindings;
@@ -372,10 +378,10 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map
             if (HTML.is(this.itemFactory)) {
                 let frag: DocumentFragment;
                 [bindings, frag] = this.itemFactory.dom();
-                item = { bindings, dom: [...frag.childNodes] };
+                item = { bindings, value, dom: [...frag.childNodes] };
             } else if (_MACRO.is(this.itemFactory)) {
                 bindings = Macro.create(this.itemFactory);
-                item = { bindings, dom: bindings.dom };
+                item = { bindings, value, dom: bindings.dom };
             } else {
                 throw new SyntaxError("Unsupported item factory type.");
             }
@@ -405,10 +411,10 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map
                 if (HTML.is(this.itemFactory)) {
                     let frag: DocumentFragment;
                     [bindings, frag] = this.itemFactory.dom();
-                    el = { bindings, dom: [...frag.childNodes] };
+                    el = { bindings, value, dom: [...frag.childNodes] };
                 } else if (_MACRO.is(this.itemFactory)) {
                     bindings = Macro.create(this.itemFactory);
-                    el = { bindings, dom: bindings.dom };
+                    el = { bindings, value, dom: bindings.dom };
                 } else {
                     throw new SyntaxError("Unsupported item factory type.");
                 }
