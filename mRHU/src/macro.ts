@@ -65,7 +65,7 @@ export class MacroElement {
 type MacroClass = new (dom: Node[], bindings: any, children: Node[], ...args: any[]) => any;
 type MacroParameters<T extends MacroClass> = T extends new (dom: Node[], bindings: any, children: Node[], ...args: infer P) => any ? P : never;
 
-class MACRO<T extends MacroClass = MacroClass> extends ELEMENT {
+class _MACRO<T extends MacroClass = MacroClass> extends ELEMENT {
     public type: T;
     public html: HTML;
     public args: MacroParameters<T>;
@@ -83,10 +83,11 @@ class MACRO<T extends MacroClass = MacroClass> extends ELEMENT {
         return this;
     }
 
-    static is: (object: any) => object is MACRO = Object.prototype.isPrototypeOf.bind(MACRO.prototype);
+    static is: (object: any) => object is _MACRO = Object.prototype.isPrototypeOf.bind(_MACRO.prototype);
 }
+export type MACRO<F extends FACTORY<any>> = _MACRO<F extends FACTORY<infer T> ? T: any>;
 
-class MACRO_OPEN<T extends MacroClass = MacroClass> extends MACRO<T> {
+class MACRO_OPEN<T extends MacroClass = MacroClass> extends _MACRO<T> {
 
     static is: (object: any) => object is MACRO_OPEN = Object.prototype.isPrototypeOf.bind(MACRO_OPEN.prototype);
 }
@@ -121,7 +122,7 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
         // stitch together source
         let source = this.first[0];
         const html: HTML[] = [];
-        const macros: MACRO[] = [];
+        const macros: _MACRO[] = [];
         const signals: SIGNAL[] = [];
         for (let i = 1; i < this.first.length; ++i) {
             const interp = this.interpolations[i - 1];
@@ -137,7 +138,7 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
                 } else if (MACRO_OPEN.is(interp)) {
                     source += `<rhu-macro rhu-internal="${macros.length}">`;
                     macros.push(interp);
-                }  else if (MACRO.is(interp)) {
+                }  else if (_MACRO.is(interp)) {
                     source += `<rhu-macro rhu-internal="${macros.length}"></rhu-macro>`;
                     macros.push(interp);
                 } else if (SIGNAL.is(interp)) {
@@ -279,9 +280,10 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
 
     static is: (object: any) => object is HTML = Object.prototype.isPrototypeOf.bind(HTML.prototype);
 }
+type HTMLBindings<T extends HTML<any>> = T extends HTML<infer Bindings> ? Bindings : any; 
 
 interface FACTORY<T extends MacroClass> {
-    (...args: MacroParameters<T>): MACRO<T>;
+    (...args: MacroParameters<T>): _MACRO<T>;
     readonly open: (...args: MacroParameters<T>) => MACRO_OPEN<T>;
     readonly close: CLOSURE;
     readonly [symbols.factory]: boolean;
@@ -295,7 +297,7 @@ export type Macro<F extends FACTORY<any>> = F extends FACTORY<infer T> ? Instanc
 interface MacroNamespace {
     <T extends MacroClass>(type: T, html: HTML): FACTORY<T>;
     signal(binding: string, value?: string): SIGNAL;
-    create<T extends MACRO>(macro: T): T extends MACRO<infer R> ? InstanceType<R> : never;
+    create<T extends _MACRO>(macro: T): T extends _MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
     map: typeof MapFactory;
     list: typeof ListFactory;
@@ -303,7 +305,7 @@ interface MacroNamespace {
 
 export const Macro = (<T extends MacroClass>(type: T, html: HTML): FACTORY<T> => {
     const factory = function(...args: MacroParameters<T>) {
-        return new MACRO<T>(html, type, args);
+        return new _MACRO<T>(html, type, args);
     } as FACTORY<T>;
     (factory as any).open = function(...args: MacroParameters<T>) {
         return new MACRO_OPEN<T>(html, type, args);
@@ -313,7 +315,7 @@ export const Macro = (<T extends MacroClass>(type: T, html: HTML): FACTORY<T> =>
     return factory; 
 }) as MacroNamespace;
 Macro.signal = (binding: string, value?: string) => new SIGNAL(binding).value(value);
-Macro.create = <M extends MACRO>(macro: M): M extends MACRO<infer T> ? InstanceType<T> : never => {
+Macro.create = <M extends _MACRO>(macro: M): M extends _MACRO<infer T> ? InstanceType<T> : never => {
     // parse macro
     const [b, frag] = macro.html.dom();
     const dom = [...frag.childNodes];
@@ -328,8 +330,10 @@ Macro.create = <M extends MACRO>(macro: M): M extends MACRO<infer T> ? InstanceT
     return instance;
 };
 // Helper macros for lists and maps
-class _MacroMap<K, V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void, S = Map<K, V>> extends MacroElement {
-    constructor(dom: Node[], bindings: Wrapper, children: Node[], itemFactory: HTML, append: (wrapper: Wrapper, dom: Node[], item: Item) => void, update: (item: Item, key: K, value: V) => void, remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void) {
+type HTMLMACRO = HTML<any> | _MACRO<any>;
+type HTMLMACROInstance<T extends HTMLMACRO> = T extends HTML<any> ? HTMLBindings<T> : T extends _MACRO<any> ? InstanceType<T["type"]> : any;
+class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map<K, V>> extends MacroElement {
+    constructor(dom: Node[], bindings: HTMLMACROInstance<Wrapper>, children: Node[], itemFactory: HTMLMACRO, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
         super(dom, bindings); 
 
         this.bindings = bindings;
@@ -339,20 +343,28 @@ class _MacroMap<K, V, Wrapper extends Record<PropertyKey, any> | void = void, It
         this.remove = remove;
     }
 
-    private itemFactory: HTML<Item>;
-    private bindings: Wrapper;
-    private append: (wrapper: Wrapper, dom: Node[], item: Item) => void;
-    private update: (item: Item, key: K, value: V) => void;
-    private remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void;
+    private itemFactory: HTMLMACRO;
+    private bindings: HTMLMACROInstance<Wrapper>;
+    private append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
+    private update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void;
+    private remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
 
-    private _items = new Map<K, { bindings: Item, dom: Node[] }>(); 
-    private items = new Map<K, { bindings: Item, dom: Node[] }>();
+    private _items = new Map<K, { bindings: HTMLMACROInstance<Item>, dom: Node[] }>(); 
+    private items = new Map<K, { bindings: HTMLMACROInstance<Item>, dom: Node[] }>();
 
     protected _set(entries: Iterable<[key: K, value: V]>) {
         for (const [key, value] of entries) {
             let el = this.items.get(key);
             if (el === undefined) {
-                const [bindings, frag] = this.itemFactory.dom();
+                let bindings: any;
+                let frag: DocumentFragment;
+                if (HTML.is(this.itemFactory)) {
+                    [bindings, frag] = this.itemFactory.dom();
+                } else if (_MACRO.is(this.itemFactory)) {
+                    [bindings, frag] = Macro.create(this.itemFactory);
+                } else {
+                    throw new SyntaxError("Unsupported item factory type.");
+                }
                 el = { bindings, dom: [...frag.childNodes] };
                 this.append(this.bindings, el.dom, el.bindings);
             }
@@ -381,20 +393,20 @@ class _MacroMap<K, V, Wrapper extends Record<PropertyKey, any> | void = void, It
         this._set((values as Map<K, V>).entries());
     }
 }
-export type MacroMap<K, V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void> = _MacroMap<K, V, Wrapper, Item, Map<K, V>>; 
-const MapFactory = function<K, V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void>(wrapper: HTML<Wrapper>, item: HTML<Item>, append: (wrapper: Wrapper, dom: Node[], item: Item) => void, update: (item: Item, key: K, value: V) => void, remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void) {
-    return new MACRO(wrapper, _MacroMap<K, V, Wrapper, Item>, [item, append, update, remove]);
+export type MacroMap<K, V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroMap<K, V, Wrapper, Item, Map<K, V>>; 
+const MapFactory = function<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
+    return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroMap<K, V, Wrapper, Item>, [item, append, update, remove]);
 };
 Macro.map = MapFactory;
 
-class _MacroList<V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void> extends _MacroMap<number, V, Wrapper, Item, V[]> {
+class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends _MacroMap<number, V, Wrapper, Item, V[]> {
     public set(values: V[]) {
         this._set(values.entries());
     }
 }
-export type MacroList<V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void> = _MacroList<V, Wrapper, Item>;
-const ListFactory = function<V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void>(wrapper: HTML<Wrapper>, item: HTML<Item>, append: (wrapper: Wrapper, dom: Node[], item: Item) => void, update: (item: Item, index: number, value: V) => void, remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void) {
-    return new MACRO(wrapper, _MacroList<V, Wrapper, Item>, [item, append, update, remove]);
+export type MacroList<V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroList<V, Wrapper, Item>;
+const ListFactory = function<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, index: number, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
+    return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroList<V, Wrapper, Item>, [item, append, update, remove]);
 };
 Macro.list = ListFactory;
 
