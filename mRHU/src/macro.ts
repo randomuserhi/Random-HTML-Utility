@@ -1,6 +1,7 @@
 import { Signal, signal } from "./signal.js";
 
 // TODO(randomuserhi): Re-write and cleanup code
+// TODO(randomuserhi): Documentation
 
 abstract class NODE {
 
@@ -93,7 +94,7 @@ class MACRO_OPEN<T extends MacroClass = MacroClass> extends MACRO<T> {
 export function html<T extends {} = any>(first: HTML["first"], ...interpolations: HTML["interpolations"]): HTML<T> {
     return new HTML<T>(first, interpolations);
 }
-export class HTML<T extends {} = any> {
+export class HTML<T extends Record<PropertyKey, any> | void = any> {
     public static empty = html``;
     
     private first: TemplateStringsArray;
@@ -296,6 +297,8 @@ interface MacroNamespace {
     signal(binding: string, value?: string): SIGNAL;
     create<T extends MACRO>(macro: T): T extends MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
+    map: typeof MapFactory;
+    list: typeof ListFactory;
 }
 
 export const Macro = (<T extends MacroClass>(type: T, html: HTML): FACTORY<T> => {
@@ -324,6 +327,76 @@ Macro.create = <M extends MACRO>(macro: M): M extends MACRO<infer T> ? InstanceT
     }
     return instance;
 };
+// Helper macros for lists and maps
+class _MacroMap<K, V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void, S = Map<K, V>> extends MacroElement {
+    constructor(dom: Node[], bindings: Wrapper, children: Node[], itemFactory: HTML, append: (wrapper: Wrapper, dom: Node[], item: Item) => void, update: (item: Item, key: K, value: V) => void, remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void) {
+        super(dom, bindings); 
+
+        this.bindings = bindings;
+        this.itemFactory = itemFactory;
+        this.append = append;
+        this.update = update;
+        this.remove = remove;
+    }
+
+    private itemFactory: HTML<Item>;
+    private bindings: Wrapper;
+    private append: (wrapper: Wrapper, dom: Node[], item: Item) => void;
+    private update: (item: Item, key: K, value: V) => void;
+    private remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void;
+
+    private _items = new Map<K, { bindings: Item, dom: Node[] }>(); 
+    private items = new Map<K, { bindings: Item, dom: Node[] }>();
+
+    protected _set(entries: Iterable<[key: K, value: V]>) {
+        for (const [key, value] of entries) {
+            let el = this.items.get(key);
+            if (el === undefined) {
+                const [bindings, frag] = this.itemFactory.dom();
+                el = { bindings, dom: [...frag.childNodes] };
+                this.append(this.bindings, el.dom, el.bindings);
+            }
+            this.update(el.bindings, key, value);
+            this._items.set(key, el);
+        }
+        
+        for (const [key, item] of this.items) {
+            if (this._items.has(key)) continue;
+            if (this.remove === undefined) {
+                for (const node of item.dom) {
+                    node.parentNode?.removeChild(node);
+                }
+            } else {
+                this.remove(this.bindings, item.dom, item.bindings);
+            }
+        }
+        
+        const temp = this.items;
+        this.items = this._items;
+        this._items = temp;
+        this._items.clear();
+    }
+
+    public set(values: S) {
+        this._set((values as Map<K, V>).entries());
+    }
+}
+export type MacroMap<K, V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void> = _MacroMap<K, V, Wrapper, Item, Map<K, V>>; 
+const MapFactory = function<K, V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void>(wrapper: HTML<Wrapper>, item: HTML<Item>, append: (wrapper: Wrapper, dom: Node[], item: Item) => void, update: (item: Item, key: K, value: V) => void, remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void) {
+    return new MACRO(wrapper, _MacroMap<K, V, Wrapper, Item>, [item, append, update, remove]);
+};
+Macro.map = MapFactory;
+
+class _MacroList<V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void> extends _MacroMap<number, V, Wrapper, Item, V[]> {
+    public set(values: V[]) {
+        this._set(values.entries());
+    }
+}
+export type MacroList<V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void> = _MacroList<V, Wrapper, Item>;
+const ListFactory = function<V, Wrapper extends Record<PropertyKey, any> | void = void, Item extends Record<PropertyKey, any> | void = void>(wrapper: HTML<Wrapper>, item: HTML<Item>, append: (wrapper: Wrapper, dom: Node[], item: Item) => void, update: (item: Item, index: number, value: V) => void, remove?: (wrapper: Wrapper, dom: Node[], item: Item) => void) {
+    return new MACRO(wrapper, _MacroList<V, Wrapper, Item>, [item, append, update, remove]);
+};
+Macro.list = ListFactory;
 
 declare global {
     interface GlobalEventHandlersEventMap {
