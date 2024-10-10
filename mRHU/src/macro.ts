@@ -143,158 +143,173 @@ export class HTML<T extends Record<PropertyKey, any> | void = any> {
         return result;
     }
 
-    public dom<B extends Record<PropertyKey, any> | void = void>(): [bindings: B extends void ? T : B, fragment: DocumentFragment] {
-        // stitch together source
-        let source = this.first[0];
-        const html: HTML[] = [];
-        const macros: _MACRO[] = [];
-        const signals: SIGNAL[] = [];
-        for (let i = 1; i < this.first.length; ++i) {
-            const interp = this.interpolations[i - 1];
-            const result = this.stitch(interp, html, macros, signals);
-            if (result !== undefined) {
-                source += result;
-            } else if (Array.isArray(interp)) {
-                const array = interp as (string | NODE)[];
-                for (const interp of array) {
-                    const result = this.stitch(interp, html, macros, signals);
-                    if (result !== undefined) {
-                        source += result;
-                    } else {
-                        source += interp;
+    // NOTE(randomuserhi): On error, returns blank bindings and fragment => but proceeds
+    public dom<B extends Record<PropertyKey, any> | void = void>(shouldThrow = false): [bindings: B extends void ? T : B, fragment: DocumentFragment] {
+        try {
+            // stitch together source
+            let source = this.first[0];
+            const html: HTML[] = [];
+            const macros: _MACRO[] = [];
+            const signals: SIGNAL[] = [];
+            for (let i = 1; i < this.first.length; ++i) {
+                const interp = this.interpolations[i - 1];
+                const result = this.stitch(interp, html, macros, signals);
+                if (result !== undefined) {
+                    source += result;
+                } else if (Array.isArray(interp)) {
+                    const array = interp as (string | NODE)[];
+                    for (const interp of array) {
+                        const result = this.stitch(interp, html, macros, signals);
+                        if (result !== undefined) {
+                            source += result;
+                        } else {
+                            source += interp;
+                        }
                     }
+                } else {
+                    source += interp;
                 }
-            } else {
-                source += interp;
+
+                source += this.first[i];
             }
 
-            source += this.first[i];
-        }
-
-        // parse source
-        const template = document.createElement("template");
-        template.innerHTML = source;
-        const fragment = template.content;
+            // parse source
+            const template = document.createElement("template");
+            template.innerHTML = source;
+            const fragment = template.content;
         
-        // create bindings
-        const bindings: any = {};
-        for (const el of fragment.querySelectorAll("*[m-id]")) {
-            const key = el.getAttribute("m-id")!;
-            el.removeAttribute("m-id");
-            if (key in bindings) throw new SyntaxError(`The binding '${key}' already exists.`);
-            bindings[key] = el; 
-        }
-
-        // Remove nonsense text nodes
-        document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
-            acceptNode(node) {
-                const value = node.nodeValue;
-                if (value === null || value === undefined) node.parentNode?.removeChild(node);
-                else if (value.trim() === "") node.parentNode?.removeChild(node);
-                return NodeFilter.FILTER_REJECT;
+            // create bindings
+            const bindings: any = {};
+            for (const el of fragment.querySelectorAll("*[m-id]")) {
+                const key = el.getAttribute("m-id")!;
+                el.removeAttribute("m-id");
+                if (key in bindings) throw new SyntaxError(`The binding '${key}' already exists.`);
+                bindings[key] = el; 
             }
-        }).nextNode();
 
-        // handle signals
-        for (let i = 0; i < signals.length; ++i) {
-            // find slot on fragment
-            const slot = fragment.querySelector(`rhu-signal[rhu-internal="${i}"]`);
-            if (slot === undefined || slot === null) throw new Error(`Unable to find slot for signal '${i}'.`);
-
-            const sig = signals[i];
-
-            let instance: Signal<string> | undefined = undefined;
-            const sig_value: SIGNAL["_value"] = (sig as any)._value;
-
-            // create binding, or share signal if binding already exists
-            const sig_bind: ELEMENT["_bind"] = (sig as any)._bind;
-            if (sig_bind !== undefined && sig_bind !== null) {
-                if (!(sig_bind in bindings)) {
-                    bindings[sig_bind] = signal(sig_value !== undefined && sig_value !== null ? sig_value : "");
+            // Remove nonsense text nodes
+            document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    const value = node.nodeValue;
+                    if (value === null || value === undefined) node.parentNode?.removeChild(node);
+                    else if (value.trim() === "") node.parentNode?.removeChild(node);
+                    return NodeFilter.FILTER_REJECT;
                 }
-                instance = bindings[sig_bind]; 
+            }).nextNode();
+
+            // handle signals
+            for (let i = 0; i < signals.length; ++i) {
+            // find slot on fragment
+                const slot = fragment.querySelector(`rhu-signal[rhu-internal="${i}"]`);
+                if (slot === undefined || slot === null) throw new Error(`Unable to find slot for signal '${i}'.`);
+
+                const sig = signals[i];
+
+                let instance: Signal<string> | undefined = undefined;
+                const sig_value: SIGNAL["_value"] = (sig as any)._value;
+
+                // create binding, or share signal if binding already exists
+                const sig_bind: ELEMENT["_bind"] = (sig as any)._bind;
+                if (sig_bind !== undefined && sig_bind !== null) {
+                    if (!(sig_bind in bindings)) {
+                        bindings[sig_bind] = signal(sig_value !== undefined && sig_value !== null ? sig_value : "");
+                    }
+                    instance = bindings[sig_bind]; 
+                }
+
+                // create text node and signal event
+                const node = document.createTextNode(sig_value === undefined ? "" : sig_value);
+                instance?.on((value) => node.nodeValue = value);
+
+                // replace slot
+                slot.replaceWith(node);
             }
 
-            // create text node and signal event
-            const node = document.createTextNode(sig_value === undefined ? "" : sig_value);
-            instance?.on((value) => node.nodeValue = value);
-
-            // replace slot
-            slot.replaceWith(node);
-        }
-
-        // handle html
-        for (let i = 0; i < html.length; ++i) {
+            // handle html
+            for (let i = 0; i < html.length; ++i) {
             // find slot on fragment
-            const slot = fragment.querySelector(`rhu-html[rhu-internal="${i}"]`);
-            if (slot === undefined || slot === null) throw new Error(`Unable to find slot for HTML '${i}'.`);
+                const slot = fragment.querySelector(`rhu-html[rhu-internal="${i}"]`);
+                if (slot === undefined || slot === null) throw new Error(`Unable to find slot for HTML '${i}'.`);
 
-            const HTML = html[i];
+                const HTML = html[i];
 
-            // get fragment
-            const [instance, frag] = HTML.dom();
+                // get fragment
+                const [instance, frag] = HTML.dom();
             
-            // create binding
-            const html_bind: HTML["_bind"] = (HTML as any)._bind;
-            if (html_bind !== undefined && html_bind !== null) {
-                if (html_bind in bindings) throw new SyntaxError(`The binding '${html_bind.toString()}' already exists.`);
-                bindings[html_bind] = instance; 
+                // create binding
+                const html_bind: HTML["_bind"] = (HTML as any)._bind;
+                if (html_bind !== undefined && html_bind !== null) {
+                    if (html_bind in bindings) throw new SyntaxError(`The binding '${html_bind.toString()}' already exists.`);
+                    bindings[html_bind] = instance; 
+                }
+
+                // replace slot
+                slot.replaceWith(frag);
             }
 
-            // replace slot
-            slot.replaceWith(frag);
-        }
-
-        // find slots
-        const slots = new Array(macros.length);
-        for (let i = 0; i < macros.length; ++i) {
+            // find slots
+            const slots = new Array(macros.length);
+            for (let i = 0; i < macros.length; ++i) {
             // find slot on fragment
-            const slot = fragment.querySelector(`rhu-macro[rhu-internal="${i}"]`);
-            if (slot === undefined || slot === null) throw new Error(`Unable to find slot for macro '${i}'.`);
-            slots[i] = slot;
-        }
+                const slot = fragment.querySelector(`rhu-macro[rhu-internal="${i}"]`);
+                if (slot === undefined || slot === null) throw new Error(`Unable to find slot for macro '${i}'.`);
+                slots[i] = slot;
+            }
 
-        // handle nested macros
-        for (let i = 0; i < macros.length; ++i) {
-            // get slot
-            const slot = slots[i];
+            // handle nested macros (continue on error)
+            for (let i = 0; i < macros.length; ++i) {
+                // get slot
+                const slot = slots[i];
+                try {
+                    // get children
+                    const children = [...slot.childNodes];
+                    // remove children
+                    slot.replaceChildren();
 
-            // get children
-            const children = [...slot.childNodes];
-            // remove children
-            slot.replaceChildren();
+                    // parse macro
+                    const macro = macros[i];
+                    const [b, frag] = macro.html.dom(true);
+                    const dom = [...frag.childNodes];
+                    frag.replaceChildren();
 
-            // parse macro
-            const macro = macros[i];
-            const [b, frag] = macro.html.dom();
-            const dom = [...frag.childNodes];
-            frag.replaceChildren();
+                    // create instance
+                    const instance = new macro.type(dom, b, children, ...macro.args);
 
-            // create instance
-            const instance = new macro.type(dom, b, children, ...macro.args);
+                    // trigger callbacks
+                    for (const callback of macro.callbacks) {
+                        callback(instance);
+                    }
+
+                    // create binding
+                    const macro_bind: ELEMENT["_bind"] = (macro as any)._bind;
+                    if (macro_bind !== undefined && macro_bind !== null) {
+                        if (macro_bind in bindings) throw new SyntaxError(`The binding '${macro_bind.toString()}' already exists.`);
+                        bindings[macro_bind] = instance; 
+                    }
+
+                    // attach macro back to fragment
+                    slot.replaceWith(...dom);
+                } catch(e) {
+                    if (shouldThrow) throw e;
+
+                    console.error(e);
+                    // clear slot
+                    slot.replaceWith();
+                }
+            }
 
             // trigger callbacks
-            for (const callback of macro.callbacks) {
-                callback(instance);
+            for (const callback of this.callbacks) {
+                callback(bindings);
             }
 
-            // create binding
-            const macro_bind: ELEMENT["_bind"] = (macro as any)._bind;
-            if (macro_bind !== undefined && macro_bind !== null) {
-                if (macro_bind in bindings) throw new SyntaxError(`The binding '${macro_bind.toString()}' already exists.`);
-                bindings[macro_bind] = instance; 
-            }
+            return [bindings as B extends void ? T : B, fragment];
+        } catch (e) {
+            if (shouldThrow) throw e;
 
-            // attach macro back to fragment
-            slot.replaceWith(...dom);
+            console.error(e);
+            return [{} as B extends void ? T : B, new DocumentFragment()];
         }
-
-        // trigger callbacks
-        for (const callback of this.callbacks) {
-            callback(bindings);
-        }
-
-        return [bindings as B extends void ? T : B, fragment];
     }
 
     static is: (object: any) => object is HTML = Object.prototype.isPrototypeOf.bind(HTML.prototype);
