@@ -613,8 +613,9 @@ class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends M
         this._items.length = 0;
     }
 }
+export type MacroList<V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroList<V, Wrapper, Item>; 
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
-const ListFactory = function<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, value: V, index: number) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
+const ListFactory = function<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, value: V, index: number) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
     return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroList<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.list = ListFactory;
