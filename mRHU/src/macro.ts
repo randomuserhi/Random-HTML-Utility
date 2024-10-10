@@ -365,6 +365,7 @@ Macro.create = <M extends _MACRO>(macro: M): M extends _MACRO<infer T> ? Instanc
     return instance;
 };
 // Helper macros for lists and maps
+const empty: any[] = [];
 type HTMLMACRO = HTML<any> | _MACRO<any>;
 type HTMLMACROInstance<T extends HTMLMACRO> = T extends HTML<any> ? HTMLBindings<T> : T extends _MACRO<any> ? InstanceType<T["type"]> : any;
 class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends MacroElement {
@@ -401,6 +402,10 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends
         for (const [key, item] of this.items.entries()) {
             yield [key, item.value, item.bindings];
         }
+    }
+
+    public clear() {
+        this.assign(empty);
     }
 
     get size() {
@@ -521,6 +526,10 @@ class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends M
         for (const [key, item] of this.items.entries()) {
             yield [key, item.value, item.bindings];
         }
+    }
+
+    public clear() {
+        this.assign(empty);
     }
 
     get length() {
