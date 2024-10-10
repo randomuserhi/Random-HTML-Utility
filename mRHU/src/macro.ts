@@ -335,6 +335,7 @@ interface MacroNamespace {
     create<T extends _MACRO>(macro: T): T extends _MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
     map: typeof MapFactory;
+    list: typeof ListFactory;
 }
 
 export const Macro = (<T extends MacroClass>(type: T, html: HTML): FACTORY<T> => {
@@ -366,7 +367,7 @@ Macro.create = <M extends _MACRO>(macro: M): M extends _MACRO<infer T> ? Instanc
 // Helper macros for lists and maps
 type HTMLMACRO = HTML<any> | _MACRO<any>;
 type HTMLMACROInstance<T extends HTMLMACRO> = T extends HTML<any> ? HTMLBindings<T> : T extends _MACRO<any> ? InstanceType<T["type"]> : any;
-class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map<K, V>> extends MacroElement {
+class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends MacroElement {
     constructor(dom: Node[], bindings: HTMLMACROInstance<Wrapper>, children: Node[], wrapperFactory: HTMLMACRO, itemFactory: HTMLMACRO, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
         super(dom, bindings); 
 
@@ -400,6 +401,10 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map
         for (const [key, item] of this.items.entries()) {
             yield [key, item.value, item.bindings];
         }
+    }
+
+    get size() {
+        return this.items.size;
     }
 
     public get(key: K) {
@@ -476,12 +481,143 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO, S = Map
         this._items.clear();
     }
 }
-export type MacroMap<K, V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroMap<K, V, Wrapper, Item, Map<K, V>>; 
+export type MacroMap<K, V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroMap<K, V, Wrapper, Item>; 
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
 const MapFactory = function<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
     return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroMap<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.map = MapFactory;
+class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends MacroElement {
+    constructor(dom: Node[], bindings: HTMLMACROInstance<Wrapper>, children: Node[], wrapperFactory: HTMLMACRO, itemFactory: HTMLMACRO, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, value: V, index: number) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
+        super(dom, bindings); 
+
+        if (HTML.is(wrapperFactory)) {
+            this.wrapper = bindings;
+        } else if (_MACRO.is(wrapperFactory)) {
+            this.wrapper = new wrapperFactory.type(dom, bindings, [], ...wrapperFactory.args);
+            // trigger callbacks
+            for (const callback of wrapperFactory.callbacks) {
+                callback(this.wrapper);
+            }
+        } else {
+            throw new SyntaxError("Unsupported wrapper factory type.");
+        }
+        this.itemFactory = itemFactory;
+        this.onappend = append;
+        this.onupdate = update;
+        this.onremove = remove;
+    }
+
+    private itemFactory: HTMLMACRO;
+    public wrapper: HTMLMACROInstance<Wrapper>;
+    private onappend: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
+    private onupdate: (item: HTMLMACROInstance<Item>, value: V, index: number) => void;
+    private onremove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
+
+    private _items: { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }[] = [];
+    private items: { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }[] = [];
+
+    public *entries(): IterableIterator<[index: number, value: V, item: HTMLMACROInstance<Item>]> {
+        for (const [key, item] of this.items.entries()) {
+            yield [key, item.value, item.bindings];
+        }
+    }
+
+    get length() {
+        return this.items.length;
+    }
+
+    public get(index: number) {
+        return this.items[index].bindings; 
+    }
+
+    public remove(index: number) {
+        const item = this.items[index];
+        if (item === undefined) return;
+        if (this.onremove === undefined) {
+            for (const node of item.dom) {
+                node.parentNode?.removeChild(node);
+            }
+        } else {
+            this.onremove(this.wrapper, item.dom, item.bindings);
+        }
+        this.items.splice(index, 1);
+    }
+
+    public push(value: V) {
+        this.insert(value, this.items.length);
+    }
+
+    public insert(value: V, index: number) {
+        let el = this.items[index];
+        if (el === undefined) {
+            let bindings: any;
+            if (HTML.is(this.itemFactory)) {
+                let frag: DocumentFragment;
+                [bindings, frag] = this.itemFactory.dom();
+                el = { bindings, value, dom: [...frag.childNodes] };
+            } else if (_MACRO.is(this.itemFactory)) {
+                bindings = Macro.create(this.itemFactory);
+                el = { bindings, value, dom: bindings.dom };
+            } else {
+                throw new SyntaxError("Unsupported item factory type.");
+            }
+            this.onappend(this.wrapper, el.dom, el.bindings);
+        }
+        this.onupdate(el.bindings, value, index);
+
+        this.items[index] = el;
+    }
+
+    public assign(entries: Iterable<V>) {
+        const iter = entries[Symbol.iterator]();
+        let current = iter.next();
+        let i = 0;
+        for (; current.done === false; ++i, current = iter.next()) {
+            const value = current.value; 
+            let el = this.items[i];
+            if (el === undefined) {
+                let bindings: any;
+                if (HTML.is(this.itemFactory)) {
+                    let frag: DocumentFragment;
+                    [bindings, frag] = this.itemFactory.dom();
+                    el = { bindings, value, dom: [...frag.childNodes] };
+                } else if (_MACRO.is(this.itemFactory)) {
+                    bindings = Macro.create(this.itemFactory);
+                    el = { bindings, value, dom: bindings.dom };
+                } else {
+                    throw new SyntaxError("Unsupported item factory type.");
+                }
+                this.onappend(this.wrapper, el.dom, el.bindings);
+            }
+            this.onupdate(el.bindings, value, i);
+
+            this._items[i] = el;
+        }
+        
+        for (; i < this.items.length; ++i) {
+            const item = this.items[i];
+            if (item === undefined) continue;
+            if (this.onremove === undefined) {
+                for (const node of item.dom) {
+                    node.parentNode?.removeChild(node);
+                }
+            } else {
+                this.onremove(this.wrapper, item.dom, item.bindings);
+            }
+        }
+
+        const temp = this.items;
+        this.items = this._items;
+        this._items = temp;
+        this._items.length = 0;
+    }
+}
+// NOTE(randomuserhi): Bindings on wrapper or item are ignored.
+const ListFactory = function<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, value: V, index: number) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
+    return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroList<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
+};
+Macro.list = ListFactory;
 
 declare global {
     interface GlobalEventHandlersEventMap {
