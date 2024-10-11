@@ -1,382 +1,307 @@
-import { Signal, signal } from "./signal.js";
+import { isSignal, signal, Signal } from "./signal.js";
 
-// TODO(randomuserhi): Re-write and cleanup code
-// TODO(randomuserhi): Documentation
-
-abstract class NODE {
-
-    static is: (object: any) => object is NODE = Object.prototype.isPrototypeOf.bind(NODE.prototype);
+export abstract class RHU_NODE {
+    static is: (object: any) => object is RHU_NODE = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
 }
 
-class CLOSURE extends NODE {
-    static instance = new CLOSURE();
-    static is: (object: any) => object is CLOSURE = Object.prototype.isPrototypeOf.bind(CLOSURE.prototype);
+export class RHU_CLOSURE extends RHU_NODE {
+    static instance = new RHU_CLOSURE();
+    static is: (object: any) => object is RHU_CLOSURE = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
 }
 
-const symbols: {
-    readonly factory: unique symbol;
-} = {
-    factory: Symbol("factory"),
-} as any;
-
-class ELEMENT extends NODE {
-    private _bind?: PropertyKey;
+export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
+    protected _bind?: PropertyKey;
     public bind(key?: PropertyKey) {
         this._bind = key;
         return this;
     }
 
-    static is: (object: any) => object is ELEMENT = Object.prototype.isPrototypeOf.bind(ELEMENT.prototype);
-}
+    public callbacks = new Set<(element: T) => void>();
+    public then(callback: (element: T) => void) {
+        this.callbacks.add(callback);
+        return this;
+    }
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    protected _dom(target?: Record<PropertyKey, any>, children?: Iterable<Node>): [instance: T, fragment: Frag] {
+        throw new Error("Invalid operation.");
+    }
 
-class SIGNAL extends ELEMENT {
+    public dom(target?: Record<PropertyKey, any>, children?: Iterable<Node>): [instance: T, fragment: Frag] {
+        const result = this._dom(target, children);
+
+        // trigger callbacks
+        for (const callback of this.callbacks) {
+            callback(result[0]);
+        }
+
+        return result;
+    }
+
+    static is: (object: any) => object is RHU_ELEMENT = Object.prototype.isPrototypeOf.bind(RHU_ELEMENT.prototype);
+}
+type ElementInstance<T extends RHU_ELEMENT> = T extends RHU_ELEMENT<infer Bindings> ? Bindings : never; 
+
+export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
 
     constructor(binding: string) {
         super();
         this.bind(binding);
     }
 
-    private _value?: string;
+    protected _value?: string;
     public value(value?: string) {
         this._value = value;
         return this;
     }
 
-    static is: (object: any) => object is SIGNAL = Object.prototype.isPrototypeOf.bind(SIGNAL.prototype);
+    protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<string>, fragment: Node] {
+        let instance: Signal<string> | undefined = undefined;
+
+        const doBinding = target !== undefined && this._bind !== undefined && this._bind !== null;
+
+        // Try get an existing binding
+        if (doBinding) {
+            // If the target contains the same binding and it is a signal, share it (share signal object across multiple text nodes)
+            if (target[this._bind!] !== undefined && !isSignal(target[this._bind!])) throw new Error(`The binding '${this._bind!.toString()}' already exists.`); 
+            instance = target[this._bind!];
+        }
+
+        // If no instance from binding, create one
+        if (instance === undefined) {
+            instance = signal(this._value !== undefined && this._value !== null ? this._value : "");
+        }
+
+        // Create binding
+        if (doBinding) target[this._bind!] = instance;
+
+        // create text node and signal event
+        const node = document.createTextNode(this._value === undefined ? "" : this._value);
+        instance.on((value) => node.nodeValue = value);
+
+        return [instance, node];
+    }
+
+    public static is: (object: any) => object is RHU_SIGNAL = Object.prototype.isPrototypeOf.bind(RHU_SIGNAL.prototype);
 }
 
 export class MacroElement {
     public readonly dom: Node[];
 
-    constructor(dom: Node[], bindings?: any, target?: any) {
+    constructor(dom: Node[], bindings?: any) {
         this.dom = dom;
 
         if (bindings !== undefined && bindings !== null) {
-            if (target !== undefined && target !== null) {
-                Object.assign(target, bindings);
-            } else {
-                Object.assign(this, bindings);
-            }
+            Object.assign(this, bindings);
         }
     }
 
-    static is: (object: any) => object is MacroElement = Object.prototype.isPrototypeOf.bind(MacroElement.prototype);
+    public static is: (object: any) => object is MacroElement = Object.prototype.isPrototypeOf.bind(MacroElement.prototype);
 }
-type MacroClass = new (dom: Node[], bindings: any, children: Node[], ...args: any[]) => any;
-type MacroParameters<T extends MacroClass> = T extends new (dom: Node[], bindings: any, children: Node[], ...args: infer P) => any ? P : never;
+export type RHU_CHILDREN = Iterable<Node>;
+type MacroClass = new (dom: Node[], bindings: any, children: RHU_CHILDREN, ...args: any[]) => any;
+type MacroParameters<T extends MacroClass> = T extends new (dom: Node[], bindings: any, children: RHU_CHILDREN, ...args: infer P) => any ? P : never;
 
-class _MACRO<T extends MacroClass = MacroClass> extends ELEMENT {
+export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<InstanceType<T>, DocumentFragment> {
     public type: T;
-    public html: HTML;
+    public html: RHU_HTML;
     public args: MacroParameters<T>;
-    public callbacks = new Set<(macro: InstanceType<T>) => void>();
     
-    constructor(html: HTML, type: T, args: MacroParameters<T>) {
+    constructor(html: RHU_HTML, type: T, args: MacroParameters<T>) {
         super();
         this.html = html;
         this.type = type;
         this.args = args;
     }
 
-    public then(callback: (macro: InstanceType<T>) => void) {
-        this.callbacks.add(callback);
-        return this;
+    protected _dom(target?: Record<PropertyKey, any>, children?: Iterable<Node>): [instance: InstanceType<T>, fragment: DocumentFragment] {
+        // parse macro
+        const [b, frag] = this.html.dom();
+        const dom = [...frag.childNodes];
+
+        // create instance
+        const instance = new this.type(dom, b, children === undefined ? [] : children, ...this.args);
+
+        // create bindings
+        if (target !== undefined && this._bind !== undefined && this._bind !== null) {
+            if (this._bind in target) throw new SyntaxError(`The binding '${this._bind.toString()}' already exists.`);
+            target[this._bind] = instance; 
+        }
+
+        return [instance, frag];
     }
 
-    static is: (object: any) => object is _MACRO = Object.prototype.isPrototypeOf.bind(_MACRO.prototype);
+    public static is: (object: any) => object is RHU_MACRO = Object.prototype.isPrototypeOf.bind(RHU_MACRO.prototype);
 }
-export type MACRO<F extends FACTORY<any>> = _MACRO<F extends FACTORY<infer T> ? T: any>;
+export type MACRO<F extends FACTORY<any>> = RHU_MACRO<F extends FACTORY<infer T> ? T : any>;
 
-class MACRO_OPEN<T extends MacroClass = MacroClass> extends _MACRO<T> {
+export class RHU_MACRO_OPEN<T extends MacroClass = MacroClass> extends RHU_MACRO<T> {
 
-    static is: (object: any) => object is MACRO_OPEN = Object.prototype.isPrototypeOf.bind(MACRO_OPEN.prototype);
+    static is: (object: any) => object is RHU_MACRO_OPEN = Object.prototype.isPrototypeOf.bind(RHU_MACRO_OPEN.prototype);
 }
 
-export function html<T extends {} = any>(first: HTML["first"], ...interpolations: HTML["interpolations"]): HTML<T> {
-    return new HTML<T>(first, interpolations);
+export function html<T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T> {
+    return new RHU_HTML<T>(first, interpolations);
 }
 // TODO(randomuserhi): Nested parsing error handling -> display stack trace of parser to make debugging easier
-export class HTML<T extends Record<PropertyKey, any> | void = any> {
+export class RHU_HTML<T extends Record<PropertyKey, any> | void = any> extends RHU_ELEMENT<T, DocumentFragment> {
     public static empty = html``;
     
     private first: TemplateStringsArray;
-    private interpolations: (string | NODE | (string | NODE)[])[];
+    private interpolations: (string | RHU_NODE | (string | RHU_NODE)[])[];
     
-    constructor(first: HTML["first"], interpolations: HTML["interpolations"]) {
+    constructor(first: RHU_HTML["first"], interpolations: RHU_HTML["interpolations"]) {
+        super();
+
         this.first = first;
         this.interpolations = interpolations;
     }
 
-    private _bind?: PropertyKey;
-    public bind(key?: PropertyKey) {
-        this._bind = key;
-        return this;
-    }
-
-    public callbacks = new Set<(bindings: T) => void>();
-    public then(callback: (bindings: T) => void) {
-        this.callbacks.add(callback);
-        return this;
-    }
-
-    private stitch(interp: string | NODE | (string | NODE)[], html: HTML[], macros: _MACRO[], signals: SIGNAL[]): string | undefined {
-        let result: string | undefined = undefined;
+    private stitch(interp: string | RHU_NODE | (string | RHU_NODE)[], slots: RHU_ELEMENT[]): string | undefined {
         if (isFactory(interp)) {
             throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
         }
-        if (HTML.is(interp)) {
-            result = `<rhu-html rhu-internal="${html.length}"></rhu-html>`;
-            html.push(interp);
-        } else if (NODE.is(interp)) {
-            if (CLOSURE.is(interp)) {
-                result = `</rhu-macro>`;
-            } else if (MACRO_OPEN.is(interp)) {
-                result = `<rhu-macro rhu-internal="${macros.length}">`;
-                macros.push(interp);
-            }  else if (_MACRO.is(interp)) {
-                result = `<rhu-macro rhu-internal="${macros.length}"></rhu-macro>`;
-                macros.push(interp);
-            } else if (SIGNAL.is(interp)) {
-                result = `<rhu-signal rhu-internal="${signals.length}"></rhu-signal>`;
-                signals.push(interp);
-            }
+        if (RHU_ELEMENT.is(interp)) {
+            let result = `<rhu-slot rhu-internal="${slots.length}">`;
+            if (!RHU_MACRO_OPEN.is(interp)) result += `</rhu-slot>`;
+            slots.push(interp);
+            return result;
         }
-        return result;
+        if (RHU_CLOSURE.is(interp)) return `</rhu-slot>`;
+        return undefined;
     }
-
-    // NOTE(randomuserhi): On error, returns blank bindings and fragment => but proceeds
-    public dom<B extends Record<PropertyKey, any> | void = void>(shouldThrow = false): [bindings: B extends void ? T : B, fragment: DocumentFragment] {
-        try {
-            // stitch together source
-            let source = this.first[0];
-            const html: HTML[] = [];
-            const macros: _MACRO[] = [];
-            const signals: SIGNAL[] = [];
-            for (let i = 1; i < this.first.length; ++i) {
-                const interp = this.interpolations[i - 1];
-                const result = this.stitch(interp, html, macros, signals);
-                if (result !== undefined) {
-                    source += result;
-                } else if (Array.isArray(interp)) {
-                    const array = interp as (string | NODE)[];
-                    for (const interp of array) {
-                        const result = this.stitch(interp, html, macros, signals);
-                        if (result !== undefined) {
-                            source += result;
-                        } else {
-                            source += interp;
-                        }
+    
+    protected _dom(target?: Record<PropertyKey, any>): [instance: T, fragment: DocumentFragment] {
+        // stitch together source
+        let source = this.first[0];
+        const slots: RHU_ELEMENT[] = [];
+        for (let i = 1; i < this.first.length; ++i) {
+            const interp = this.interpolations[i - 1];
+            const result = this.stitch(interp, slots);
+            if (result !== undefined) {
+                source += result;
+            } else if (Array.isArray(interp)) {
+                const array = interp as (string | RHU_NODE)[];
+                for (const interp of array) {
+                    const result = this.stitch(interp, slots);
+                    if (result !== undefined) {
+                        source += result;
+                    } else {
+                        source += interp;
                     }
-                } else {
-                    source += interp;
+                }
+            } else {
+                source += interp;
+            }
+
+            source += this.first[i];
+        }
+
+        // parse source
+        const template = document.createElement("template");
+        template.innerHTML = source;
+        const fragment = template.content;
+
+        // Remove nonsense text nodes
+        document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                const value = node.nodeValue;
+                if (value === null || value === undefined) node.parentNode?.removeChild(node);
+                else if (value.trim() === "") node.parentNode?.removeChild(node);
+                return NodeFilter.FILTER_REJECT;
+            }
+        }).nextNode();
+
+        // create bindings
+        if (target === undefined) target = {};
+        for (const el of fragment.querySelectorAll("*[m-id]")) {
+            const key = el.getAttribute("m-id")!;
+            el.removeAttribute("m-id");
+            if (key in target) throw new Error(`The binding '${key}' already exists.`);
+            target[key] = el; 
+        }
+
+        // parse slots
+        for (const slotElement of fragment.querySelectorAll("rhu-slot[rhu-internal]")) {
+            try {
+                const attr = slotElement.getAttribute("rhu-internal");
+                if (attr === undefined || attr === null) {
+                    throw new Error("Could not find internal attribute.");
+                }
+                const i = parseInt(attr);
+                if (isNaN(i)) {
+                    throw new Error("Could not find slot id.");
                 }
 
-                source += this.first[i];
-            }
-
-            // parse source
-            const template = document.createElement("template");
-            template.innerHTML = source;
-            const fragment = template.content;
-        
-            // create bindings
-            const bindings: any = {};
-            for (const el of fragment.querySelectorAll("*[m-id]")) {
-                const key = el.getAttribute("m-id")!;
-                el.removeAttribute("m-id");
-                if (key in bindings) throw new SyntaxError(`The binding '${key}' already exists.`);
-                bindings[key] = el; 
-            }
-
-            // Remove nonsense text nodes
-            document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
-                acceptNode(node) {
-                    const value = node.nodeValue;
-                    if (value === null || value === undefined) node.parentNode?.removeChild(node);
-                    else if (value.trim() === "") node.parentNode?.removeChild(node);
-                    return NodeFilter.FILTER_REJECT;
-                }
-            }).nextNode();
-
-            // handle signals
-            for (let i = 0; i < signals.length; ++i) {
-            // find slot on fragment
-                const slot = fragment.querySelector(`rhu-signal[rhu-internal="${i}"]`);
-                if (slot === undefined || slot === null) throw new Error(`Unable to find slot for signal '${i}'.`);
-
-                const sig = signals[i];
-
-                let instance: Signal<string> | undefined = undefined;
-                const sig_value: SIGNAL["_value"] = (sig as any)._value;
-
-                // create binding, or share signal if binding already exists
-                const sig_bind: ELEMENT["_bind"] = (sig as any)._bind;
-                if (sig_bind !== undefined && sig_bind !== null) {
-                    if (!(sig_bind in bindings)) {
-                        bindings[sig_bind] = signal(sig_value !== undefined && sig_value !== null ? sig_value : "");
-                    }
-                    instance = bindings[sig_bind]; 
-                }
-
-                // create text node and signal event
-                const node = document.createTextNode(sig_value === undefined ? "" : sig_value);
-                instance?.on((value) => node.nodeValue = value);
-
-                // replace slot
-                slot.replaceWith(node);
-            }
-
-            // handle html
-            for (let i = 0; i < html.length; ++i) {
-            // find slot on fragment
-                const slot = fragment.querySelector(`rhu-html[rhu-internal="${i}"]`);
-                if (slot === undefined || slot === null) throw new Error(`Unable to find slot for HTML '${i}'.`);
-
-                const HTML = html[i];
-
-                // get fragment
-                const [instance, frag] = HTML.dom();
-            
-                // create binding
-                const html_bind: HTML["_bind"] = (HTML as any)._bind;
-                if (html_bind !== undefined && html_bind !== null) {
-                    if (html_bind in bindings) throw new SyntaxError(`The binding '${html_bind.toString()}' already exists.`);
-                    bindings[html_bind] = instance; 
-                }
-
-                // replace slot
-                slot.replaceWith(frag);
-            }
-
-            // find slots
-            const slots = new Array(macros.length);
-            for (let i = 0; i < macros.length; ++i) {
-            // find slot on fragment
-                const slot = fragment.querySelector(`rhu-macro[rhu-internal="${i}"]`);
-                if (slot === undefined || slot === null) throw new Error(`Unable to find slot for macro '${i}'.`);
-                slots[i] = slot;
-            }
-
-            // handle nested macros (continue on error)
-            for (let i = 0; i < macros.length; ++i) {
-                // get slot
                 const slot = slots[i];
-                try {
-                    // get children
-                    const children = [...slot.childNodes];
-                    // remove children
-                    slot.replaceChildren();
-
-                    // parse macro
-                    const macro = macros[i];
-                    const [b, frag] = macro.html.dom(true);
-                    const dom = [...frag.childNodes];
-                    frag.replaceChildren();
-
-                    // create instance
-                    const instance = new macro.type(dom, b, children, ...macro.args);
-
-                    // trigger callbacks
-                    for (const callback of macro.callbacks) {
-                        callback(instance);
-                    }
-
-                    // create binding
-                    const macro_bind: ELEMENT["_bind"] = (macro as any)._bind;
-                    if (macro_bind !== undefined && macro_bind !== null) {
-                        if (macro_bind in bindings) throw new SyntaxError(`The binding '${macro_bind.toString()}' already exists.`);
-                        bindings[macro_bind] = instance; 
-                    }
-
-                    // attach macro back to fragment
-                    slot.replaceWith(...dom);
-                } catch(e) {
-                    if (shouldThrow) throw e;
-
-                    console.error(e);
-                    // clear slot
-                    slot.replaceWith();
-                }
+                const frag = slot.dom(target, slotElement.childNodes)[1];
+                slotElement.replaceWith(frag);
+            } catch (e) {
+                slotElement.replaceWith();
+                console.error(e);
+                continue;
             }
-
-            // trigger callbacks
-            for (const callback of this.callbacks) {
-                callback(bindings);
-            }
-
-            return [bindings as B extends void ? T : B, fragment];
-        } catch (e) {
-            if (shouldThrow) throw e;
-
-            console.error(e);
-            return [{} as B extends void ? T : B, new DocumentFragment()];
         }
+
+        return [target, fragment];
     }
 
-    static is: (object: any) => object is HTML = Object.prototype.isPrototypeOf.bind(HTML.prototype);
+    static is: (object: any) => object is RHU_HTML = Object.prototype.isPrototypeOf.bind(RHU_HTML.prototype);
 }
-type HTMLBindings<T extends HTML<any>> = T extends HTML<infer Bindings> ? Bindings : any; 
+export type HTML = RHU_HTML;
 
+export type RHU_COMPONENT = RHU_HTML | RHU_MACRO;
+
+const isFactorySymbol = Symbol("factory");
 interface FACTORY<T extends MacroClass> {
-    (...args: MacroParameters<T>): _MACRO<T>;
-    readonly open: (...args: MacroParameters<T>) => MACRO_OPEN<T>;
-    readonly close: CLOSURE;
-    readonly [symbols.factory]: boolean;
+    (...args: MacroParameters<T>): RHU_MACRO<T>;
+    readonly open: (...args: MacroParameters<T>) => RHU_MACRO<T>;
+    readonly close: RHU_CLOSURE;
+    readonly [isFactorySymbol]: boolean;
 }
 function isFactory(object: any): object is FACTORY<typeof MacroElement> {
     if (object === null || object === undefined) return false;
-    return object[symbols.factory] === true;
+    return object[isFactorySymbol] === true;
 } 
 export type Macro<F extends FACTORY<any>> = F extends FACTORY<infer T> ? InstanceType<T> : any;
 
 interface MacroNamespace {
-    <T extends MacroClass>(type: T, html: HTML): FACTORY<T>;
-    signal(binding: string, value?: string): SIGNAL;
-    create<T extends _MACRO>(macro: T): T extends _MACRO<infer R> ? InstanceType<R> : never;
+    <T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T>;
+    signal(binding: string, value?: string): RHU_SIGNAL;
+    create<T extends RHU_MACRO>(macro: T): T extends RHU_MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
     map: typeof MapFactory;
     list: typeof ListFactory;
 }
 
-export const Macro = (<T extends MacroClass>(type: T, html: HTML): FACTORY<T> => {
+export const Macro = (<T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T> => {
     const factory = function(...args: MacroParameters<T>) {
-        return new _MACRO<T>(html, type, args);
+        return new RHU_MACRO<T>(html, type, args);
     } as FACTORY<T>;
     (factory as any).open = function(...args: MacroParameters<T>) {
-        return new MACRO_OPEN<T>(html, type, args);
+        return new RHU_MACRO_OPEN<T>(html, type, args);
     };
-    (factory as any).close = CLOSURE.instance;
-    (factory as any)[symbols.factory] = true;
+    (factory as any).close = RHU_CLOSURE.instance;
+    (factory as any)[isFactorySymbol] = true;
     return factory; 
 }) as MacroNamespace;
-Macro.signal = (binding: string, value?: string) => new SIGNAL(binding).value(value);
-Macro.create = <M extends _MACRO>(macro: M): M extends _MACRO<infer T> ? InstanceType<T> : never => {
-    // parse macro
-    const [b, frag] = macro.html.dom();
-    const dom = [...frag.childNodes];
-    frag.replaceChildren();
-
-    // create instance
-    const instance = new macro.type(dom, b, [], ...macro.args);
-    // trigger callbacks
-    for (const callback of macro.callbacks) {
-        callback(instance);
-    }
+Macro.signal = (binding: string, value?: string) => new RHU_SIGNAL(binding).value(value);
+Macro.create = <M extends RHU_MACRO>(macro: M): M extends RHU_MACRO<infer T> ? InstanceType<T> : never => {
+    const [instance, frag] = macro.dom();
     return instance;
 };
+
 // Helper macros for lists and maps
 const empty: any[] = [];
-type HTMLMACRO = HTML<any> | _MACRO<any>;
-type HTMLMACROInstance<T extends HTMLMACRO> = T extends HTML<any> ? HTMLBindings<T> : T extends _MACRO<any> ? InstanceType<T["type"]> : any;
-class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends MacroElement {
-    constructor(dom: Node[], bindings: HTMLMACROInstance<Wrapper>, children: Node[], wrapperFactory: HTMLMACRO, itemFactory: HTMLMACRO, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
+export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
+    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_MAP<K, V, Wrapper, Item>["onappend"], update: RHU_MAP<K, V, Wrapper, Item>["onupdate"], remove?: RHU_MAP<K, V, Wrapper, Item>["onremove"]) {
         super(dom, bindings); 
 
-        if (HTML.is(wrapperFactory)) {
+        if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
-        } else if (_MACRO.is(wrapperFactory)) {
+        } else if (RHU_MACRO.is(wrapperFactory)) {
             this.wrapper = new wrapperFactory.type(dom, bindings, [], ...wrapperFactory.args);
-            // trigger callbacks
+            // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
                 callback(this.wrapper);
             }
@@ -389,16 +314,16 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends
         this.onremove = remove;
     }
 
-    private itemFactory: HTMLMACRO;
-    public wrapper: HTMLMACROInstance<Wrapper>;
-    private onappend: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
-    private onupdate: (item: HTMLMACROInstance<Item>, key: K, value: V) => void;
-    private onremove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
+    private itemFactory: RHU_COMPONENT;
+    public wrapper: ElementInstance<Wrapper>;
+    private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    private onupdate: (item: ElementInstance<Item>, key: K, value: V) => void;
+    private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
-    private _items = new Map<K, { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }>(); 
-    private items = new Map<K, { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }>();
+    private _items = new Map<K, { bindings: ElementInstance<Item>, value: V, dom: Node[] }>(); 
+    private items = new Map<K, { bindings: ElementInstance<Item>, value: V, dom: Node[] }>();
 
-    public *entries(): IterableIterator<[key: K, value: V, item: HTMLMACROInstance<Item>]> {
+    public *entries(): IterableIterator<[key: K, value: V, item: ElementInstance<Item>]> {
         for (const [key, item] of this.items.entries()) {
             yield [key, item.value, item.bindings];
         }
@@ -419,17 +344,8 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends
     public set(key: K, value: V) {
         let item = this.items.get(key);
         if (item === undefined) {
-            let bindings: any;
-            if (HTML.is(this.itemFactory)) {
-                let frag: DocumentFragment;
-                [bindings, frag] = this.itemFactory.dom();
-                item = { bindings, value, dom: [...frag.childNodes] };
-            } else if (_MACRO.is(this.itemFactory)) {
-                bindings = Macro.create(this.itemFactory);
-                item = { bindings, value, dom: bindings.dom };
-            } else {
-                throw new SyntaxError("Unsupported item factory type.");
-            }
+            const [bindings, frag] = this.itemFactory.dom();
+            item = { bindings, value, dom: [...frag.childNodes] };
             this.onappend(this.wrapper, item.dom, item.bindings);
         }
         this.onupdate(item.bindings, key, value);
@@ -452,17 +368,8 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends
         for (const [key, value] of entries) {
             let el = this.items.get(key);
             if (el === undefined) {
-                let bindings: any;
-                if (HTML.is(this.itemFactory)) {
-                    let frag: DocumentFragment;
-                    [bindings, frag] = this.itemFactory.dom();
-                    el = { bindings, value, dom: [...frag.childNodes] };
-                } else if (_MACRO.is(this.itemFactory)) {
-                    bindings = Macro.create(this.itemFactory);
-                    el = { bindings, value, dom: bindings.dom };
-                } else {
-                    throw new SyntaxError("Unsupported item factory type.");
-                }
+                const [bindings, frag] = this.itemFactory.dom();
+                el = { bindings, value, dom: [...frag.childNodes] };
                 this.onappend(this.wrapper, el.dom, el.bindings);
             }
             this.onupdate(el.bindings, key, value);
@@ -486,21 +393,20 @@ class _MacroMap<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends
         this._items.clear();
     }
 }
-export type MacroMap<K, V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroMap<K, V, Wrapper, Item>; 
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
-const MapFactory = function<K, V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, key: K, value: V) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
-    return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroMap<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
+const MapFactory = function<K, V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_MAP<K, V, Wrapper, Item>["onappend"], update: RHU_MAP<K, V, Wrapper, Item>["onupdate"], remove?: RHU_MAP<K, V, Wrapper, Item>["onremove"]) {
+    return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_MAP<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.map = MapFactory;
-class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends MacroElement {
-    constructor(dom: Node[], bindings: HTMLMACROInstance<Wrapper>, children: Node[], wrapperFactory: HTMLMACRO, itemFactory: HTMLMACRO, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, value: V, index: number) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
+export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
+    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_LIST<V, Wrapper, Item>["onappend"], update: RHU_LIST<V, Wrapper, Item>["onupdate"], remove?: RHU_LIST<V, Wrapper, Item>["onremove"]) {
         super(dom, bindings); 
 
-        if (HTML.is(wrapperFactory)) {
+        if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
-        } else if (_MACRO.is(wrapperFactory)) {
+        } else if (RHU_MACRO.is(wrapperFactory)) {
             this.wrapper = new wrapperFactory.type(dom, bindings, [], ...wrapperFactory.args);
-            // trigger callbacks
+            // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
                 callback(this.wrapper);
             }
@@ -513,16 +419,16 @@ class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends M
         this.onremove = remove;
     }
 
-    private itemFactory: HTMLMACRO;
-    public wrapper: HTMLMACROInstance<Wrapper>;
-    private onappend: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
-    private onupdate: (item: HTMLMACROInstance<Item>, value: V, index: number) => void;
-    private onremove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void;
+    private itemFactory: RHU_COMPONENT;
+    public wrapper: ElementInstance<Wrapper>;
+    private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    private onupdate: (item: ElementInstance<Item>, value: V, index: number) => void;
+    private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
-    private _items: { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }[] = [];
-    private items: { bindings: HTMLMACROInstance<Item>, value: V, dom: Node[] }[] = [];
+    private _items: { bindings: ElementInstance<Item>, value: V, dom: Node[] }[] = [];
+    private items: { bindings: ElementInstance<Item>, value: V, dom: Node[] }[] = [];
 
-    public *entries(): IterableIterator<[index: number, value: V, item: HTMLMACROInstance<Item>]> {
+    public *entries(): IterableIterator<[index: number, value: V, item: ElementInstance<Item>]> {
         for (const [key, item] of this.items.entries()) {
             yield [key, item.value, item.bindings];
         }
@@ -560,17 +466,8 @@ class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends M
     public insert(value: V, index: number) {
         let el = this.items[index];
         if (el === undefined) {
-            let bindings: any;
-            if (HTML.is(this.itemFactory)) {
-                let frag: DocumentFragment;
-                [bindings, frag] = this.itemFactory.dom();
-                el = { bindings, value, dom: [...frag.childNodes] };
-            } else if (_MACRO.is(this.itemFactory)) {
-                bindings = Macro.create(this.itemFactory);
-                el = { bindings, value, dom: bindings.dom };
-            } else {
-                throw new SyntaxError("Unsupported item factory type.");
-            }
+            const [bindings, frag] = this.itemFactory.dom();
+            el = { bindings, value, dom: [...frag.childNodes] };
             this.onappend(this.wrapper, el.dom, el.bindings);
         }
         this.onupdate(el.bindings, value, index);
@@ -586,17 +483,8 @@ class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends M
             const value = current.value; 
             let el = this.items[i];
             if (el === undefined) {
-                let bindings: any;
-                if (HTML.is(this.itemFactory)) {
-                    let frag: DocumentFragment;
-                    [bindings, frag] = this.itemFactory.dom();
-                    el = { bindings, value, dom: [...frag.childNodes] };
-                } else if (_MACRO.is(this.itemFactory)) {
-                    bindings = Macro.create(this.itemFactory);
-                    el = { bindings, value, dom: bindings.dom };
-                } else {
-                    throw new SyntaxError("Unsupported item factory type.");
-                }
+                const [bindings, frag] = this.itemFactory.dom();
+                el = { bindings, value, dom: [...frag.childNodes] };
                 this.onappend(this.wrapper, el.dom, el.bindings);
             }
             this.onupdate(el.bindings, value, i);
@@ -622,10 +510,9 @@ class _MacroList<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO> extends M
         this._items.length = 0;
     }
 }
-export type MacroList<V, Wrapper extends HTMLMACRO = any, Item extends HTMLMACRO = any> = _MacroList<V, Wrapper, Item>; 
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
-const ListFactory = function<V, Wrapper extends HTMLMACRO, Item extends HTMLMACRO>(wrapper: Wrapper, item: Item, append: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void, update: (item: HTMLMACROInstance<Item>, value: V, index: number) => void, remove?: (wrapper: HTMLMACROInstance<Wrapper>, dom: Node[], item: HTMLMACROInstance<Item>) => void) {
-    return new _MACRO(HTML.is(wrapper) ? wrapper : wrapper.html, _MacroList<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
+const ListFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_LIST<V, Wrapper, Item>["onappend"], update: RHU_LIST<V, Wrapper, Item>["onupdate"], remove?: RHU_LIST<V, Wrapper, Item>["onremove"]) {
+    return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_LIST<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.list = ListFactory;
 
