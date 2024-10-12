@@ -248,7 +248,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> | void = any> extends R
 
     static is: (object: any) => object is RHU_HTML = Object.prototype.isPrototypeOf.bind(RHU_HTML.prototype);
 }
-export type HTML = RHU_HTML;
+export type HTML<T extends Record<PropertyKey, any> | void = any> = RHU_HTML<T>;
 
 export type RHU_COMPONENT = RHU_HTML | RHU_MACRO;
 
