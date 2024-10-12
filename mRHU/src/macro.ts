@@ -271,6 +271,7 @@ interface MacroNamespace {
     create<T extends RHU_MACRO>(macro: T): T extends RHU_MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
     map: typeof MapFactory;
+    set: typeof SetFactory;
     list: typeof ListFactory;
 }
 
@@ -398,6 +399,107 @@ const MapFactory = function<K, V, Wrapper extends RHU_COMPONENT, Item extends RH
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_MAP<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.map = MapFactory;
+export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
+    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_SET<V, Wrapper, Item>["onappend"], update: RHU_SET<V, Wrapper, Item>["onupdate"], remove?: RHU_SET<V, Wrapper, Item>["onremove"]) {
+        super(dom, bindings); 
+
+        if (RHU_HTML.is(wrapperFactory)) {
+            this.wrapper = bindings;
+        } else if (RHU_MACRO.is(wrapperFactory)) {
+            this.wrapper = new wrapperFactory.type(dom, bindings, [], ...wrapperFactory.args);
+            // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
+            for (const callback of wrapperFactory.callbacks) {
+                callback(this.wrapper);
+            }
+        } else {
+            throw new SyntaxError("Unsupported wrapper factory type.");
+        }
+        this.itemFactory = itemFactory;
+        this.onappend = append;
+        this.onupdate = update;
+        this.onremove = remove;
+    }
+
+    private itemFactory: RHU_COMPONENT;
+    public wrapper: ElementInstance<Wrapper>;
+    private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    private onupdate: (item: ElementInstance<Item>, value: V) => void;
+    private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+
+    private _items = new Map<V, { bindings: ElementInstance<Item>, dom: Node[] }>(); 
+    private items = new Map<V, { bindings: ElementInstance<Item>, dom: Node[] }>();
+
+    public *entries(): IterableIterator<[value: V, item: ElementInstance<Item>]> {
+        for (const [key, item] of this.items.entries()) {
+            yield [key, item.bindings];
+        }
+    }
+
+    public clear() {
+        this.assign(empty);
+    }
+
+    get size() {
+        return this.items.size;
+    }
+
+    public add(value: V) {
+        let item = this.items.get(value);
+        if (item === undefined) {
+            const [bindings, frag] = this.itemFactory.dom();
+            item = { bindings, dom: [...frag.childNodes] };
+            this.onappend(this.wrapper, item.dom, item.bindings);
+        }
+        this.onupdate(item.bindings, value);
+        this.items.set(value, item);
+    }
+
+    public remove(value: V) {
+        if (!this.items.has(value)) return;
+        const item = this.items.get(value)!;
+        if (this.onremove === undefined) {
+            for (const node of item.dom) {
+                node.parentNode?.removeChild(node);
+            }
+        } else {
+            this.onremove(this.wrapper, item.dom, item.bindings);
+        }
+    }
+
+    public assign(entries: Iterable<V>) {
+        for (const value of entries) {
+            let el = this.items.get(value);
+            if (el === undefined) {
+                const [bindings, frag] = this.itemFactory.dom();
+                el = { bindings, dom: [...frag.childNodes] };
+                this.onappend(this.wrapper, el.dom, el.bindings);
+            }
+            this.onupdate(el.bindings, value);
+            this._items.set(value, el);
+        }
+        
+        for (const [key, item] of this.items) {
+            if (this._items.has(key)) continue;
+            if (this.onremove === undefined) {
+                for (const node of item.dom) {
+                    node.parentNode?.removeChild(node);
+                }
+            } else {
+                this.onremove(this.wrapper, item.dom, item.bindings);
+            }
+        }
+        
+        const temp = this.items;
+        this.items = this._items;
+        this._items = temp;
+        this._items.clear();
+    }
+}
+// NOTE(randomuserhi): Bindings on wrapper or item are ignored.
+const SetFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_SET<V, Wrapper, Item>["onappend"], update: RHU_SET<V, Wrapper, Item>["onupdate"], remove?: RHU_SET<V, Wrapper, Item>["onremove"]) {
+    return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_SET<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
+};
+Macro.set = SetFactory;
 export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
     constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_LIST<V, Wrapper, Item>["onappend"], update: RHU_LIST<V, Wrapper, Item>["onupdate"], remove?: RHU_LIST<V, Wrapper, Item>["onremove"]) {
         super(dom, bindings); 
