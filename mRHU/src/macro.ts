@@ -343,6 +343,10 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
     }
 
     public get(key: K) {
+        return this.items.get(key)?.value;
+    }
+
+    public getElement(key: K) {
         return this.items.get(key)?.bindings;
     }
 
@@ -451,6 +455,10 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
         return this.items.has(value);
     }
 
+    public getElement(value: V) {
+        return this.items.get(value)?.bindings;
+    }
+
     public add(value: V) {
         let item = this.items.get(value);
         if (item === undefined) {
@@ -553,7 +561,11 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
     }
 
     public get(index: number) {
-        return this.items[index].bindings; 
+        return this.items[index].value; 
+    }
+
+    public getElement(index: number) {
+        return this.items[index].bindings;
     }
 
     public remove(index: number) {
