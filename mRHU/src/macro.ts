@@ -338,6 +338,10 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
         return this.items.size;
     }
 
+    public has(key: K) {
+        return this.items.has(key);
+    }
+
     public get(key: K) {
         return this.items.get(key)?.bindings;
     }
@@ -441,6 +445,10 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
 
     get size() {
         return this.items.size;
+    }
+
+    public has(value: V) {
+        return this.items.has(value);
     }
 
     public add(value: V) {
