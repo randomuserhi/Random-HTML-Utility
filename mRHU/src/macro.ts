@@ -390,6 +390,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
     public assign(entries: Iterable<[key: K, value: V]>) {
         for (const [key, value] of entries) {
             let el = this.items.get(key);
+            if (el === undefined) el = this._items.get(key);
             if (el === undefined) {
                 const [bindings, frag] = this.itemFactory.dom();
                 el = { bindings, value, dom: [...frag.childNodes] };
@@ -502,6 +503,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
     public assign(entries: Iterable<V>) {
         for (const value of entries) {
             let el = this.items.get(value);
+            if (el === undefined) el = this._items.get(value);
             if (el === undefined) {
                 const [bindings, frag] = this.itemFactory.dom();
                 el = { bindings, dom: [...frag.childNodes] };
@@ -513,8 +515,8 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
             this._items.set(value, el);
         }
         
-        for (const [key, item] of this.items) {
-            if (this._items.has(key)) continue;
+        for (const [value, item] of this.items) {
+            if (this._items.has(value)) continue;
             if (this.onremove.size === 0) {
                 for (const node of item.dom) {
                     node.parentNode?.removeChild(node);
