@@ -332,6 +332,18 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
         }
     }
 
+    public *values(): IterableIterator<[value: V, item: ElementInstance<Item>]> {
+        for (const item of this.items.values()) {
+            yield [item.value, item.bindings];
+        }
+    }
+
+    public *keys(): IterableIterator<K> {
+        for (const key of this.items.keys()) {
+            yield key;
+        }
+    }
+
     public clear() {
         this.assign(empty);
     }
@@ -557,6 +569,12 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
     public *entries(): IterableIterator<[index: number, value: V, item: ElementInstance<Item>]> {
         for (const [key, item] of this.items.entries()) {
             yield [key, item.value, item.bindings];
+        }
+    }
+
+    public *values(): IterableIterator<[value: V, item: ElementInstance<Item>]> {
+        for (const item of this.items.values()) {
+            yield [item.value, item.bindings];
         }
     }
 
