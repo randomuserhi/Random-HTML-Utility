@@ -317,9 +317,9 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
 
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
-    private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
-    private onupdate?: (item: ElementInstance<Item>, key: K, value: V) => void;
-    private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    public onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    public onupdate?: (item: ElementInstance<Item>, key: K, value: V) => void;
+    public onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
     private _items = new Map<K, { bindings: ElementInstance<Item>, value: V, dom: Node[] }>(); 
     private items = new Map<K, { bindings: ElementInstance<Item>, value: V, dom: Node[] }>();
@@ -434,9 +434,9 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
 
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
-    private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
-    private onupdate?: (item: ElementInstance<Item>, value: V) => void;
-    private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    public onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    public onupdate?: (item: ElementInstance<Item>, value: V) => void;
+    public onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
     private _items = new Map<V, { bindings: ElementInstance<Item>, dom: Node[] }>(); 
     private items = new Map<V, { bindings: ElementInstance<Item>, dom: Node[] }>();
@@ -547,9 +547,9 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
 
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
-    private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
-    private onupdate?: (item: ElementInstance<Item>, value: V, index: number) => void;
-    private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    public onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
+    public onupdate?: (item: ElementInstance<Item>, value: V, index: number) => void;
+    public onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
     private _items: { bindings: ElementInstance<Item>, value: V, dom: Node[] }[] = [];
     private items: { bindings: ElementInstance<Item>, value: V, dom: Node[] }[] = [];
