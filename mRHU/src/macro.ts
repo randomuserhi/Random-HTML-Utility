@@ -27,7 +27,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
         throw new Error("Invalid operation.");
     }
 
-    public dom(target?: Record<PropertyKey, any>, children?: Iterable<Node>): [instance: T, fragment: Frag] {
+    public dom<B extends T | void = void>(target?: Record<PropertyKey, any>, children?: Iterable<Node>): [instance: B extends void ? T : B, fragment: Frag] {
         const result = this._dom(target, children);
 
         // trigger callbacks
@@ -35,7 +35,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
             callback(result[0]);
         }
 
-        return result;
+        return result as any;
     }
 
     static is: (object: any) => object is RHU_ELEMENT = Object.prototype.isPrototypeOf.bind(RHU_ELEMENT.prototype);
@@ -144,7 +144,7 @@ export function html<T extends {} = any>(first: RHU_HTML["first"], ...interpolat
     return new RHU_HTML<T>(first, interpolations);
 }
 // TODO(randomuserhi): Nested parsing error handling -> display stack trace of parser to make debugging easier
-export class RHU_HTML<T extends Record<PropertyKey, any> | void = any> extends RHU_ELEMENT<T, DocumentFragment> {
+export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEMENT<T, DocumentFragment> {
     public static empty = html``;
     
     private first: TemplateStringsArray;
@@ -248,7 +248,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> | void = any> extends R
 
     static is: (object: any) => object is RHU_HTML = Object.prototype.isPrototypeOf.bind(RHU_HTML.prototype);
 }
-export type HTML<T extends Record<PropertyKey, any> | void = any> = RHU_HTML<T>;
+export type HTML<T extends Record<PropertyKey, any> = any> = RHU_HTML<T>;
 
 export type RHU_COMPONENT = RHU_HTML | RHU_MACRO;
 
