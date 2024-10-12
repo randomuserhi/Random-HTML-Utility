@@ -295,7 +295,7 @@ Macro.create = <M extends RHU_MACRO>(macro: M): M extends RHU_MACRO<infer T> ? I
 // Helper macros for lists and maps
 const empty: any[] = [];
 export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
-    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_MAP<K, V, Wrapper, Item>["onappend"], update: RHU_MAP<K, V, Wrapper, Item>["onupdate"], remove?: RHU_MAP<K, V, Wrapper, Item>["onremove"]) {
+    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_MAP<K, V, Wrapper, Item>["onappend"], update?: RHU_MAP<K, V, Wrapper, Item>["onupdate"], remove?: RHU_MAP<K, V, Wrapper, Item>["onremove"]) {
         super(dom, bindings); 
 
         if (RHU_HTML.is(wrapperFactory)) {
@@ -318,7 +318,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
     private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
-    private onupdate: (item: ElementInstance<Item>, key: K, value: V) => void;
+    private onupdate?: (item: ElementInstance<Item>, key: K, value: V) => void;
     private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
     private _items = new Map<K, { bindings: ElementInstance<Item>, value: V, dom: Node[] }>(); 
@@ -357,7 +357,9 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
             item = { bindings, value, dom: [...frag.childNodes] };
             this.onappend(this.wrapper, item.dom, item.bindings);
         }
-        this.onupdate(item.bindings, key, value);
+        if (this.onupdate !== undefined) {
+            this.onupdate(item.bindings, key, value);
+        }
         this.items.set(key, item);
     }
 
@@ -381,7 +383,9 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
                 el = { bindings, value, dom: [...frag.childNodes] };
                 this.onappend(this.wrapper, el.dom, el.bindings);
             }
-            this.onupdate(el.bindings, key, value);
+            if (this.onupdate !== undefined) {
+                this.onupdate(el.bindings, key, value);
+            }
             this._items.set(key, el);
         }
         
@@ -403,12 +407,12 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
     }
 }
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
-const MapFactory = function<K, V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_MAP<K, V, Wrapper, Item>["onappend"], update: RHU_MAP<K, V, Wrapper, Item>["onupdate"], remove?: RHU_MAP<K, V, Wrapper, Item>["onremove"]) {
+const MapFactory = function<K, V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_MAP<K, V, Wrapper, Item>["onappend"], update?: RHU_MAP<K, V, Wrapper, Item>["onupdate"], remove?: RHU_MAP<K, V, Wrapper, Item>["onremove"]) {
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_MAP<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.map = MapFactory;
 export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
-    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_SET<V, Wrapper, Item>["onappend"], update: RHU_SET<V, Wrapper, Item>["onupdate"], remove?: RHU_SET<V, Wrapper, Item>["onremove"]) {
+    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_SET<V, Wrapper, Item>["onappend"], update?: RHU_SET<V, Wrapper, Item>["onupdate"], remove?: RHU_SET<V, Wrapper, Item>["onremove"]) {
         super(dom, bindings); 
 
         if (RHU_HTML.is(wrapperFactory)) {
@@ -431,7 +435,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
     private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
-    private onupdate: (item: ElementInstance<Item>, value: V) => void;
+    private onupdate?: (item: ElementInstance<Item>, value: V) => void;
     private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
     private _items = new Map<V, { bindings: ElementInstance<Item>, dom: Node[] }>(); 
@@ -466,7 +470,9 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
             item = { bindings, dom: [...frag.childNodes] };
             this.onappend(this.wrapper, item.dom, item.bindings);
         }
-        this.onupdate(item.bindings, value);
+        if (this.onupdate !== undefined) {
+            this.onupdate(item.bindings, value);
+        }
         this.items.set(value, item);
     }
 
@@ -490,7 +496,9 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
                 el = { bindings, dom: [...frag.childNodes] };
                 this.onappend(this.wrapper, el.dom, el.bindings);
             }
-            this.onupdate(el.bindings, value);
+            if (this.onupdate !== undefined) {
+                this.onupdate(el.bindings, value);
+            }
             this._items.set(value, el);
         }
         
@@ -512,12 +520,12 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
     }
 }
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
-const SetFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_SET<V, Wrapper, Item>["onappend"], update: RHU_SET<V, Wrapper, Item>["onupdate"], remove?: RHU_SET<V, Wrapper, Item>["onremove"]) {
+const SetFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_SET<V, Wrapper, Item>["onappend"], update?: RHU_SET<V, Wrapper, Item>["onupdate"], remove?: RHU_SET<V, Wrapper, Item>["onremove"]) {
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_SET<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.set = SetFactory;
 export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
-    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_LIST<V, Wrapper, Item>["onappend"], update: RHU_LIST<V, Wrapper, Item>["onupdate"], remove?: RHU_LIST<V, Wrapper, Item>["onremove"]) {
+    constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append: RHU_LIST<V, Wrapper, Item>["onappend"], update?: RHU_LIST<V, Wrapper, Item>["onupdate"], remove?: RHU_LIST<V, Wrapper, Item>["onremove"]) {
         super(dom, bindings); 
 
         if (RHU_HTML.is(wrapperFactory)) {
@@ -540,7 +548,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
     private onappend: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
-    private onupdate: (item: ElementInstance<Item>, value: V, index: number) => void;
+    private onupdate?: (item: ElementInstance<Item>, value: V, index: number) => void;
     private onremove?: (wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void;
 
     private _items: { bindings: ElementInstance<Item>, value: V, dom: Node[] }[] = [];
@@ -592,7 +600,9 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
             el = { bindings, value, dom: [...frag.childNodes] };
             this.onappend(this.wrapper, el.dom, el.bindings);
         }
-        this.onupdate(el.bindings, value, index);
+        if (this.onupdate !== undefined) {
+            this.onupdate(el.bindings, value, index);
+        }
 
         this.items[index] = el;
     }
@@ -609,7 +619,9 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
                 el = { bindings, value, dom: [...frag.childNodes] };
                 this.onappend(this.wrapper, el.dom, el.bindings);
             }
-            this.onupdate(el.bindings, value, i);
+            if (this.onupdate !== undefined) {
+                this.onupdate(el.bindings, value, i);
+            }
 
             this._items[i] = el;
         }
@@ -633,7 +645,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
     }
 }
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
-const ListFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_LIST<V, Wrapper, Item>["onappend"], update: RHU_LIST<V, Wrapper, Item>["onupdate"], remove?: RHU_LIST<V, Wrapper, Item>["onremove"]) {
+const ListFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append: RHU_LIST<V, Wrapper, Item>["onappend"], update?: RHU_LIST<V, Wrapper, Item>["onupdate"], remove?: RHU_LIST<V, Wrapper, Item>["onremove"]) {
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_LIST<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 Macro.list = ListFactory;
