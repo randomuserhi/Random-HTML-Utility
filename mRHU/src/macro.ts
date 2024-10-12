@@ -319,9 +319,9 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
 
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
-    public onappend = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void>();
+    public onappend = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, key: K, value: V) => void>();
     public onupdate = new Set<(item: ElementInstance<Item>, key: K, value: V) => void>();
-    public onremove = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void>();
+    public onremove = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, key: K, value: V) => void>();
 
     private _items = new Map<K, { bindings: ElementInstance<Item>, value: V, dom: Node[] }>(); 
     private items = new Map<K, { bindings: ElementInstance<Item>, value: V, dom: Node[] }>();
@@ -369,7 +369,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
         if (item === undefined) {
             const [bindings, frag] = this.itemFactory.dom();
             item = { bindings, value, dom: [...frag.childNodes] };
-            for (const callback of this.onappend) callback(this.wrapper, item.dom, item.bindings);
+            for (const callback of this.onappend) callback(this.wrapper, item.dom, item.bindings, key, value);
         }
         for (const callback of this.onupdate) callback(item.bindings, key, value);
         this.items.set(key, item);
@@ -383,7 +383,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
                 node.parentNode?.removeChild(node);
             }
         } else {
-            for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings);
+            for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings, key, item.value);
         }
     }
 
@@ -394,7 +394,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
             if (el === undefined) {
                 const [bindings, frag] = this.itemFactory.dom();
                 el = { bindings, value, dom: [...frag.childNodes] };
-                for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings);
+                for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings, key, value);
             }
             if (this.onupdate !== undefined) {
                 for (const callback of this.onupdate) callback(el.bindings, key, value);
@@ -409,7 +409,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
                     node.parentNode?.removeChild(node);
                 }
             } else {
-                for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings);
+                for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings, key, item.value);
             }
         }
         
@@ -448,9 +448,9 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
 
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
-    public onappend = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void>();
+    public onappend = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, value: V) => void>();
     public onupdate = new Set<(item: ElementInstance<Item>, value: V) => void>();
-    public onremove = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void>();
+    public onremove = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, value: V) => void>();
 
     private _items = new Map<V, { bindings: ElementInstance<Item>, dom: Node[] }>(); 
     private items = new Map<V, { bindings: ElementInstance<Item>, dom: Node[] }>();
@@ -482,7 +482,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
         if (item === undefined) {
             const [bindings, frag] = this.itemFactory.dom();
             item = { bindings, dom: [...frag.childNodes] };
-            for (const callback of this.onappend) callback(this.wrapper, item.dom, item.bindings);
+            for (const callback of this.onappend) callback(this.wrapper, item.dom, item.bindings, value);
         }
         for (const callback of this.onupdate) callback(item.bindings, value);
         this.items.set(value, item);
@@ -496,7 +496,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
                 node.parentNode?.removeChild(node);
             }
         } else {
-            for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings);
+            for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings, value);
         }
     }
 
@@ -507,7 +507,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
             if (el === undefined) {
                 const [bindings, frag] = this.itemFactory.dom();
                 el = { bindings, dom: [...frag.childNodes] };
-                for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings);
+                for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings, value);
             }
             if (this.onupdate !== undefined) {
                 for (const callback of this.onupdate) callback(el.bindings, value);
@@ -522,7 +522,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
                     node.parentNode?.removeChild(node);
                 }
             } else {
-                for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings);
+                for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings, value);
             }
         }
         
@@ -561,9 +561,9 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
 
     private itemFactory: RHU_COMPONENT;
     public wrapper: ElementInstance<Wrapper>;
-    public onappend = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void>();
+    public onappend = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, value: V, index: number) => void>();
     public onupdate = new Set<(item: ElementInstance<Item>, value: V, index: number) => void>();
-    public onremove = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>) => void>();
+    public onremove = new Set<(wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, value: V, index: number) => void>();
 
     private _items: { bindings: ElementInstance<Item>, value: V, dom: Node[] }[] = [];
     private items: { bindings: ElementInstance<Item>, value: V, dom: Node[] }[] = [];
@@ -604,7 +604,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
                 node.parentNode?.removeChild(node);
             }
         } else {
-            for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings);
+            for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings, item.value, index);
         }
         this.items.splice(index, 1);
     }
@@ -618,7 +618,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
         if (el === undefined) {
             const [bindings, frag] = this.itemFactory.dom();
             el = { bindings, value, dom: [...frag.childNodes] };
-            for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings);
+            for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings, value, index);
         }
         if (this.onupdate !== undefined) {
             for (const callback of this.onupdate) callback(el.bindings, value, index);
@@ -637,7 +637,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
             if (el === undefined) {
                 const [bindings, frag] = this.itemFactory.dom();
                 el = { bindings, value, dom: [...frag.childNodes] };
-                for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings);
+                for (const callback of this.onappend) callback(this.wrapper, el.dom, el.bindings, value, i);
             }
             if (this.onupdate !== undefined) {
                 for (const callback of this.onupdate) callback(el.bindings, value, i);
@@ -654,7 +654,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
                     node.parentNode?.removeChild(node);
                 }
             } else {
-                for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings);
+                for (const callback of this.onremove) callback(this.wrapper, item.dom, item.bindings, item.value, i);
             }
         }
 
