@@ -143,7 +143,6 @@ export class RHU_MACRO_OPEN<T extends MacroClass = MacroClass> extends RHU_MACRO
 export function html<T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T> {
     return new RHU_HTML<T>(first, interpolations);
 }
-const parser = new DOMParser();
 // TODO(randomuserhi): Nested parsing error handling -> display stack trace of parser to make debugging easier
 export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEMENT<T, DocumentFragment> {
     public static empty = html``;
@@ -199,8 +198,9 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         }
 
         // parse source
-        const fragment = new DocumentFragment();
-        fragment.append(...parser.parseFromString(source, 'text/xml').childNodes);
+        const template = document.createElement("template");
+        template.innerHTML = source;
+        const fragment = template.content;
 
         // Remove nonsense text nodes
         document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
