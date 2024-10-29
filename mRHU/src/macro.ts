@@ -673,22 +673,25 @@ Macro.list = ListFactory;
 declare global {
     interface GlobalEventHandlersEventMap {
         "mount": CustomEvent;
+        "dismount": CustomEvent;
     }
 }
 
 // Custom event and observer to add some nice events
 const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype);
-const recursiveDispatch = function(node: Node): void {
-    if (isElement(node)) node.dispatchEvent(new CustomEvent("mount"));
+const recursiveDispatch = function(node: Node, event: keyof GlobalEventHandlersEventMap): void {
+    if (isElement(node)) node.dispatchEvent(new CustomEvent(event));
     for (const child of node.childNodes)
-        recursiveDispatch(child);
+        recursiveDispatch(child, event);
 };
 const observer = new MutationObserver(function(mutationList) {
     for (const mutation of mutationList) {
         switch (mutation.type) {
         case "childList": {
             for (const node of mutation.addedNodes)
-                recursiveDispatch(node);
+                recursiveDispatch(node, "mount");
+            for (const node of mutation.removedNodes)
+                recursiveDispatch(node, "dismount");
         } break;
         }
     }
