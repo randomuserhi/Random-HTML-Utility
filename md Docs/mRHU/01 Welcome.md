@@ -29,11 +29,11 @@ const style = Style(({ style }) => {
     overflow: hidden;
     `;
 
-	style`
-	${wrapper}:hover {
-		pointer: cursor;
-	}
-	`;
+    style`
+    ${wrapper}:hover {
+        pointer: cursor;
+    }
+    `;
 
     return {
         wrapper,
