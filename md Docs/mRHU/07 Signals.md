@@ -184,3 +184,5 @@ const eff = effect(() => {
 a(1); // "destructor: 0"
       // "behaviour: 1"
 ```
+
+%%TODO(randomuserhi): Documentation on AbortSignal%%
