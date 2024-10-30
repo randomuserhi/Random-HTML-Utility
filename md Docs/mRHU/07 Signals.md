@@ -13,7 +13,7 @@ You can create a signal and then react to changes:
 const state = signal<number>(0); // The parameter passed here 
                                  // is simply the initial state 
                                  // of the signal
-state.on((value) => console.log(value));
+state.on((value) => console.log(value)); // Invoke behaviour on state change
 
 // "0"
 
