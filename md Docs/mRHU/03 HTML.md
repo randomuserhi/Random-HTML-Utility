@@ -64,6 +64,28 @@ const [bindings, fragment] = template.dom(); // Error! Cannot have two
 console.log(bindings.title);
 console.log(bindings.text);
 ```
+
+## TypeScript Bindings
+
+Typescript cannot infer the bindings you create in the html string, and thus you have to provide them via the generic. If it is not provided then `any` is assumed by default.
+
+```typescript
+const template = html<{ 
+    title: HTMLHeadingElement;
+    text: HTMLParagraphElement;
+    }>/*html*/`
+    <h m-id="title">Some Title</h>
+    <p m-id="text">Lorem Ipsum</p>
+    `;
+
+const [bindings, fragment] = template.dom();
+
+type A = typeof bindings;
+/*{
+    title: HTMLHeadingElement;
+    text: HTMLParagraphElement;
+}*/
+```
 ## Nested HTML
 
 You can nest `html` factories within each other:
