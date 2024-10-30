@@ -178,5 +178,3 @@ console.log(bindings.list.slot); // <ul>...</ul>
     <li>Chris</li>
 </ul>
 ```
-## Index
-- [[02 Getting Started]]
