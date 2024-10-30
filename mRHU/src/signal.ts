@@ -35,11 +35,31 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
                 (equality === undefined && ref.value !== value) || 
                 (equality !== undefined && !equality(ref.value, value))
             ) {
+                // Get any effects that depend on this signal
+                const dependencies = dependencyMap.get(signal);
+                
+                // Call destructors PRIOR updating the internal value
+                // destructors should run accessing the old value of the updating signal
+                if (dependencies !== undefined) {
+                    for (const effect of dependencies) {
+                        for (const destructor of effect[destructors]) {
+                            destructor();
+                        }
+                    }
+                }
+
+                // Update value and trigger regular callbacks
                 ref.value = value;
                 for (const callback of callbacks) {
                     callback(ref.value);
                 }
-                triggerEffects(signal);
+                
+                // Trigger effect dependencies AFTER updating internal value
+                if (dependencies !== undefined) {
+                    for (const effect of dependencies) {
+                        effect();
+                    }
+                }
             }
         }
         return ref.value;
@@ -79,10 +99,6 @@ export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototyp
 
 export function effect(expression: () => ((() => void) | void), dependencies: SignalEvent[], options?: { signal?: AbortSignal }): Effect {
     const effect = function() {
-        for (const destructor of effect[destructors]) {
-            destructor();
-        }
-
         effect[destructors] = [];
 
         const destructor = expression();
@@ -116,13 +132,6 @@ export function effect(expression: () => ((() => void) | void), dependencies: Si
     return effect;
 }
 const dependencyMap = new WeakMap<SignalEvent, Set<Effect>>();
-function triggerEffects(signal: SignalEvent) {
-    const dependencies = dependencyMap.get(signal);
-    if (dependencies === undefined) return;
-    for (const effect of dependencies) {
-        effect();
-    }
-}
 
 export interface Computed<T> extends SignalEvent<T> {
     (): T;

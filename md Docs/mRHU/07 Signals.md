@@ -10,13 +10,19 @@ import { signal, computed, effect } from "rhu/signal.js";
 You can create a signal and then react to changes:
 
 ```typescript
-const state = signal<number>(0);
+const state = signal<number>(0); // The parameter passed here 
+                                 // is simply the initial state 
+                                 // of the signal
 state.on((value) => console.log(value));
 
+// Change state
 state(0); // 
 state(1); // "1"
 state(1); // 
 state(2); // "2"
+
+// Get state
+console.log(state()); // "2"
 ```
 
 Notice how the `console.log` only executes when the value changes.
@@ -44,13 +50,83 @@ If you want your state to only accept specific values, you can assign a guard to
 
 ```typescript
 const state = signal<number>(0);
-state.guard((value) => {
-    if (value < 0) 
+// Do not accept negative values
+state.guard((newValue, oldValue) => {
+    if (value <= 0) return oldValue;
+    return newValue;
 });
 state.on((value) => console.log(value));
 
 state(0); // 
 state(1); // "1"
-state(1); // 
+
+state(-1); // 
+console.log(state()) // "1"
+
 state(2); // "2"
+```
+
+## Computed
+
+You may want to have a computed state which is some state that is the result of some operation on many other states:
+
+```typescript
+const a = signal<number>(0);
+const b = signal<number>(0);
+const times = computed<number>((state) => {
+    state(a() * b());
+}, [a, b]);
+// The first parameter is a function which updates the current
+// `state` of the computed signal.
+// The second parameter is a list of states that this computed
+// state depends on. In this case it depends on `a` and `b`.
+// These dependencies can include other computed states.
+
+times.on((value) => console.log(value));
+
+a(0); //
+b(0); //
+a(1); //
+b(1); // "1"
+```
+
+Computed also accepts a destructor function, which is returned by the behaviour, that executes just before a state changes. This can be used to free resources:
+
+```typescript
+const aResp = computed<number>((state) => {
+    // This runs after the state update
+    // and thus a() gives the new value to
+    // acquire.
+    const resp = acquireResource(a());
+    state(resp);
+
+    return () => {
+        // Since this runs prior the state updates;
+        // a() will give the old value allowing you
+        // to release the old resource.
+        releaseResource(a());
+    }
+}, [a]);
+```
+## Effect
+
+You may want to perform some behaviour when many states change. This can be done using effect:
+
+```typescript
+const a = signal<number>(0);
+const b = signal<number>(0);
+const onAB = effect(() => {
+    console.log(`A ${a()}, B ${b()}`);
+}, [a, b]);
+// The first parameter is a function that executes when any
+// of the dependencies change.
+// The second parameter is a list of states that this effect
+// depends on. In this case it depends on `a` and `b`.
+
+times.on((value) => console.log(value));
+
+a(0); //
+b(0); //
+a(1); //
+b(1); // "1"
 ```
