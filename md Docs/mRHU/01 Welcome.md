@@ -15,8 +15,8 @@ It fully supports [TypeScript](https://www.typescriptlang.org/) but can also be 
 ```javascript
 import { Style } from "rhu/style.js";
 
-const style = Style(({ style }) => {
-    const wrapper = style.class`
+const style = Style(({ css }) => {
+    const wrapper = css.class`
     font-family: roboto;
 
     width: 100%;
@@ -29,7 +29,7 @@ const style = Style(({ style }) => {
     overflow: hidden;
     `;
 
-    style`
+    css`
     ${wrapper}:hover {
         pointer: cursor;
     }
@@ -59,9 +59,9 @@ export const theme = Theme(({ theme }) => {
 });
 
 // Define skin classes that override the theme and its base properties
-export const skins = Style(({ style }) => {
+export const skins = Style(({ css }) => {
     // dark theme override
-    const dark = style.class`
+    const dark = css.class`
     ${tvar(theme.background)}: #000;
     `;
 
@@ -70,8 +70,8 @@ export const skins = Style(({ style }) => {
     };
 });
 
-const style = Style(({ style }) => {
-    const wrapper = style.class`
+const style = Style(({ css }) => {
+    const wrapper = css.class`
     color: ${theme.defaultColor}; /* Use theme variables in styles */
     `;
 
