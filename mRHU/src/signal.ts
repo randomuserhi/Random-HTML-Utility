@@ -91,6 +91,7 @@ const destructors = Symbol("effect.destructors");
 export interface Effect {
     (): void;
     [destructors]: (() => void)[];
+    release(): void;
 }
 
 const effectProto = {};
@@ -116,6 +117,7 @@ export function effect(expression: () => ((() => void) | void), dependencies: Si
     Object.setPrototypeOf(effect, effectProto);
 
     // Add effect to dependency map
+    let deps: WeakRef<Set<Effect>>[] | undefined = [];
     for (const signal of dependencies) {
         if (isEffect(signal)) throw new Error("Effect cannot be used as a dependency.");
         if (!dependencyMap.has(signal)) {
@@ -123,10 +125,23 @@ export function effect(expression: () => ((() => void) | void), dependencies: Si
         }
         const dependency = dependencyMap.get(signal)!;
         dependency.add(effect);
-        
-        if (options?.signal !== undefined) {
-            options.signal.addEventListener("abort", () => dependency.delete(effect), { once: true });
+
+        // Keep track of all dependencies this effect is attached to
+        deps.push(new WeakRef(dependency));
+    }
+
+    effect.release = function() {
+        if (deps === undefined) return;
+        for (const ref of deps) {
+            ref.deref()?.delete(effect);
         }
+        deps = undefined;
+    };
+
+    if (options?.signal !== undefined) {
+        options.signal.addEventListener("abort", () => {
+            effect.release();
+        }, { once: true });
     }
 
     return effect;
@@ -136,6 +151,7 @@ const dependencyMap = new WeakMap<SignalEvent, Set<Effect>>();
 export interface Computed<T> extends SignalEvent<T> {
     (): T;
     effect: Effect;
+    release(): void;
 }
 
 export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void), dependencies: SignalEvent[], equality?: Equality<T>, options?: { signal?: AbortSignal }): Computed<T> {
@@ -154,6 +170,7 @@ export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void
         return value.equals(other);
     };
     computed.effect = effect(() => expression(value), dependencies, options);
+    computed.release = computed.effect.release;
     Object.setPrototypeOf(computed, proto);
 
     return computed;
