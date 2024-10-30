@@ -6,6 +6,7 @@ Specifically, this is the [module](https://developer.mozilla.org/en-US/docs/Web/
 
 It fully supports [TypeScript](https://www.typescriptlang.org/) but can also be used without in pure JS.
 
+> *NOTE(randomuserhi): These docs will be written with the use of TypeScript, it is trivial to strip the types for use with pure JavaScript.*
 ## Features
 
 **In-Code Styles**
@@ -111,12 +112,12 @@ Y(1); // X_Y => 2, Y => 1
 import { html } from "@/rhu/macro.js";
 
 const [bindings, fragment] = html`
-	<ul m-id="list">
-		${[1, 2, 3].map((value) => html`
-			<li m-id="child_${value}">${value}</li>
-		`)}
-	</ul>
-	`.dom();
+    <ul m-id="list">
+        ${[1, 2, 3].map((value) => html`
+        <li m-id="child_${value}">${value}</li>
+        `)}
+    </ul>
+    `.dom();
 
 console.log(bindings.list); // <ul>...</ul>
 console.log(bindings.child_1); // <li>1</li>
@@ -127,9 +128,9 @@ console.log(bindings.child_3); // <li>3</li>
 ```html
 <!-- fragment -->
 <ul>
-	<li>1</li>
-	<li>2</li>
-	<li>3</li>
+    <li>1</li>
+    <li>2</li>
+    <li>3</li>
 </ul>
 ```
 
@@ -144,9 +145,9 @@ const List = Macro(class List extends MacroElement {
         super(dom, bindings);
         
         this.title(title);
-	    this.slot.append(...children);
+        this.slot.append(...children);
 
-		this.slot.addEventListener("click", () => console.log("list clicked!"));
+        this.slot.addEventListener("click", () => console.log("list clicked!"));
     }
 }, html`
 	<h>${Macro.signal("title")}</h>
@@ -156,12 +157,12 @@ const List = Macro(class List extends MacroElement {
 
 // We can now use "List" in our In-Code HTMl for extended functionality
 const [bindings, fragment] = html`
-	${List.open("Names").bind("list")}
-		<li>Adam</li>
-		<li>Bob</li>
-		<li>Chris</li>
-	${List.close}
-	`.dom();
+    ${List.open("Names").bind("list")}
+        <li>Adam</li>
+        <li>Bob</li>
+        <li>Chris</li>
+    ${List.close}
+    `.dom();
 
 console.log(bindings.list); // class List { .title, .slot }
 console.log(bindings.list.title()); // "Names"
@@ -172,9 +173,10 @@ console.log(bindings.list.slot); // <ul>...</ul>
 <!-- fragment -->
 <h>Names</h>
 <ul>
-	<li>Adam</li>
-	<li>Bob</li>
-	<li>Chris</li>
+    <li>Adam</li>
+    <li>Bob</li>
+    <li>Chris</li>
 </ul>
 ```
 ## Index
+- [[02 Getting Started]]

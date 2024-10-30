@@ -23,6 +23,11 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
     }
     
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    public copy(): RHU_ELEMENT {
+        throw new Error("Invalid operation.");
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     protected _dom(target?: Record<PropertyKey, any>, children?: Iterable<Node>): [instance: T, fragment: Frag] {
         throw new Error("Invalid operation.");
     }
@@ -44,7 +49,7 @@ type ElementInstance<T extends RHU_ELEMENT> = T extends RHU_ELEMENT<infer Bindin
 
 export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
 
-    constructor(binding: string) {
+    constructor(binding: PropertyKey) {
         super();
         this.bind(binding);
     }
@@ -53,6 +58,14 @@ export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
     public value(value?: string) {
         this._value = value;
         return this;
+    }
+
+    public copy(): RHU_SIGNAL {
+        const copy = new RHU_SIGNAL(this._bind!).value(this._value);
+        for (const callback of this.callbacks.values()) {
+            copy.then(callback);
+        }
+        return copy;
     }
 
     protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<string>, fragment: Node] {
@@ -114,6 +127,14 @@ export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<In
         this.args = args;
     }
 
+    public copy(): RHU_MACRO {
+        const copy = new RHU_MACRO(this.html, this.type, this.args).bind(this._bind);
+        for (const callback of this.callbacks.values()) {
+            copy.then(callback);
+        }
+        return copy;
+    }
+
     protected _dom(target?: Record<PropertyKey, any>, children?: Iterable<Node>): [instance: InstanceType<T>, fragment: DocumentFragment] {
         // parse macro
         const [b, frag] = this.html.dom();
@@ -137,6 +158,14 @@ export type MACRO<F extends FACTORY<any>> = RHU_MACRO<F extends FACTORY<infer T>
 
 export class RHU_MACRO_OPEN<T extends MacroClass = MacroClass> extends RHU_MACRO<T> {
 
+    public copy(): RHU_MACRO_OPEN {
+        const copy = new RHU_MACRO_OPEN(this.html, this.type, this.args).bind(this._bind);
+        for (const callback of this.callbacks.values()) {
+            copy.then(callback);
+        }
+        return copy;
+    }
+
     static is: (object: any) => object is RHU_MACRO_OPEN = Object.prototype.isPrototypeOf.bind(RHU_MACRO_OPEN.prototype);
 }
 
@@ -157,6 +186,14 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         this.interpolations = interpolations;
     }
 
+    public copy(): RHU_HTML {
+        const copy = new RHU_HTML(this.first, this.interpolations).bind(this._bind);
+        for (const callback of this.callbacks.values()) {
+            copy.then(callback);
+        }
+        return copy;
+    }
+    
     private stitch(interp: string | RHU_NODE | (string | RHU_NODE)[], slots: RHU_ELEMENT[]): string | undefined {
         if (isFactory(interp)) {
             throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
@@ -213,12 +250,19 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         }).nextNode();
 
         // create bindings
-        if (target === undefined) target = {};
+        let instance: Record<PropertyKey, any>;
+        const hasBinding = this._bind !== null && this._bind !== undefined;
+        if (target !== undefined && !hasBinding) instance = target;
+        else instance = {};
         for (const el of fragment.querySelectorAll("*[m-id]")) {
             const key = el.getAttribute("m-id")!;
             el.removeAttribute("m-id");
-            if (key in target) throw new Error(`The binding '${key}' already exists.`);
-            target[key] = el; 
+            if (key in instance) throw new Error(`The binding '${key}' already exists.`);
+            instance[key] = el; 
+        }
+        if (target !== undefined && hasBinding) {
+            if (this._bind! in target) throw new SyntaxError(`The binding '${this._bind!.toString()}' already exists.`);
+            target[this._bind!] = instance; 
         }
 
         // parse slots
@@ -234,7 +278,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
                 }
 
                 const slot = slots[i];
-                const frag = slot.dom(target, slotElement.childNodes)[1];
+                const frag = slot.dom(instance, slotElement.childNodes)[1];
                 slotElement.replaceWith(frag);
             } catch (e) {
                 slotElement.replaceWith();
@@ -243,7 +287,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
             }
         }
 
-        return [target, fragment];
+        return [instance, fragment];
     }
 
     static is: (object: any) => object is RHU_HTML = Object.prototype.isPrototypeOf.bind(RHU_HTML.prototype);
@@ -286,7 +330,7 @@ export const Macro = (<T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T
     (factory as any)[isFactorySymbol] = true;
     return factory; 
 }) as MacroNamespace;
-Macro.signal = (binding: string, value?: string) => new RHU_SIGNAL(binding).value(value);
+Macro.signal = (binding: PropertyKey, value?: string) => new RHU_SIGNAL(binding).value(value);
 Macro.create = <M extends RHU_MACRO>(macro: M): M extends RHU_MACRO<infer T> ? InstanceType<T> : never => {
     const [instance, frag] = macro.dom();
     return instance;
