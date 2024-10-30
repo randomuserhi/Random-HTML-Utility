@@ -15,6 +15,8 @@ const state = signal<number>(0); // The parameter passed here
                                  // of the signal
 state.on((value) => console.log(value));
 
+// "0"
+
 // Change state
 state(0); // 
 state(1); // "1"
@@ -40,10 +42,12 @@ function Vec2Equality(a?: Vec2, b?: Vec2) {
 const state = signal<Vec2>({ x: 0, y: 0 }, Vec2Equality);
 state.on((value) => console.log(value));
 
+// { x: 0, y: 0 }
+
 state({ x: 0, y: 0 }); // 
-state({ x: 1, y: 0 }); // "{ x: 1, y: 0 }"
+state({ x: 1, y: 0 }); // { x: 1, y: 0 }
 state({ x: 1, y: 0 }); // 
-state({ x: 0, y: 0 }); // "{ x: 0, y: 0 }"
+state({ x: 0, y: 0 }); // { x: 0, y: 0 }
 ```
 
 If you want your state to only accept specific values, you can assign a guard to your signal:
@@ -56,6 +60,8 @@ state.guard((newValue, oldValue) => {
     return newValue;
 });
 state.on((value) => console.log(value));
+
+// "0"
 
 state(0); // 
 state(1); // "1"
@@ -83,6 +89,8 @@ const times = computed<number>((state) => {
 // These dependencies can include other computed states.
 
 times.on((value) => console.log(value));
+
+// "0"
 
 a(0); //
 b(0); //
@@ -113,6 +121,8 @@ const times = computed<Vec2>((state) => {
 
 times.on((value) => console.log(value));
 
+// { x: 0, y: 0 }
+
 a({ x: 0, y: 0 }); //
 b({ x: 0, y: 0 }); //
 a({ x: 1, y: 0 }); //
@@ -138,9 +148,12 @@ const comp = computed<number>((state) => {
     }
 }, [a]);
 
+// "behaviour: 0"
+
 a(1); // "destructor: 0"
       // "behaviour: 1"
 ```
+
 ## Effect
 
 You may want to perform some behaviour when many states change. This can be done using effect:
@@ -155,6 +168,8 @@ const onAB = effect(() => {
 // of the dependencies change.
 // The second parameter is a list of states that this effect
 // depends on. In this case it depends on `a` and `b`.
+
+// "A 0, B 0"
 
 a(0); //
 b(0); //
@@ -181,8 +196,68 @@ const eff = effect(() => {
     }
 }, [a]);
 
+// "behaviour: 0"
+
 a(1); // "destructor: 0"
       // "behaviour: 1"
 ```
 
-%%TODO(randomuserhi): Documentation on AbortSignal%%
+## Disabling Effect / Computed
+
+`computed` and `effect` both remain active and in memory as long as the signals / computed states they depend on remain active and in memory.
+
+To free the resources and stop a `computed` or `effect` from running, simply call `release()` on it:
+
+```typescript
+const a = signal<number>(0);
+
+const eff = effect(() => {
+    console.log(`effect: ${a()}`);
+}, [a]);
+
+// "effect: 0"
+
+const comp = computed<number>((state) => {
+    console.log(`computed: ${a()}`);
+    state(a());
+}, [a]);
+
+// "computed: 0"
+
+a(1); // "effect: 1"
+      // "computed: 1"
+eff.release();
+a(2); // "computed: 2"
+comp.release();
+a(3); // 
+```
+
+> **Much like event listeners, it's really important to release `effect` or `computed` when they are no longer in use otherwise they create memory leaks.**
+> 
+> *If all the original signals an `effect` or `computed` depend on get garbage collected, the `effect` and `computed` is also garbage collected. This rule only applies when constantly creating new effects on a persistent dependency.*
+
+`computed` and `effect` also support the [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) paradigm from event listeners:
+```typescript
+const controller = new AbortController();
+const abortSignal = controller.signal;
+
+const a = signal<number>(0);
+
+const eff = effect(() => {
+    console.log(`effect: ${a()}`);
+}, [a], { signal: abortSignal });
+
+// "effect: 0"
+
+const comp = computed<number>((state) => {
+    console.log(`computed: ${a()}`);
+    state(a());
+}, [a], undefined, { signal: abortSignal });
+
+// "computed: 0"
+
+a(1); // "effect: 1"
+      // "computed: 1"
+controller.abort();
+a(2); // 
+```
