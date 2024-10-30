@@ -90,23 +90,56 @@ a(1); //
 b(1); // "1"
 ```
 
+As with signals, computed also accepts an equality operator for its internal state:
+
+```typescript
+interface Vec2 { x: number, y: number };
+function Vec2Equality(a?: Vec2, b?: Vec2) {
+    if (a === undefined || b === undefined) return false;
+    if (a.x !== b.x || a.y !== b.y) return false;
+    return true;
+}
+
+const a = signal<Vec2>({ x: 0, y: 0 }, Vec2Equality);
+const b = signal<Vec2>({ x: 0, y: 0 }, Vec2Equality);
+const times = computed<Vec2>((state) => {
+    const va = a();
+    const vb = b(); 
+    state({ 
+        x: va.x * vb.x, 
+        y: va.y * vb.y
+    });
+}, [a, b], Vec2Equality);
+
+times.on((value) => console.log(value));
+
+a({ x: 0, y: 0 }); //
+b({ x: 0, y: 0 }); //
+a({ x: 1, y: 0 }); //
+b({ x: 1, y: 0 }); // { x: 1, y: 0 }
+```
+
 Computed also accepts a destructor function, which is returned by the behaviour, that executes just before a state changes. This can be used to free resources:
 
 ```typescript
-const aResp = computed<number>((state) => {
+const a = signal<number>(0);
+
+const comp = computed<number>((state) => {
     // This runs after the state update
     // and thus a() gives the new value to
     // acquire.
-    const resp = acquireResource(a());
-    state(resp);
+    console.log(`behaviour: ${a()}`);
 
     return () => {
         // Since this runs prior the state updates;
         // a() will give the old value allowing you
         // to release the old resource.
-        releaseResource(a());
+        console.log(`destructor: ${a()}`);
     }
 }, [a]);
+
+a(1); // "destructor: 0"
+      // "behaviour: 1"
 ```
 ## Effect
 
@@ -123,10 +156,31 @@ const onAB = effect(() => {
 // The second parameter is a list of states that this effect
 // depends on. In this case it depends on `a` and `b`.
 
-times.on((value) => console.log(value));
-
 a(0); //
 b(0); //
-a(1); //
-b(1); // "1"
+a(1); // "A 1, B 0"
+b(1); // "A 1, B 1"
+```
+
+Effect also accepts a destructor function, which is returned by the behaviour, that executes just before a state changes. This can be used to free resources:
+
+```typescript
+const a = signal<number>(0);
+
+const eff = effect(() => {
+    // This runs after the state update
+    // and thus a() gives the new value to
+    // acquire.
+    console.log(`behaviour: ${a()}`);
+
+    return () => {
+        // Since this runs prior the state updates;
+        // a() will give the old value allowing you
+        // to release the old resource.
+        console.log(`destructor: ${a()}`);
+    }
+}, [a]);
+
+a(1); // "destructor: 0"
+      // "behaviour: 1"
 ```
