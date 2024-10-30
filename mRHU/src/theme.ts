@@ -54,6 +54,11 @@ export function Theme<T extends {} = {}>(factory: (worker: Factory) => T): Class
     el.innerHTML = generatedCode;
     document.head.append(el);
 
+    // TODO(randomuserhi): Error on `name` property as that is a key-word used by RHU
     Object.assign(cn, exports);
     return cn;
+}
+
+export function tvar(themeVar: ThemeVariable): string {
+    return themeVar.name;
 }
