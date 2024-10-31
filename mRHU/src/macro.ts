@@ -32,7 +32,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
         this.callbacks.add(callback);
         return this;
     }
-    
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public copy(): RHU_ELEMENT<T, Frag> {
         throw new Error("Invalid operation.");
@@ -112,6 +112,7 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
 
     public copy(): RHU_SIGNAL<T> {
         const copy = new RHU_SIGNAL<T>(this._bind!).value(this._value);
+        copy.boxed = this.boxed;
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
         }
@@ -186,6 +187,7 @@ export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<In
 
     public copy(): RHU_MACRO<T> {
         const copy = new RHU_MACRO<T>(this.html, this.type, this.args).bind(this._bind);
+        copy.boxed = this.boxed;
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
         }
@@ -244,6 +246,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
 
     public copy(): RHU_HTML<T> {
         const copy = new RHU_HTML<T>(this.first, this.interpolations).bind(this._bind);
+        copy.boxed = this.boxed;
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
         }
