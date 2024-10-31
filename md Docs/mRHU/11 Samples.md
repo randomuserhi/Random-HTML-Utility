@@ -62,7 +62,7 @@ import { html, Macro, MacroElement } from "rhu/macro.js";
 import { signal, Signal, computed, effect } from "rhu/signal.js";
 
 const Counter = Macro(class Counter extends MacroElement {
-    private count: Signal<string>;
+    private count: Signal<number>;
     private btn: HTMLButtonElement;
 
     private state = signal<number>(0);

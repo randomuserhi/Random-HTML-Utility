@@ -97,28 +97,28 @@ export class RHU_ELEMENT_OPEN<T extends RHU_ELEMENT = any> extends RHU_NODE {
     static is: (object: any) => object is RHU_ELEMENT_OPEN = Object.prototype.isPrototypeOf.bind(RHU_ELEMENT_OPEN.prototype);
 }
 
-export class RHU_SIGNAL extends RHU_ELEMENT<Signal<any>> {
+export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
     constructor(binding: PropertyKey) {
         super();
         this.bind(binding);
     }
 
-    protected _value?: any;
-    public value(value?: any) {
+    protected _value: T;
+    public value(value: T) {
         this._value = value;
         return this;
     }
 
-    public copy(): RHU_SIGNAL {
-        const copy = new RHU_SIGNAL(this._bind!).value(this._value);
+    public copy(): RHU_SIGNAL<T> {
+        const copy = new RHU_SIGNAL<T>(this._bind!).value(this._value);
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
         }
         return copy;
     }
 
-    protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<any>, fragment: Node] {
-        let instance: Signal<any> | undefined = undefined;
+    protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<T>, fragment: Node] {
+        let instance: Signal<T> | undefined = undefined;
 
         const doBinding = target !== undefined && this._bind !== undefined && this._bind !== null;
 
@@ -131,15 +131,15 @@ export class RHU_SIGNAL extends RHU_ELEMENT<Signal<any>> {
 
         // If no instance from binding, create one
         if (instance === undefined) {
-            instance = signal(this._value !== undefined && this._value !== null ? this._value : "");
+            instance = signal(this._value);
         }
 
         // Create binding
         if (doBinding) target[this._bind!] = instance;
 
         // create text node and signal event
-        const node = document.createTextNode(this._value === undefined ? "" : this._value);
-        instance.on((value) => node.nodeValue = value.toString());
+        const node = document.createTextNode(`${this._value}`);
+        instance.on((value) => node.nodeValue = `${value}`);
 
         return [instance, node];
     }
@@ -370,7 +370,7 @@ export type Macro<F extends FACTORY<any>> = F extends FACTORY<infer T> ? Instanc
 
 interface MacroNamespace {
     <T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T>;
-    signal(binding: string, value?: string): RHU_SIGNAL;
+    signal<T>(binding: string, value?: T): RHU_SIGNAL<T>;
     create<T extends RHU_MACRO>(macro: T): T extends RHU_MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
     map: typeof MapFactory;
@@ -386,7 +386,7 @@ export const Macro = (<T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T
     (factory as any)[isFactorySymbol] = true;
     return factory; 
 }) as MacroNamespace;
-Macro.signal = (binding: PropertyKey, value?: string) => new RHU_SIGNAL(binding).value(value);
+Macro.signal = <T>(binding: PropertyKey, value?: T) => new RHU_SIGNAL<T>(binding).value(value!);
 Macro.create = <M extends RHU_MACRO>(macro: M): M extends RHU_MACRO<infer T> ? InstanceType<T> : never => {
     const [instance, frag] = macro.dom();
     return instance;
