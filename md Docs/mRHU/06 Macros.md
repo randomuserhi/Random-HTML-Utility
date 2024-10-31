@@ -43,7 +43,7 @@ console.log(bindings.list.slot); // <ul>...</ul>
 </ul>
 ```
 
-%% Little to no difference with Functional Macros %%
+%% Little to no difference with Functional Macros (Except copy semantics [[11 Samples#Simple Counter (Functional Macro)]]) %%
 
 ```typescript
 const List = html`<ul m-id="ul"></ul>`.then(
@@ -63,9 +63,10 @@ const List = html`<ul m-id="ul"></ul>`.then(
         };
     }).box();
 
-const [el, _] = List.dom();
+const el = List.dom()[0];
 
 // Use of .dom property thta we created to move element
+// instead of the returned DocumentFragment
 document.body.append(...el.dom);
 document.getElementById("mount").append(...el.dom);
 

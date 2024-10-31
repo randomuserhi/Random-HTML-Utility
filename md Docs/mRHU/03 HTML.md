@@ -389,7 +389,7 @@ const Counter = () => {
     }
 
     // Return html factory
-    return html<Counter>/*html*/`
+    return html<Counter>/**//*html*/`
         <div>
             <div>${Macro.signal("count")}</div>
             <button m-id="btn">Increment</button>
