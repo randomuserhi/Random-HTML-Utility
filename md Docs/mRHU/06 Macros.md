@@ -1,11 +1,11 @@
 %% NOTE(randomuserhi): unlike HTML, Macro elements are always boxed and cannot be unboxed. Calling (`.box()` and `.unbox()` does nothing). %%
 
-```javascript
+```typescript
 import { html, Macro, MacroElement } from "rhu/macro.js";
 
 // Definition of a Macro called "List"
 const List = Macro(class List extends MacroElement {
-    constructor(dom, bindings, children, title) {
+    constructor(dom: Node[], bindings: any, children: RHU_CHILDREN, title: string) {
         super(dom, bindings);
         
         this.title(title);
@@ -58,9 +58,12 @@ const dom = [...fragment.children];
 document.body.append(...dom);
 document.getElementById("mount").append(...dom);
 
-// Can only access bindings, no custom methods
+// Can only access bindings, no custom methods without
+// setting them up in a `.then()` clause
 console.log(el.ul);
 ```
+
+> As discussed in [[03 HTML#Advanced HTML - Functional Macros]], it is possible to create methods on in-code HTML. But if you wish to move the element you will still need to store its `dom` somewhere.
 
 ```typescript
 import { RHU_ELEMENT } from "rhu/macro.js";
@@ -97,4 +100,6 @@ document.getElementById("mount").append(...el.dom);
 el.append(document.createElement("li"));
 el.append(html`<li>item</li>`);
 ```
+
+%%TODO(randomuserhi): Typescript bindings using `const a: Macro<typeof SomeMacro>`%%
 

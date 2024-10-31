@@ -73,7 +73,7 @@ Typescript cannot infer the bindings you create in the html string, and thus you
 const template = html<{ 
     title: HTMLHeadingElement;
     text: HTMLParagraphElement;
-    }>/*html*/`
+    }>/**//*html*/`
     <h1 m-id="title">Some Title</h1>
     <p m-id="text">Lorem Ipsum</p>
     `;
@@ -370,3 +370,61 @@ const [bindings, fragment] = html`
     -->
     `.dom();
 ```
+
+## Advanced HTML - Functional Macros
+
+You can create reusable templates using the following syntax:
+
+```typescript
+import { html, Macro } from "rhu/macro.js";
+import { signal, Signal, computed, effect } from "rhu/signal.js";
+
+const Counter = () => {
+    // Type definition of instance
+    interface Counter { 
+        readonly count: Signal<string>;
+        readonly btn: HTMLButtonElement;
+
+        debug: () => void;
+    }
+
+    // Return html factory
+    return html<Counter>/*html*/`
+        <div>
+            <div>${Macro.signal("count")}</div>
+            <button m-id="btn">Increment</button>
+        </div>
+        `.box().then((self) => {
+        // On instantiation, setup stuff:
+
+        // Create State
+        const count = signal<number>(0);
+    
+        // Update DOM
+        count.on((value) => self.count(`count: ${value}`));
+        self.btn.addEventListener("click", () => count(count() + 1););
+
+        // Create methods
+        self.debug = () => {
+            console.log(`count: ${count()}`);
+        };
+    });
+};
+```
+
+These are referred to as *Functional Macros*, you can then use them as such:
+
+```typescript
+const [bindings, fragment] = html<{ 
+    counter: html<typeof Counter>; 
+}>/**//*html*/`
+    ${Counter().bind("counter")}
+    `;
+
+document.body.append(fragment);
+bindings.counter.debug();
+```
+
+This allows you to setup custom methods as well as manage state. However this has the downside of not being the easiest to move elements after creation.
+
+A more managed setup can be achieved with [[06 Macros]]. Despite this, functional macros have additional semantics as discussed in [[11 Samples#Simple Counter (Functional Macro)]].
