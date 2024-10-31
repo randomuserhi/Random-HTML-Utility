@@ -16,20 +16,25 @@ const Counter = () => {
     // element is copied through `.copy()`.
     const shallowState = signal<number>(0);
     
-    return html<Counter>/**//*html*/`
+    // Placing the type in the `then` clause instead of here
+    // Creates a "Public" and "Private" interface for TypeScript
+    //
+    // The type declared here is what is public, and the type in
+    // the `then` clause is private.
+    return html<void>/**//*html*/`
         <div>
             <div>${Macro.signal("shallowCount")}</div>
             <div>${Macro.signal("deepCount")}</div>
             <button m-id="btn">Increment</button>
         </div>
-        `.box().then((self) => {
+        `.box().then((self: Counter) => {
         // Initialising state here instead of outside the `.then()`
         // clause prevents this state from being used by multiple
         // instances when copied through `.copy()`.
         //
         // Each copy will have it's own state.
         const deepState = signal<number>(0);
-    
+        
         // Update DOM
         deepState.on((value) => self.deepCount(`deepState: ${value}`));
         shallowState.on((value) => self.shallowCount(`shallowState: ${value}`));
