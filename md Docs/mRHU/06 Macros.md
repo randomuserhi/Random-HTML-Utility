@@ -43,27 +43,36 @@ console.log(bindings.list.slot); // <ul>...</ul>
 </ul>
 ```
 
-%% Use of Macros over HTML shorthand allow for custom methods %%
+%% Little to no difference with Functional Macros %%
 
 ```typescript
 const List = html`<ul m-id="ul"></ul>`.then(
-    (self, children) => {
+    (self, children, dom) => {
+        self.dom = dom; // Need to store DOM if moving elements
+        
         self.ul.append(...children);
+
+        // can assign methods
+        self.append = (node: RHU_ELEMENT | Node) => {
+            if (RHU_ELEMENT.is(node)) {
+                const [_, fragment] = node.dom();
+                self.ul.append(fragment);
+            } else {
+                self.ul.append(node);
+            }
+        };
     }).box();
 
-const [el, fragment] = List.dom();
+const [el, _] = List.dom();
 
-// Due to DocumentFragment, need to store DOM if moving
-const dom = [...fragment.children];
-document.body.append(...dom);
-document.getElementById("mount").append(...dom);
+// Use of .dom property thta we created to move element
+document.body.append(...el.dom);
+document.getElementById("mount").append(...el.dom);
 
-// Can only access bindings, no custom methods without
-// setting them up in a `.then()` clause
-console.log(el.ul);
+// Custom methods
+el.append(document.createElement("li"));
+el.append(html`<li>item</li>`);
 ```
-
-> As discussed in [[03 HTML#Advanced HTML - Functional Macros]], it is possible to create methods on in-code HTML. But if you wish to move the element you will still need to store its `dom` somewhere.
 
 ```typescript
 import { RHU_ELEMENT } from "rhu/macro.js";

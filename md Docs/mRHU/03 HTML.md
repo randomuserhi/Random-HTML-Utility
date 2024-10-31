@@ -394,7 +394,7 @@ const Counter = () => {
             <div>${Macro.signal("count")}</div>
             <button m-id="btn">Increment</button>
         </div>
-        `.box().then((self) => {
+        `.box().then((self, children, dom) => {
         // On instantiation, setup stuff:
 
         // Create State
@@ -425,6 +425,6 @@ document.body.append(fragment);
 bindings.counter.debug();
 ```
 
-This allows you to setup custom methods as well as manage state. However this has the downside of not being the easiest to move elements after creation.
+This allows you to setup custom methods as well as manage state.
 
 A more managed setup can be achieved with [[06 Macros]]. Despite this, functional macros have additional semantics as discussed in [[11 Samples#Simple Counter (Functional Macro)]].

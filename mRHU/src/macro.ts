@@ -9,6 +9,7 @@ export class RHU_CLOSURE extends RHU_NODE {
     static is: (object: any) => object is RHU_CLOSURE = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
 }
 
+const isDocumentFragment: (object: any) => object is DocumentFragment = Object.prototype.isPrototypeOf.bind(DocumentFragment.prototype);
 export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
     protected _bind?: PropertyKey;
     public bind(key?: PropertyKey) {
@@ -26,8 +27,8 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
         return this;
     }
 
-    public callbacks = new Set<(element: T, children: RHU_CHILDREN) => void>();
-    public then(callback: (element: T, children: RHU_CHILDREN) => void) {
+    public callbacks = new Set<(element: T, children: RHU_CHILDREN, dom: Node[]) => void>();
+    public then(callback: (element: T, children: RHU_CHILDREN, dom: Node[]) => void) {
         this.callbacks.add(callback);
         return this;
     }
@@ -38,7 +39,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    protected _dom(target?: Record<PropertyKey, any>, children?: RHU_CHILDREN): [instance: T, fragment: Frag] {
+    protected _dom(target?: Record<PropertyKey, any>, children?: RHU_CHILDREN): [instance: T, fragment: Frag, dom: Node[]] {
         throw new Error("Invalid operation.");
     }
 
@@ -47,7 +48,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
 
         // trigger callbacks
         for (const callback of this.callbacks) {
-            callback(result[0], children === undefined ? EmptyHTMLCollection : children);
+            callback(result[0], children === undefined ? NoChildren : children, result.pop() as Node[]);
         }
 
         return result as any;
@@ -55,7 +56,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
 
     static is: (object: any) => object is RHU_ELEMENT = Object.prototype.isPrototypeOf.bind(RHU_ELEMENT.prototype);
 }
-type ElementInstance<T extends RHU_ELEMENT> = T extends RHU_ELEMENT<infer Bindings> ? Bindings : never; 
+type ElementInstance<T extends RHU_ELEMENT> = T extends RHU_ELEMENT<infer Bindings> ? Bindings : never;
 
 export class RHU_ELEMENT_OPEN<T extends RHU_ELEMENT = any> extends RHU_NODE {
     public element: T;
@@ -85,7 +86,7 @@ export class RHU_ELEMENT_OPEN<T extends RHU_ELEMENT = any> extends RHU_NODE {
         return this;
     }
 
-    public then(callback: (element: ElementInstance<T>, children?: RHU_CHILDREN) => void) {
+    public then(callback: (element: ElementInstance<T>, children: RHU_CHILDREN, dom: Node[]) => void) {
         this.element.then(callback);
         return this;
     }
@@ -117,7 +118,7 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
         return copy;
     }
 
-    protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<T>, fragment: Node] {
+    protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<T>, fragment: Node, dom: Node[]] {
         let instance: Signal<T> | undefined = undefined;
 
         const doBinding = target !== undefined && this._bind !== undefined && this._bind !== null;
@@ -141,7 +142,7 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
         const node = document.createTextNode(`${this._value}`);
         instance.on((value) => node.nodeValue = `${value}`);
 
-        return [instance, node];
+        return [instance, node, [node]];
     }
 
     public static is: (object: any) => object is RHU_SIGNAL = Object.prototype.isPrototypeOf.bind(RHU_SIGNAL.prototype);
@@ -160,12 +161,12 @@ export class MacroElement {
 
     public static is: (object: any) => object is MacroElement = Object.prototype.isPrototypeOf.bind(MacroElement.prototype);
 }
-export type RHU_CHILDREN = HTMLCollection;
+export type RHU_CHILDREN = NodeListOf<ChildNode>;
 type MacroClass = new (dom: Node[], bindings: any, children: RHU_CHILDREN, ...args: any[]) => any;
 type MacroParameters<T extends MacroClass> = T extends new (dom: Node[], bindings: any, children: RHU_CHILDREN, ...args: infer P) => any ? P : never;
 
 // An empty HTMLCollection to represent an empty list of children
-const EmptyHTMLCollection = document.createDocumentFragment().children;
+const NoChildren = document.createDocumentFragment().childNodes;
 
 export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<InstanceType<T>, DocumentFragment> {
     public type: T;
@@ -191,13 +192,13 @@ export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<In
         return copy;
     }
 
-    protected _dom(target?: Record<PropertyKey, any>, children?: RHU_CHILDREN): [instance: InstanceType<T>, fragment: DocumentFragment] {
+    protected _dom(target?: Record<PropertyKey, any>, children?: RHU_CHILDREN): [instance: InstanceType<T>, fragment: DocumentFragment, dom: Node[]] {
         // parse macro
         const [b, frag] = this.html.dom();
         const dom = [...frag.childNodes];
 
         // create instance
-        const instance = new this.type(dom, b, children === undefined ? EmptyHTMLCollection : children, ...this.args);
+        const instance = new this.type(dom, b, children === undefined ? NoChildren : children, ...this.args);
 
         // create bindings
         if (target !== undefined && this._bind !== undefined && this._bind !== null) {
@@ -205,7 +206,7 @@ export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<In
             target[this._bind] = instance; 
         }
 
-        return [instance, frag];
+        return [instance, frag, dom];
     }
 
     public static is: (object: any) => object is RHU_MACRO = Object.prototype.isPrototypeOf.bind(RHU_MACRO.prototype);
@@ -267,7 +268,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         }
     }
     
-    protected _dom(target?: Record<PropertyKey, any>): [instance: T, fragment: DocumentFragment] {
+    protected _dom(target?: Record<PropertyKey, any>): [instance: T, fragment: DocumentFragment, dom: Node[]] {
         // stitch together source
         let source = this.first[0];
         const slots: RHU_ELEMENT[] = [];
@@ -337,7 +338,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
                 }
 
                 const slot = slots[i];
-                const frag = slot.dom(instance, slotElement.children)[1];
+                const frag = slot.dom(instance, slotElement.childNodes)[1];
                 slotElement.replaceWith(frag);
             } catch (e) {
                 slotElement.replaceWith();
@@ -346,7 +347,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
             }
         }
 
-        return [instance, fragment];
+        return [instance, fragment, [...fragment.childNodes]];
     }
 
     static is: (object: any) => object is RHU_HTML = Object.prototype.isPrototypeOf.bind(RHU_HTML.prototype);
@@ -402,10 +403,10 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
         if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
         } else if (RHU_MACRO.is(wrapperFactory)) {
-            this.wrapper = new wrapperFactory.type(dom, bindings, EmptyHTMLCollection, ...wrapperFactory.args);
+            this.wrapper = new wrapperFactory.type(dom, bindings, NoChildren, ...wrapperFactory.args);
             // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
-                callback(this.wrapper, EmptyHTMLCollection);
+                callback(this.wrapper, NoChildren, this.wrapper.dom);
             }
         } else {
             throw new SyntaxError("Unsupported wrapper factory type.");
@@ -531,10 +532,10 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
         if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
         } else if (RHU_MACRO.is(wrapperFactory)) {
-            this.wrapper = new wrapperFactory.type(dom, bindings, EmptyHTMLCollection, ...wrapperFactory.args);
+            this.wrapper = new wrapperFactory.type(dom, bindings, NoChildren, ...wrapperFactory.args);
             // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
-                callback(this.wrapper, EmptyHTMLCollection);
+                callback(this.wrapper, NoChildren, this.wrapper.dom);
             }
         } else {
             throw new SyntaxError("Unsupported wrapper factory type.");
@@ -644,10 +645,10 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
         if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
         } else if (RHU_MACRO.is(wrapperFactory)) {
-            this.wrapper = new wrapperFactory.type(dom, bindings, EmptyHTMLCollection, ...wrapperFactory.args);
+            this.wrapper = new wrapperFactory.type(dom, bindings, NoChildren, ...wrapperFactory.args);
             // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
-                callback(this.wrapper, EmptyHTMLCollection);
+                callback(this.wrapper, NoChildren, this.wrapper.dom);
             }
         } else {
             throw new SyntaxError("Unsupported wrapper factory type.");
