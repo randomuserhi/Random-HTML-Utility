@@ -63,6 +63,9 @@ console.log(el.ul);
 ```
 
 ```typescript
+import { RHU_ELEMENT } from "@/rhu/macro.js";
+import type { RHU_CHILDREN } from "@/rhu/macro.js";
+
 const List = Macro(class List extends MacroElement {
     public ul: HTMLUListElement;
 
