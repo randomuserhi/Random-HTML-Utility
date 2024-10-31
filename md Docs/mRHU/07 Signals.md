@@ -261,3 +261,23 @@ a(1); // "effect: 1"
 controller.abort();
 a(2); // 
 ```
+
+%% TODO(randomuserhi): Document guard option that allows signals to be destroyed when guard returns false %%
+
+```typescript
+const state = signal<number>(0);
+state.on((value) => console.log(value), { guard: () => testSignal() <= 5 });
+
+state(1); // "1"
+state(2); // "2"
+state(3); // "3"
+state(4); // "4"
+state(5); // "5"
+
+state(6); //
+state(7); //
+state(1); //
+state(2); //
+
+// works on effect and computed as well (part of their options param)
+```
