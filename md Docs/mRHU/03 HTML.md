@@ -305,7 +305,7 @@ const template = html`
 const [bindings, fragment] = template.dom();
 ```
 
-## Advanced HTML shorthand - Allowing Children
+## Advanced HTML - Allowing Children
 
 `html` also allows you to create templates that accept children and can apply the children on callback. 
 
