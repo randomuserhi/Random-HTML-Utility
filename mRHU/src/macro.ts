@@ -1,4 +1,4 @@
-import { isSignal, signal, Signal } from "./signal.js";
+import { isSignal, signal, Signal, SignalEvent } from "./signal.js";
 
 export abstract class RHU_NODE {
     static is: (object: any) => object is RHU_NODE = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
@@ -9,7 +9,6 @@ export class RHU_CLOSURE extends RHU_NODE {
     static is: (object: any) => object is RHU_CLOSURE = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
 }
 
-const isDocumentFragment: (object: any) => object is DocumentFragment = Object.prototype.isPrototypeOf.bind(DocumentFragment.prototype);
 export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
     protected _bind?: PropertyKey;
     public bind(key?: PropertyKey) {
@@ -230,7 +229,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
     public static empty = html``;
     
     private first: TemplateStringsArray;
-    private interpolations: (string | RHU_NODE | (string | RHU_NODE)[])[];
+    private interpolations: (string | RHU_NODE | SignalEvent<any> | (string | RHU_NODE | SignalEvent<any>)[])[];
     
     constructor(first: RHU_HTML["first"], interpolations: RHU_HTML["interpolations"]) {
         super();
@@ -253,12 +252,12 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         return copy;
     }
     
-    private stitch(interp: string | RHU_NODE | (string | RHU_NODE)[], slots: RHU_ELEMENT[]): string | undefined {
+    private stitch(interp: string | RHU_NODE | SignalEvent<any> | (string | RHU_NODE | SignalEvent<any>)[], slots: (RHU_ELEMENT | SignalEvent<any>)[]): string | undefined {
         if (isFactory(interp)) {
             throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
         }
         const index = slots.length;
-        if (RHU_ELEMENT.is(interp)) {
+        if (RHU_ELEMENT.is(interp) || isSignal(interp)) {
             slots.push(interp);
             return `<rhu-slot rhu-internal="${index}"></rhu-slot>`;
         } else if (RHU_ELEMENT_OPEN.is(interp)) {
@@ -274,14 +273,14 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
     protected _dom(target?: Record<PropertyKey, any>): [instance: T, fragment: DocumentFragment, dom: Node[]] {
         // stitch together source
         let source = this.first[0];
-        const slots: RHU_ELEMENT[] = [];
+        const slots: (RHU_ELEMENT | SignalEvent<any>)[] = [];
         for (let i = 1; i < this.first.length; ++i) {
             const interp = this.interpolations[i - 1];
             const result = this.stitch(interp, slots);
             if (result !== undefined) {
                 source += result;
             } else if (Array.isArray(interp)) {
-                const array = interp as (string | RHU_NODE)[];
+                const array = interp as (string | RHU_NODE | SignalEvent<any>)[];
                 for (const interp of array) {
                     const result = this.stitch(interp, slots);
                     if (result !== undefined) {
@@ -341,8 +340,14 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
                 }
 
                 const slot = slots[i];
-                const frag = slot.dom(instance, slotElement.childNodes)[1];
-                slotElement.replaceWith(frag);
+                if (!isSignal(slot)) {
+                    const frag = slot.dom(instance, slotElement.childNodes)[1];
+                    slotElement.replaceWith(frag);
+                } else {
+                    const node = document.createTextNode(`${slot()}`);
+                    slot.on((value) => node.nodeValue = `${value}`);
+                    slotElement.replaceWith(node);
+                }
             } catch (e) {
                 slotElement.replaceWith();
                 console.error(e);
