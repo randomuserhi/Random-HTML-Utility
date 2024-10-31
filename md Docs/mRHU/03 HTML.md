@@ -307,10 +307,12 @@ const [bindings, fragment] = template.dom();
 
 ## Advanced HTML shorthand - Allowing Children
 
+`html` also allows you to create templates that accept children and can apply the children on callback. 
+
 ```typescript
 const List = html`<ul m-id="ul"><li>default</li></ul>`.then(
     (self, children) => {
-        if (children) self.ul.append(...children);
+        if (children.length !== 0) self.ul.append(...children);
     }).box();
 
 const [bindings, fragment] = html`
