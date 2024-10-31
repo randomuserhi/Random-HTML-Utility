@@ -12,7 +12,7 @@ import { html } from "rhu/macro.js";
 
 ```typescript
 const template = html`
-    <h>Some Title</h>
+    <h1>Some Title</h1>
     <p>Lorem Ipsum</p>
     `;
 ```
@@ -37,7 +37,7 @@ We currently have no `bindings` as we did not specify any elements we wish to ac
 
 ```typescript
 const template = html`
-    <h m-id="title">Some Title</h>
+    <h1 m-id="title">Some Title</h1>
     <p m-id="text">Lorem Ipsum</p>
     `;
 
@@ -53,7 +53,7 @@ Note that the parser will error out if given elements with the same binding:
 
 ```typescript
 const template = html`
-    <h m-id="text">Some Title</h>
+    <h1 m-id="text">Some Title</h1>
     <p m-id="text">Lorem Ipsum</p>
     `;
 
@@ -74,7 +74,7 @@ const template = html<{
     title: HTMLHeadingElement;
     text: HTMLParagraphElement;
     }>/*html*/`
-    <h m-id="title">Some Title</h>
+    <h1 m-id="title">Some Title</h1>
     <p m-id="text">Lorem Ipsum</p>
     `;
 
@@ -96,7 +96,7 @@ const nested = html`
     `;
 
 const template = html`
-    <h m-id="title">Title</h>
+    <h1 m-id="title">Title</h1>
     ${nested}
     `;
 
@@ -114,7 +114,7 @@ const nested = html`
     `.bind("nested");
 
 const template = html`
-    <h m-id="text">Title</h>
+    <h1 m-id="text">Title</h1>
     ${nested}
     `;
 
@@ -134,7 +134,7 @@ const nested = html`
     `;
 
 const template = html`
-    <h m-id="title">Title</h>
+    <h1 m-id="title">Title</h1>
     ${nested}
     `;
 
@@ -152,7 +152,7 @@ const nested = html`
     `.box();
 
 const template = html`
-    <h m-id="title">Title</h>
+    <h1 m-id="title">Title</h1>
     ${nested}
     `;
 
@@ -174,7 +174,7 @@ const nested = html`
     `;
 
 const template = html`
-    <h m-id="title">Title</h>
+    <h1 m-id="title">Title</h1>
     ${nested.bind("p1")}
     ${nested.bind("p2")}
     `;
@@ -201,7 +201,7 @@ const nested = html`
                       // no bind.
 
 const template = html`
-    <h m-id="title">Title</h>
+    <h1 m-id="title">Title</h1>
     ${nested.copy().bind("p1")}
     ${nested.copy().bind("p2")}
     `; // Our copies can then overwrite said options 
@@ -222,7 +222,7 @@ const nested = () => html`
     `.bind("nested");
 
 const template = html`
-    <h m-id="title">Title</h>
+    <h1 m-id="title">Title</h1>
     ${nested().bind("p1")}
     ${nested().bind("p2")}
     `;
@@ -297,7 +297,7 @@ const nested = html`
     `.then(() => { /* ... */ }) // This callback will run for every copy
 
 const template = html`
-    <h m-id="title">Title</h>
+    <h1 m-id="title">Title</h1>
     ${nested.copy().then(() => { /* ... */ })}
     ${nested.copy().then(() => { /* ... */ })}
     `; // The callbacks are unique to each copy
