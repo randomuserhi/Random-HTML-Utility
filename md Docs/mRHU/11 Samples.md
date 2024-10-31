@@ -25,8 +25,9 @@ const Counter = () => {
     `.box().then((self: Self) => {
         // Initialising state here instead of outside the `.then()`
         // clause prevents this state from being used by multiple
-        // instances when copied through `.copy()`. Each copy
-        // will have it's own state.
+        // instances when copied through `.copy()`. 
+        // 
+        // Each copy will have it's own state.
         const deepState = signal<number>(0);
 
         // Update DOM
