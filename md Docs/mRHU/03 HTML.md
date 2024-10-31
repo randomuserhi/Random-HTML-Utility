@@ -349,7 +349,9 @@ const List = html`<ul m-id="ul"><li>default</li></ul>`.then(
     (self, children) => {
         if (children) self.ul.append(...children);
     }).box()
-    .open(); // Open Factory
+    .open(); // Open Factory - Typically avoid doing this as
+             //                it is non-obvious leading to 
+             //                developer error.
 
 const [bindings, fragment] = html`
     ${List} <!-- Open by default so no need .open() -->

@@ -1,7 +1,7 @@
 %% NOTE(randomuserhi): unlike HTML, Macro elements are always boxed and cannot be unboxed. Calling (`.box()` and `.unbox()` does nothing). %%
 
 ```javascript
-import { html, Macro, MacroElement } from "@/rhu/macro.js";
+import { html, Macro, MacroElement } from "rhu/macro.js";
 
 // Definition of a Macro called "List"
 const List = Macro(class List extends MacroElement {
@@ -63,8 +63,8 @@ console.log(el.ul);
 ```
 
 ```typescript
-import { RHU_ELEMENT } from "@/rhu/macro.js";
-import type { RHU_CHILDREN } from "@/rhu/macro.js";
+import { RHU_ELEMENT } from "rhu/macro.js";
+import type { RHU_CHILDREN } from "rhu/macro.js";
 
 const List = Macro(class List extends MacroElement {
     public ul: HTMLUListElement;

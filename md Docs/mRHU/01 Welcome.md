@@ -137,7 +137,7 @@ console.log(bindings.child_3); // <li>3</li>
 **Custom Elements (Macros)**
 - The Macro API is a layer built on top of In-Code HTML to allow creating groups of elements with custom behaviour. 
 ```javascript
-import { html, Macro, MacroElement } from "@/rhu/macro.js";
+import { html, Macro, MacroElement } from "rhu/macro.js";
 
 // Definition of a Macro called "List"
 const List = Macro(class List extends MacroElement {
