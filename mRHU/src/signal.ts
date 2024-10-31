@@ -2,7 +2,7 @@
 export interface SignalEvent<T = any> {
     (): T;
     equals(other: T): boolean;
-    on(callback: Callback<T>, options?: { signal?: AbortSignal }): Callback<T>;
+    on(callback: Callback<T>, options?: { signal?: AbortSignal, guard?: () => boolean }): Callback<T>;
     off(handle: Callback<T>): boolean;
 }
 const proto = {};
@@ -24,7 +24,10 @@ export const always: Equality<any> = () => false;
 //                     to change an object you need to pass a new object into the signal or repass the old reference with a custom equality operator
 export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
     const ref = { value };
-    const callbacks = new Set<Callback<T>>();
+    const callbacks = {
+        value: new Map<Callback<T>, undefined | (() => boolean)>(), 
+        buffer: new Map<Callback<T>, undefined | (() => boolean)>()
+    };
     const signal = function(...args: [T, ...any[]]) {
         if (args.length !== 0) {
             let [ value ] = args;
@@ -50,10 +53,18 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
 
                 // Update value and trigger regular callbacks
                 ref.value = value;
-                for (const callback of callbacks) {
+                for (const [callback, guard] of callbacks.value) {
+                    if (guard !== undefined && !guard()) {
+                        continue;
+                    }
                     callback(ref.value);
+                    callbacks.buffer.set(callback, guard);
                 }
-                
+                callbacks.value.clear();
+                const temp = callbacks.buffer;
+                callbacks.buffer = callbacks.value;
+                callbacks.value = temp;
+
                 // Trigger effect dependencies AFTER updating internal value
                 if (dependencies !== undefined) {
                     for (const effect of dependencies) {
@@ -65,17 +76,17 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
         return ref.value;
     } as Signal<T>;
     signal.on = function(callback, options): Callback<T> {
-        if (!callbacks.has(callback)) {
+        if (!callbacks.value.has(callback)) {
             callback(ref.value);
-            callbacks.add(callback);
+            callbacks.value.set(callback, options?.guard);
             if (options?.signal !== undefined) {
-                options.signal.addEventListener("abort", () => callbacks.delete(callback), { once: true });
+                options.signal.addEventListener("abort", () => callbacks.value.delete(callback), { once: true });
             }
         }
         return callback;
     };
     signal.off = function(callback): boolean {
-        return callbacks.delete(callback);
+        return callbacks.value.delete(callback);
     };
     signal.equals = function(other): boolean {
         if (equality === undefined) {
@@ -98,10 +109,21 @@ const effectProto = {};
 Object.setPrototypeOf(effectProto, proto);
 export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototypeOf.bind(effectProto);
 
-export function effect(expression: () => ((() => void) | void), dependencies: SignalEvent[], options?: { signal?: AbortSignal }): Effect {
+export function effect(expression: () => ((() => void) | void), dependencies: SignalEvent[], options?: { signal?: AbortSignal, guard?: () => boolean }): Effect {
     const effect = function() {
+        // Check guard
+        if (options?.guard !== undefined) {
+            // If guard returns false, release resources
+            if (!options.guard()) {
+                effect.release();
+                return;
+            }
+        }
+
+        // Clear destructors
         effect[destructors] = [];
 
+        // Execute effect
         const destructor = expression();
         if (destructor !== undefined) {
             effect[destructors].push(destructor);
@@ -154,7 +176,7 @@ export interface Computed<T> extends SignalEvent<T> {
     release(): void;
 }
 
-export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void), dependencies: SignalEvent[], equality?: Equality<T>, options?: { signal?: AbortSignal }): Computed<T> {
+export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void), dependencies: SignalEvent[], equality?: Equality<T>, options?: { signal?: AbortSignal, guard?: () => boolean }): Computed<T> {
     const value = signal(undefined as T, equality);
     const computed = function() {
         return value();

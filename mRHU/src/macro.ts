@@ -140,7 +140,12 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
 
         // create text node and signal event
         const node = document.createTextNode(`${this._value}`);
-        instance.on((value) => node.nodeValue = `${value}`);
+        const ref = new WeakRef(node);
+        instance.on((value) => {
+            const node = ref.deref();
+            if (node === undefined) return;
+            node.nodeValue = `${value}`;
+        }, { guard: () => ref.deref() !== undefined });
 
         return [instance, node, [node]];
     }
@@ -345,7 +350,12 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
                     slotElement.replaceWith(frag);
                 } else {
                     const node = document.createTextNode(`${slot()}`);
-                    slot.on((value) => node.nodeValue = `${value}`);
+                    const ref = new WeakRef(node);
+                    slot.on((value) => {
+                        const node = ref.deref();
+                        if (node === undefined) return;
+                        node.nodeValue = `${value}`;
+                    }, { guard: () => ref.deref() !== undefined });
                     slotElement.replaceWith(node);
                 }
             } catch (e) {
