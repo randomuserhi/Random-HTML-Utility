@@ -97,14 +97,14 @@ export class RHU_ELEMENT_OPEN<T extends RHU_ELEMENT = any> extends RHU_NODE {
     static is: (object: any) => object is RHU_ELEMENT_OPEN = Object.prototype.isPrototypeOf.bind(RHU_ELEMENT_OPEN.prototype);
 }
 
-export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
+export class RHU_SIGNAL extends RHU_ELEMENT<Signal<any>> {
     constructor(binding: PropertyKey) {
         super();
         this.bind(binding);
     }
 
-    protected _value?: string;
-    public value(value?: string) {
+    protected _value?: any;
+    public value(value?: any) {
         this._value = value;
         return this;
     }
@@ -117,8 +117,8 @@ export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
         return copy;
     }
 
-    protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<string>, fragment: Node] {
-        let instance: Signal<string> | undefined = undefined;
+    protected _dom(target?: Record<PropertyKey, any>): [instance: Signal<any>, fragment: Node] {
+        let instance: Signal<any> | undefined = undefined;
 
         const doBinding = target !== undefined && this._bind !== undefined && this._bind !== null;
 
@@ -139,7 +139,7 @@ export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
 
         // create text node and signal event
         const node = document.createTextNode(this._value === undefined ? "" : this._value);
-        instance.on((value) => node.nodeValue = value);
+        instance.on((value) => node.nodeValue = value.toString());
 
         return [instance, node];
     }
