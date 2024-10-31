@@ -62,22 +62,19 @@ import { html, Macro, MacroElement } from "rhu/macro.js";
 import { signal, Signal, computed, effect } from "rhu/signal.js";
 
 const Counter = Macro(class Counter extends MacroElement {
-    private count: Signal<number>;
+    private state: Signal<number>;
     private btn: HTMLButtonElement;
-
-    private state = signal<number>(0);
 
     constructor(dom: Node[], bindings: any) {
         super(dom, bindings);
         
-        this.state.on((value) => this.count(`state: ${value}`));
         this.btn.addEventListener("click", () => {
             this.state(this.state() + 1);
         });
     }
 }, html`
     <div>
-        <div>${Macro.signal("count")}</div>
+        <div>state: ${Macro.signal<number>("state", 0)}</div>
         <button m-id="btn">Increment</button>
     </div>
     `);
