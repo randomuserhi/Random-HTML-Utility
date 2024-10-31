@@ -428,3 +428,42 @@ bindings.counter.debug();
 This allows you to setup custom methods as well as manage state.
 
 A more managed setup can be achieved with [[06 Macros]]. Despite this, functional macros have additional semantics as discussed in [[11 Samples#Simple Counter (Functional Macro)]].
+
+### Typescript - Functional Macros and public / private interfaces
+
+To imitate public facing variables and private ones such as how you can declare them in [[06 Macros]], you need to use the following:
+
+```typescript
+const Counter = () => {
+    // public interface
+    interface Counter {
+        readonly dom: Node[];
+        debug: () => void;
+    }
+    // private interface
+    interface _Counter { 
+        readonly state: Signal<number>;
+        readonly btn: HTMLButtonElement;
+    }
+
+    // Assign public interface
+    return html<Counter>/**//*html*/`
+        <div>
+            <div>${Macro.signal<number>("state", 0)}</div>
+            <button m-id="btn">Increment</button>
+        </div>
+        `.box().then((_self, children, dom) => {
+        // Coerce type into (public & private) interface
+        const self = _self as unknown as (_Counter & Counter);
+        
+        (self as any).dom = dom; // forcing readonly assignments
+
+        // Continue as normal
+        self.btn.addEventListener("click", () => state(state() + 1));
+
+        self.debug = () => {
+            console.log(`state: ${state()}`);
+        };
+    });
+};
+```

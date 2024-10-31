@@ -21,13 +21,15 @@ const Counter = () => {
     //
     // The type declared here is what is public, and the type in
     // the `then` clause is private.
-    return html<void>/**//*html*/`
+    return html<Record<string, never>>/**//*html*/`
         <div>
             <div>${Macro.signal("shallowCount")}</div>
             <div>${Macro.signal("deepCount")}</div>
             <button m-id="btn">Increment</button>
         </div>
-        `.box().then((self: Counter) => {
+        `.box().then((_self) => {
+        const self = _self as unknown as Counter;
+
         // Initialising state here instead of outside the `.then()`
         // clause prevents this state from being used by multiple
         // instances when copied through `.copy()`.
