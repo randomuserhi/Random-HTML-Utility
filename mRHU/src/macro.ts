@@ -16,14 +16,24 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
         return this;
     }
 
-    public callbacks = new Set<(element: T) => void>();
-    public then(callback: (element: T) => void) {
+    protected boxed: boolean = false;
+    public box() {
+        this.boxed = true;
+        return this;
+    }
+    public unbox() {
+        this.boxed = true;
+        return this;
+    }
+
+    public callbacks = new Set<(element: T, children?: Iterable<Node>) => void>();
+    public then(callback: (element: T, children?: Iterable<Node>) => void) {
         this.callbacks.add(callback);
         return this;
     }
     
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public copy(): RHU_ELEMENT {
+    public copy(): RHU_ELEMENT<T, Frag> {
         throw new Error("Invalid operation.");
     }
 
@@ -37,7 +47,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
 
         // trigger callbacks
         for (const callback of this.callbacks) {
-            callback(result[0]);
+            callback(result[0], children);
         }
 
         return result as any;
@@ -47,8 +57,47 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
 }
 type ElementInstance<T extends RHU_ELEMENT> = T extends RHU_ELEMENT<infer Bindings> ? Bindings : never; 
 
-export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
+export class RHU_ELEMENT_OPEN<T extends RHU_ELEMENT = any> extends RHU_NODE {
+    public element: T;
 
+    constructor(element: T) {
+        super();
+
+        this.element = element;
+    }
+
+    public box() {
+        this.element.box();
+        return this;
+    }
+
+    public unbox() {
+        this.element.unbox();
+        return this;
+    }
+
+    public copy(): RHU_ELEMENT_OPEN<T> {
+        return new RHU_ELEMENT_OPEN<T>(this.element.copy() as T);
+    }
+
+    public bind(key?: PropertyKey) {
+        this.element.bind(key);
+        return this;
+    }
+
+    public then(callback: (element: ElementInstance<T>, children?: Iterable<Node>) => void) {
+        this.element.then(callback);
+        return this;
+    }
+
+    public dom<B extends ElementInstance<T> | void = void>(target?: Record<PropertyKey, any>, children?: Iterable<Node>) {
+        return this.element.dom<B>(target, children);
+    }
+
+    static is: (object: any) => object is RHU_ELEMENT_OPEN = Object.prototype.isPrototypeOf.bind(RHU_ELEMENT_OPEN.prototype);
+}
+
+export class RHU_SIGNAL extends RHU_ELEMENT<Signal<string>> {
     constructor(binding: PropertyKey) {
         super();
         this.bind(binding);
@@ -127,8 +176,12 @@ export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<In
         this.args = args;
     }
 
-    public copy(): RHU_MACRO {
-        const copy = new RHU_MACRO(this.html, this.type, this.args).bind(this._bind);
+    public open(): RHU_ELEMENT_OPEN<RHU_MACRO<T>> {
+        return new RHU_ELEMENT_OPEN<RHU_MACRO<T>>(this);
+    }
+
+    public copy(): RHU_MACRO<T> {
+        const copy = new RHU_MACRO<T>(this.html, this.type, this.args).bind(this._bind);
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
         }
@@ -156,22 +209,16 @@ export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<In
 }
 export type MACRO<F extends FACTORY<any>> = RHU_MACRO<F extends FACTORY<infer T> ? T : any>;
 
-export class RHU_MACRO_OPEN<T extends MacroClass = MacroClass> extends RHU_MACRO<T> {
-
-    public copy(): RHU_MACRO_OPEN {
-        const copy = new RHU_MACRO_OPEN(this.html, this.type, this.args).bind(this._bind);
-        for (const callback of this.callbacks.values()) {
-            copy.then(callback);
-        }
-        return copy;
-    }
-
-    static is: (object: any) => object is RHU_MACRO_OPEN = Object.prototype.isPrototypeOf.bind(RHU_MACRO_OPEN.prototype);
+interface FACTORY_HTML {
+    <T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T>;
+    readonly close: RHU_CLOSURE;
 }
 
-export function html<T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T> {
+export const html: FACTORY_HTML = function <T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T> {
     return new RHU_HTML<T>(first, interpolations);
-}
+} as FACTORY_HTML;
+(html as any).close = RHU_CLOSURE.instance;
+
 // TODO(randomuserhi): Nested parsing error handling -> display stack trace of parser to make debugging easier
 export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEMENT<T, DocumentFragment> {
     public static empty = html``;
@@ -181,13 +228,18 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
     
     constructor(first: RHU_HTML["first"], interpolations: RHU_HTML["interpolations"]) {
         super();
-
+        
         this.first = first;
         this.interpolations = interpolations;
     }
+    
+    public readonly close = RHU_CLOSURE.instance;
+    public open(): RHU_ELEMENT_OPEN<RHU_HTML<T>> {
+        return new RHU_ELEMENT_OPEN<RHU_HTML<T>>(this);
+    }
 
-    public copy(): RHU_HTML {
-        const copy = new RHU_HTML(this.first, this.interpolations).bind(this._bind);
+    public copy(): RHU_HTML<T> {
+        const copy = new RHU_HTML<T>(this.first, this.interpolations).bind(this._bind);
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
         }
@@ -198,14 +250,18 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         if (isFactory(interp)) {
             throw new SyntaxError("Macro Factory cannot be used to construct a HTML fragment. Did you mean to call the factory?");
         }
+        const index = slots.length;
         if (RHU_ELEMENT.is(interp)) {
-            let result = `<rhu-slot rhu-internal="${slots.length}">`;
-            if (!RHU_MACRO_OPEN.is(interp)) result += `</rhu-slot>`;
             slots.push(interp);
-            return result;
+            return `<rhu-slot rhu-internal="${index}"></rhu-slot>`;
+        } else if (RHU_ELEMENT_OPEN.is(interp)) {
+            slots.push(interp.element);
+            return `<rhu-slot rhu-internal="${index}" rhu-open>`;
+        } else if (RHU_CLOSURE.is(interp)) {
+            return `</rhu-slot>`;
+        } else {
+            return undefined;
         }
-        if (RHU_CLOSURE.is(interp)) return `</rhu-slot>`;
-        return undefined;
     }
     
     protected _dom(target?: Record<PropertyKey, any>): [instance: T, fragment: DocumentFragment] {
@@ -252,7 +308,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         // create bindings
         let instance: Record<PropertyKey, any>;
         const hasBinding = this._bind !== null && this._bind !== undefined;
-        if (target !== undefined && !hasBinding) instance = target;
+        if (target !== undefined && !hasBinding && !this.boxed) instance = target;
         else instance = {};
         for (const el of fragment.querySelectorAll("*[m-id]")) {
             const key = el.getAttribute("m-id")!;
@@ -269,6 +325,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
         for (const slotElement of fragment.querySelectorAll("rhu-slot[rhu-internal]")) {
             try {
                 const attr = slotElement.getAttribute("rhu-internal");
+                const isOpen = slotElement.hasAttribute("rhu-open");
                 if (attr === undefined || attr === null) {
                     throw new Error("Could not find internal attribute.");
                 }
@@ -278,7 +335,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
                 }
 
                 const slot = slots[i];
-                const frag = slot.dom(instance, slotElement.childNodes)[1];
+                const frag = slot.dom(instance, isOpen ? slotElement.childNodes : undefined)[1];
                 slotElement.replaceWith(frag);
             } catch (e) {
                 slotElement.replaceWith();
@@ -299,7 +356,6 @@ export type RHU_COMPONENT = RHU_HTML | RHU_MACRO;
 const isFactorySymbol = Symbol("factory");
 interface FACTORY<T extends MacroClass> {
     (...args: MacroParameters<T>): RHU_MACRO<T>;
-    readonly open: (...args: MacroParameters<T>) => RHU_MACRO<T>;
     readonly close: RHU_CLOSURE;
     readonly [isFactorySymbol]: boolean;
 }
@@ -323,9 +379,6 @@ export const Macro = (<T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T
     const factory = function(...args: MacroParameters<T>) {
         return new RHU_MACRO<T>(html, type, args);
     } as FACTORY<T>;
-    (factory as any).open = function(...args: MacroParameters<T>) {
-        return new RHU_MACRO_OPEN<T>(html, type, args);
-    };
     (factory as any).close = RHU_CLOSURE.instance;
     (factory as any)[isFactorySymbol] = true;
     return factory; 

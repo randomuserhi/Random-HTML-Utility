@@ -1,0 +1,1 @@
+%% NOTE(randomuserhi): unlike HTML, Macro elements are always boxed and cannot be unboxed. Calling (`.box()` and `.unbox()` does nothing). %%

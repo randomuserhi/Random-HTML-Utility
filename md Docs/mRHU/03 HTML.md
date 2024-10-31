@@ -124,7 +124,49 @@ console.log(bindings.text);
 console.log(bindings.nested.text);
 ```
 
-This brings up another behaviour which is how factories retain all their options, *including bindings*. For example, if you are reusing a factory:
+### Nested HTML - `.box()` and `.unbox()`
+
+HTML bindings leak into other such that nested bindings are accessible in the parent:
+
+```typescript
+const nested = html`
+    <p m-id="text">Paragraph</p>
+    `;
+
+const template = html`
+    <h m-id="title">Title</h>
+    ${nested}
+    `;
+
+const [bindings, fragment] = template.dom();
+
+console.log(bindings.title);
+console.log(bindings.text); // Has access to `text` from `nested`
+```
+
+This can be undesirable, and thus you can box them such that properties do not propagate up:
+
+```typescript
+const nested = html`
+    <p m-id="text">Paragraph</p>
+    `.box();
+
+const template = html`
+    <h m-id="title">Title</h>
+    ${nested}
+    `;
+
+const [bindings, fragment] = template.dom();
+
+console.log(bindings.title);
+console.log(bindings.text); // undefined - `text` does not exist on `bindings`
+```
+
+Once boxed, you can unbox it by calling `.unbox()`.
+
+### Nested HTML - `.copy()`
+
+Factories retain all their options, *including bindings and boxing*. For example, if you are reusing a factory:
 
 ```typescript
 const nested = html`
@@ -164,6 +206,26 @@ const template = html`
     ${nested.copy().bind("p2")}
     `; // Our copies can then overwrite said options 
        // from the base factory.
+
+const [bindings, fragment] = template.dom(); // No Error!
+
+console.log(bindings.title);
+console.log(bindings.p1);
+console.log(bindings.p2);
+```
+
+And from this an even better pattern would be to use a function that returns new factory instances:
+
+```typescript
+const nested = () => html`
+    <p m-id="text">Paragraph</p>
+    `.bind("nested");
+
+const template = html`
+    <h m-id="title">Title</h>
+    ${nested().bind("p1")}
+    ${nested().bind("p2")}
+    `;
 
 const [bindings, fragment] = template.dom(); // No Error!
 
@@ -241,4 +303,66 @@ const template = html`
     `; // The callbacks are unique to each copy
 
 const [bindings, fragment] = template.dom();
+```
+
+## Advanced HTML shorthand - Allowing Children
+
+```typescript
+const List = html`<ul m-id="ul"><li>default</li></ul>`.then(
+    (self, children) => {
+        if (children) self.ul.append(...children);
+    }).box();
+
+const [bindings, fragment] = html`
+    ${List.open()}
+        <li>1</li>
+        <li>2</li>
+        <li>3</li>
+    ${List.close}
+    
+    ${List}
+    `.dom();
+```
+
+```html
+<ul>
+    <li>1</li>
+    <li>2</li>
+    <li>3</li>
+</ul>
+
+<ul>
+    <li>default</li>
+</ul>
+```
+
+Note how `.open()` is not an factory option like `.bind()` or `.box()` and thus does not set the factory to always create an opening tag.
+
+It also does not create a new instance or copy, thus subsequent `.bind()` calls etc... will effect the original factory as discussed previously.
+
+However, using the return value of `.open()` as a factory, referred to as an "*Open Factory*," requires a closing tag or it will translate to incorrect HTML:
+
+```typescript
+const List = html`<ul m-id="ul"><li>default</li></ul>`.then(
+    (self, children) => {
+        if (children) self.ul.append(...children);
+    }).box()
+    .open(); // Open Factory
+
+const [bindings, fragment] = html`
+    ${List} <!-- Open by default so no need .open() -->
+        <li>1</li>
+        <li>2</li>
+        <li>3</li>
+    ${List.close}
+    
+    ${List} 
+    <!-- 
+    Warning! - no closing tag!
+     
+    This will still parse as browsers can
+    manage missing closing tags, but the generated
+    layout may be incorrect.
+    -->
+    `.dom();
 ```
