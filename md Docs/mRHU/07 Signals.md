@@ -202,7 +202,7 @@ a(1); // "destructor: 0"
       // "behaviour: 1"
 ```
 
-## Disabling Effect / Computed
+## Releasing Effect / Computed
 
 `computed` and `effect` both remain active and in memory as long as the signals / computed states they depend on remain active and in memory.
 
