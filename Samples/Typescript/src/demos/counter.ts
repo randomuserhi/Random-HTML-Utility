@@ -1,4 +1,4 @@
-import { html, Macro } from "rhu/macro.js";
+import { html } from "rhu/macro.js";
 import { signal, Signal } from "rhu/signal.js";
 
 const Counter = () => {
@@ -29,7 +29,7 @@ const Counter = () => {
     return html<Record<string, never>>/**//*html*/`
         <div>
             <div>Global State: ${globalState}</div>
-            <div>State: ${Macro.signal("state", 0)}</div>
+            <div>State: ${html.signal("state", 0)}</div>
             <button m-id="btn">Increment</button>
         </div>
         `.box().then((_self) => {

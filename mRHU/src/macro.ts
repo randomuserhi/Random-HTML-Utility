@@ -235,12 +235,18 @@ export type MACRO<F extends FACTORY<any>> = RHU_MACRO<F extends FACTORY<infer T>
 interface FACTORY_HTML {
     <T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T>;
     readonly close: RHU_CLOSURE;
+    signal<T>(binding: string, value?: T, toString?: (value: T) => string): RHU_SIGNAL<T>;
+    observe(node: Node): void;
+    map: typeof MapFactory;
+    set: typeof SetFactory;
+    list: typeof ListFactory;
 }
 
 export const html: FACTORY_HTML = function <T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T> {
     return new RHU_HTML<T>(first, interpolations);
 } as FACTORY_HTML;
 (html as any).close = RHU_CLOSURE.instance;
+html.signal = <T>(binding: PropertyKey, value?: T, toString?: (value: T) => string) => new RHU_SIGNAL<T>(binding, toString).value(value!);
 
 // TODO(randomuserhi): Nested parsing error handling -> display stack trace of parser to make debugging easier
 export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEMENT<T, DocumentFragment> {
@@ -402,12 +408,7 @@ export type Macro<F extends FACTORY<any>> = F extends FACTORY<infer T> ? Instanc
 
 interface MacroNamespace {
     <T extends MacroClass>(type: T, html: (...args: MacroParameters<T>) => RHU_HTML): FACTORY<T>;
-    signal<T>(binding: string, value?: T, toString?: (value: T) => string): RHU_SIGNAL<T>;
     create<T extends RHU_MACRO>(macro: T): T extends RHU_MACRO<infer R> ? InstanceType<R> : never;
-    observe(node: Node): void;
-    map: typeof MapFactory;
-    set: typeof SetFactory;
-    list: typeof ListFactory;
 }
 
 export const Macro = (<T extends MacroClass>(type: T, html: (...args: MacroParameters<T>) => RHU_HTML): FACTORY<T> => {
@@ -418,7 +419,6 @@ export const Macro = (<T extends MacroClass>(type: T, html: (...args: MacroParam
     (factory as any)[isFactorySymbol] = true;
     return factory; 
 }) as MacroNamespace;
-Macro.signal = <T>(binding: PropertyKey, value?: T, toString?: (value: T) => string) => new RHU_SIGNAL<T>(binding, toString).value(value!);
 Macro.create = <M extends RHU_MACRO>(macro: M): M extends RHU_MACRO<infer T> ? InstanceType<T> : never => {
     const [instance, frag] = macro.dom();
     return instance;
@@ -555,7 +555,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
 const MapFactory = function<K, V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append?: SetValue<RHU_MAP<K, V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_MAP<K, V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_MAP<K, V, Wrapper, Item>["onremove"]>) {
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_MAP<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
-Macro.map = MapFactory;
+html.map = MapFactory;
 export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
     constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append?: SetValue<RHU_SET<V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_SET<V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_SET<V, Wrapper, Item>["onremove"]>) {
         super(dom, bindings); 
@@ -668,7 +668,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
 const SetFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append?: SetValue<RHU_SET<V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_SET<V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_SET<V, Wrapper, Item>["onremove"]>) {
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_SET<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
-Macro.set = SetFactory;
+html.set = SetFactory;
 export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
     constructor(dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append?: SetValue<RHU_LIST<V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_LIST<V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_LIST<V, Wrapper, Item>["onremove"]>) {
         super(dom, bindings); 
@@ -800,7 +800,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
 const ListFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append?: SetValue<RHU_LIST<V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_LIST<V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_LIST<V, Wrapper, Item>["onremove"]>) {
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_LIST<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
-Macro.list = ListFactory;
+html.list = ListFactory;
 
 declare global {
     interface GlobalEventHandlersEventMap {
@@ -829,7 +829,7 @@ const observer = new MutationObserver(function(mutationList) {
     }
 });
 // Allows you to assign macro observation to other docs to trigger macro updates
-Macro.observe = function(target: Node): void {
+html.observe = function(target: Node): void {
     observer.observe(target, {
         childList: true,
         subtree: true
@@ -837,7 +837,7 @@ Macro.observe = function(target: Node): void {
 };
 
 const onDocumentLoad = function() {
-    Macro.observe(document);
+    html.observe(document);
 };
 if (document.readyState === "loading") 
     document.addEventListener("DOMContentLoaded", onDocumentLoad);

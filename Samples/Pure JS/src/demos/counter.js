@@ -1,4 +1,4 @@
-import { html, Macro } from "rhu/macro.js";
+import { html } from "rhu/macro.js";
 import { signal } from "rhu/signal.js";
 
 const Counter = () => {
@@ -15,11 +15,11 @@ const Counter = () => {
     // Elements generated in `a` and `b` will share the same
     // global state.
     const globalState = signal(0);
-    
+
     return html`
         <div>
             <div>Global State: ${globalState}</div>
-            <div>State: ${Macro.signal("state", 0)}</div>
+            <div>State: ${html.signal("state", 0)}</div>
             <button m-id="btn">Increment</button>
         </div>
         `.box().then((self) => {
