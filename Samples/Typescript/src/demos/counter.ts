@@ -45,11 +45,15 @@ const Counter = () => {
 };
 
 const temp = Counter();
-
+const template = html`${Counter()}`; // Persistent Invocation (Doesn't generate a new one on each demo start)
 export const Demo_Counter = () => html`
     <h1>Unique Invocation</h1>
     <br />
     ${Counter()}
+    <br />
+    <h1>Reuse / Persistent Invocation</h1>
+    <br />
+    ${template}
     <br />
     <h1>Shared Invocation</h1>
     <br />
