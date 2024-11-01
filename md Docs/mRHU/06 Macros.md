@@ -13,7 +13,7 @@ const List = Macro(class List extends MacroElement {
 
         this.slot.addEventListener("click", () => console.log("list clicked!"));
     }
-}, html`
+}, () => html`
     <h>${Macro.signal("title")}</h>
     <ul m-id="slot">
     </ul>
@@ -96,7 +96,7 @@ const List = Macro(class List extends MacroElement {
             this.ul.append(node);
         }
     }
-}, html`
+}, () => html`
     <ul m-id="ul"></ul>
     `);
 
@@ -113,3 +113,4 @@ el.append(html`<li>item</li>`);
 
 %%TODO(randomuserhi): Typescript bindings using `const a: Macro<typeof SomeMacro>`%%
 
+%%TODO(randomuserhi): Describe how to do custom arguments, and how u can access them in the html definition (thats why its a function)%%

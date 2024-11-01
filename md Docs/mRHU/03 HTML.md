@@ -427,7 +427,7 @@ bindings.counter.debug();
 
 This allows you to setup custom methods as well as manage state.
 
-A more managed setup can be achieved with [[06 Macros]]. Despite this, functional macros have additional semantics as discussed in [[11 Samples#Simple Counter (Functional Macro)]].
+A more managed setup can be achieved with [[06 Macros]]. Despite this, functional macros have additional semantics with global state as discussed in [[11 Samples#Simple Counter (Functional Macro)]].
 
 ### Typescript - Functional Macros and public / private interfaces
 

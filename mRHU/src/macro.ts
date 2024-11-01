@@ -388,7 +388,7 @@ function isFactory(object: any): object is FACTORY<typeof MacroElement> {
 export type Macro<F extends FACTORY<any>> = F extends FACTORY<infer T> ? InstanceType<T> : any;
 
 interface MacroNamespace {
-    <T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T>;
+    <T extends MacroClass>(type: T, html: (...args: MacroParameters<T>) => RHU_HTML): FACTORY<T>;
     signal<T>(binding: string, value?: T): RHU_SIGNAL<T>;
     create<T extends RHU_MACRO>(macro: T): T extends RHU_MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
@@ -397,9 +397,9 @@ interface MacroNamespace {
     list: typeof ListFactory;
 }
 
-export const Macro = (<T extends MacroClass>(type: T, html: RHU_HTML): FACTORY<T> => {
-    const factory = function(...args: MacroParameters<T>) {
-        return new RHU_MACRO<T>(html, type, args);
+export const Macro = (<T extends MacroClass>(type: T, html: (...args: MacroParameters<T>) => RHU_HTML): FACTORY<T> => {
+    const factory: FACTORY<T> = function(...args: MacroParameters<T>) {
+        return new RHU_MACRO<T>(html(...args), type, args);
     } as FACTORY<T>;
     (factory as any).close = RHU_CLOSURE.instance;
     (factory as any)[isFactorySymbol] = true;

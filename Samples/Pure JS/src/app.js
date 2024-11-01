@@ -75,7 +75,7 @@ const App = Macro(class App extends MacroElement {
     load(fragment) {
         this.body.replaceChildren(fragment);
     }
-}, html`
+}, () => html`
     <div class="${theme} ${style.wrapper}">
         <div class="${style.nav}"><button m-id="back">Back</button></div>
         <div m-id="body" class="${style.body}">
