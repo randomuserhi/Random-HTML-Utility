@@ -98,9 +98,15 @@ export class RHU_ELEMENT_OPEN<T extends RHU_ELEMENT = any> extends RHU_NODE {
 }
 
 export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
-    constructor(binding: PropertyKey) {
+    constructor(binding: PropertyKey, toString?: (value: T) => string) {
         super();
         this.bind(binding);
+        if (toString !== undefined) this.string(toString);
+    }
+
+    protected _toString?: (value: T) => string;
+    public string(toString: (value: T) => string) {
+        this._toString = toString;
     }
 
     protected _value: T;
@@ -110,7 +116,9 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
     }
 
     public copy(): RHU_SIGNAL<T> {
-        const copy = new RHU_SIGNAL<T>(this._bind!).value(this._value);
+        const copy = new RHU_SIGNAL<T>(this._bind!);
+        copy._value = this._value;
+        copy._toString = this._toString;
         copy.boxed = this.boxed;
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
@@ -139,12 +147,17 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
         if (doBinding) target[this._bind!] = instance;
 
         // create text node and signal event
+        const toString = this._toString;
         const node = document.createTextNode(`${this._value}`);
         const ref = new WeakRef(node);
         instance.on((value) => {
             const node = ref.deref();
             if (node === undefined) return;
-            node.nodeValue = `${value}`;
+            if (toString) {
+                node.nodeValue = `${toString(value)}`;
+            } else {
+                node.nodeValue = `${value}`;
+            }
         }, { condition: () => ref.deref() !== undefined });
 
         return [instance, node, [node]];
@@ -389,7 +402,7 @@ export type Macro<F extends FACTORY<any>> = F extends FACTORY<infer T> ? Instanc
 
 interface MacroNamespace {
     <T extends MacroClass>(type: T, html: (...args: MacroParameters<T>) => RHU_HTML): FACTORY<T>;
-    signal<T>(binding: string, value?: T): RHU_SIGNAL<T>;
+    signal<T>(binding: string, value?: T, toString?: (value: T) => string): RHU_SIGNAL<T>;
     create<T extends RHU_MACRO>(macro: T): T extends RHU_MACRO<infer R> ? InstanceType<R> : never;
     observe(node: Node): void;
     map: typeof MapFactory;
@@ -405,7 +418,7 @@ export const Macro = (<T extends MacroClass>(type: T, html: (...args: MacroParam
     (factory as any)[isFactorySymbol] = true;
     return factory; 
 }) as MacroNamespace;
-Macro.signal = <T>(binding: PropertyKey, value?: T) => new RHU_SIGNAL<T>(binding).value(value!);
+Macro.signal = <T>(binding: PropertyKey, value?: T, toString?: (value: T) => string) => new RHU_SIGNAL<T>(binding, toString).value(value!);
 Macro.create = <M extends RHU_MACRO>(macro: M): M extends RHU_MACRO<infer T> ? InstanceType<T> : never => {
     const [instance, frag] = macro.dom();
     return instance;

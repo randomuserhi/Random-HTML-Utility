@@ -77,16 +77,23 @@ class RHU_ELEMENT_OPEN extends RHU_NODE {
 RHU_ELEMENT_OPEN.is = Object.prototype.isPrototypeOf.bind(RHU_ELEMENT_OPEN.prototype);
 export { RHU_ELEMENT_OPEN };
 class RHU_SIGNAL extends RHU_ELEMENT {
-    constructor(binding) {
+    constructor(binding, toString) {
         super();
         this.bind(binding);
+        if (toString !== undefined)
+            this.string(toString);
+    }
+    string(toString) {
+        this._toString = toString;
     }
     value(value) {
         this._value = value;
         return this;
     }
     copy() {
-        const copy = new RHU_SIGNAL(this._bind).value(this._value);
+        const copy = new RHU_SIGNAL(this._bind);
+        copy._value = this._value;
+        copy._toString = this._toString;
         copy.boxed = this.boxed;
         for (const callback of this.callbacks.values()) {
             copy.then(callback);
@@ -106,13 +113,19 @@ class RHU_SIGNAL extends RHU_ELEMENT {
         }
         if (doBinding)
             target[this._bind] = instance;
+        const toString = this._toString;
         const node = document.createTextNode(`${this._value}`);
         const ref = new WeakRef(node);
         instance.on((value) => {
             const node = ref.deref();
             if (node === undefined)
                 return;
-            node.nodeValue = `${value}`;
+            if (toString) {
+                node.nodeValue = `${toString(value)}`;
+            }
+            else {
+                node.nodeValue = `${value}`;
+            }
         }, { condition: () => ref.deref() !== undefined });
         return [instance, node, [node]];
     }
@@ -314,7 +327,7 @@ export const Macro = ((type, html) => {
     factory[isFactorySymbol] = true;
     return factory;
 });
-Macro.signal = (binding, value) => new RHU_SIGNAL(binding).value(value);
+Macro.signal = (binding, value, toString) => new RHU_SIGNAL(binding, toString).value(value);
 Macro.create = (macro) => {
     const [instance, frag] = macro.dom();
     return instance;
