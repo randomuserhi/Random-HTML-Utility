@@ -21,7 +21,7 @@ You can then use mRHU:
 ```html
 <script type="module">
 
-import { html } from "@/rhu/macro.js";
+import { html } from "rhu/macro.js";
 
 const [bindings, fragment] = html`
     <ul m-id="list">
