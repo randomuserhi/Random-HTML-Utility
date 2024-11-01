@@ -47,7 +47,7 @@ export class RHU_ELEMENT<T = any, Frag extends Node = Node> extends RHU_NODE {
 
         // trigger callbacks
         for (const callback of this.callbacks) {
-            callback(result[0], children === undefined ? NoChildren : children, result.pop() as Node[]);
+            callback(result[0], children === undefined ? [] : children, result.pop() as Node[]);
         }
 
         return result as any;
@@ -179,19 +179,16 @@ export class MacroElement {
 
     public static is: (object: any) => object is MacroElement = Object.prototype.isPrototypeOf.bind(MacroElement.prototype);
 }
-export type RHU_CHILDREN = NodeListOf<ChildNode>;
+export type RHU_CHILDREN = Node[];
 type MacroClass = new (dom: Node[], bindings: any, children: RHU_CHILDREN, ...args: any[]) => any;
 type MacroParameters<T extends MacroClass> = T extends new (dom: Node[], bindings: any, children: RHU_CHILDREN, ...args: infer P) => any ? P : never;
 
-// An empty HTMLCollection to represent an empty list of children
-const NoChildren = document.createDocumentFragment().childNodes;
-
 export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<InstanceType<T>, DocumentFragment> {
     public type: T;
-    public html: RHU_HTML;
+    public html: RHU_HTML_FACTORY<MacroParameters<T>>;
     public args: MacroParameters<T>;
     
-    constructor(html: RHU_HTML, type: T, args: MacroParameters<T>) {
+    constructor(html: RHU_HTML_FACTORY<MacroParameters<T>>, type: T, args: MacroParameters<T>) {
         super();
         this.html = html;
         this.type = type;
@@ -212,12 +209,14 @@ export class RHU_MACRO<T extends MacroClass = MacroClass> extends RHU_ELEMENT<In
     }
 
     protected _dom(target?: Record<PropertyKey, any>, children?: RHU_CHILDREN): [instance: InstanceType<T>, fragment: DocumentFragment, dom: Node[]] {
+        if (children === undefined) children = [];
+        
         // parse macro
-        const [b, frag] = this.html.dom();
+        const [b, frag] = this.html(children, ...this.args).dom();
         const dom = [...frag.childNodes];
 
         // create instance
-        const instance = new this.type(dom, b, children === undefined ? NoChildren : children, ...this.args);
+        const instance = new this.type(dom, b, children, ...this.args);
 
         // create bindings
         if (target !== undefined && this._bind !== undefined && this._bind !== null) {
@@ -365,7 +364,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
 
                 const slot = slots[i];
                 if (!isSignal(slot)) {
-                    const frag = slot.dom(instance, slotElement.childNodes)[1];
+                    const frag = slot.dom(instance, [...slotElement.childNodes])[1];
                     slotElement.replaceWith(frag);
                 } else {
                     const node = document.createTextNode(`${slot()}`);
@@ -390,7 +389,8 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
     static is: (object: any) => object is RHU_HTML = Object.prototype.isPrototypeOf.bind(RHU_HTML.prototype);
 }
 export type HTML<T extends Record<PropertyKey, any> = any> = RHU_HTML<T>;
-export type html<T extends () => RHU_HTML<any>> = ReturnType<T> extends RHU_HTML<infer Binds> ? Binds : any;
+type RHU_HTML_FACTORY<Parameters extends any[] = any[]> = (children: RHU_CHILDREN, ...args: Parameters) => RHU_HTML;
+export type html<T extends (...args: any[]) => RHU_HTML<any>> = ReturnType<T> extends RHU_HTML<infer Binds> ? Binds : any;
 
 export type RHU_COMPONENT = RHU_HTML | RHU_MACRO;
 
@@ -411,9 +411,9 @@ interface MacroNamespace {
     create<T extends RHU_MACRO>(macro: T): T extends RHU_MACRO<infer R> ? InstanceType<R> : never;
 }
 
-export const Macro = (<T extends MacroClass>(type: T, html: (...args: MacroParameters<T>) => RHU_HTML): FACTORY<T> => {
+export const Macro = (<T extends MacroClass>(type: T, html: RHU_HTML_FACTORY<MacroParameters<T>>): FACTORY<T> => {
     const factory: FACTORY<T> = function(...args: MacroParameters<T>) {
-        return new RHU_MACRO<T>(html(...args), type, args);
+        return new RHU_MACRO<T>(html, type, args);
     } as FACTORY<T>;
     (factory as any).close = RHU_CLOSURE.instance;
     (factory as any)[isFactorySymbol] = true;
@@ -434,10 +434,10 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
         if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
         } else if (RHU_MACRO.is(wrapperFactory)) {
-            this.wrapper = new wrapperFactory.type(dom, bindings, NoChildren, ...wrapperFactory.args);
+            this.wrapper = new wrapperFactory.type(dom, bindings, [], ...wrapperFactory.args);
             // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
-                callback(this.wrapper, NoChildren, this.wrapper.dom);
+                callback(this.wrapper, [], this.wrapper.dom);
             }
         } else {
             throw new SyntaxError("Unsupported wrapper factory type.");
@@ -553,7 +553,7 @@ export class RHU_MAP<K, V, Wrapper extends RHU_COMPONENT = any, Item extends RHU
 }
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
 const MapFactory = function<K, V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append?: SetValue<RHU_MAP<K, V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_MAP<K, V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_MAP<K, V, Wrapper, Item>["onremove"]>) {
-    return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_MAP<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
+    return new RHU_MACRO(RHU_HTML.is(wrapper) ? (() => wrapper) : wrapper.html, RHU_MAP<K, V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 html.map = MapFactory;
 export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
@@ -563,10 +563,10 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
         if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
         } else if (RHU_MACRO.is(wrapperFactory)) {
-            this.wrapper = new wrapperFactory.type(dom, bindings, NoChildren, ...wrapperFactory.args);
+            this.wrapper = new wrapperFactory.type(dom, bindings, [], ...wrapperFactory.args);
             // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
-                callback(this.wrapper, NoChildren, this.wrapper.dom);
+                callback(this.wrapper, [], this.wrapper.dom);
             }
         } else {
             throw new SyntaxError("Unsupported wrapper factory type.");
@@ -666,7 +666,7 @@ export class RHU_SET<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_CO
 }
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
 const SetFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append?: SetValue<RHU_SET<V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_SET<V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_SET<V, Wrapper, Item>["onremove"]>) {
-    return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_SET<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
+    return new RHU_MACRO(RHU_HTML.is(wrapper) ? (() => wrapper) : wrapper.html, RHU_SET<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 html.set = SetFactory;
 export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_COMPONENT = any> extends MacroElement {
@@ -676,10 +676,10 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
         if (RHU_HTML.is(wrapperFactory)) {
             this.wrapper = bindings;
         } else if (RHU_MACRO.is(wrapperFactory)) {
-            this.wrapper = new wrapperFactory.type(dom, bindings, NoChildren, ...wrapperFactory.args);
+            this.wrapper = new wrapperFactory.type(dom, bindings, [], ...wrapperFactory.args);
             // trigger callbacks - NOTE(randomuserhi): Since we dodge calling .dom() on the wrapper, we have to do this
             for (const callback of wrapperFactory.callbacks) {
-                callback(this.wrapper, NoChildren, this.wrapper.dom);
+                callback(this.wrapper, [], this.wrapper.dom);
             }
         } else {
             throw new SyntaxError("Unsupported wrapper factory type.");
@@ -798,7 +798,7 @@ export class RHU_LIST<V, Wrapper extends RHU_COMPONENT = any, Item extends RHU_C
 }
 // NOTE(randomuserhi): Bindings on wrapper or item are ignored.
 const ListFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_COMPONENT>(wrapper: Wrapper, item: Item, append?: SetValue<RHU_LIST<V, Wrapper, Item>["onappend"]>, update?: SetValue<RHU_LIST<V, Wrapper, Item>["onupdate"]>, remove?: SetValue<RHU_LIST<V, Wrapper, Item>["onremove"]>) {
-    return new RHU_MACRO(RHU_HTML.is(wrapper) ? wrapper : wrapper.html, RHU_LIST<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
+    return new RHU_MACRO(RHU_HTML.is(wrapper) ? (() => wrapper) : wrapper.html, RHU_LIST<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 html.list = ListFactory;
 
