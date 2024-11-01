@@ -219,7 +219,7 @@ And from this an even better pattern would be to use a function that returns new
 ```typescript
 const nested = () => html`
     <p m-id="text">Paragraph</p>
-    `.bind("nested");
+    `;
 
 const template = html`
     <h1 m-id="title">Title</h1>
