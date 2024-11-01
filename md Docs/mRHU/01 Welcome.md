@@ -150,7 +150,7 @@ const List = Macro(class List extends MacroElement {
         this.slot.addEventListener("click", () => console.log("list clicked!"));
     }
 }, html`
-    <h>${Macro.signal("title")}</h>
+    <h>${html.signal("title")}</h>
     <ul m-id="slot">
     </ul>
     `);

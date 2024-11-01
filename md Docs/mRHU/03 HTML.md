@@ -391,7 +391,7 @@ const Counter = () => {
     // Return html factory
     return html<Counter>/**//*html*/`
         <div>
-            <div>count: ${Macro.signal<number>("state", 0)}</div>
+            <div>count: ${html.signal<number>("state", 0)}</div>
             <button m-id="btn">Increment</button>
         </div>
         `.box().then((self, children, dom) => {
@@ -448,7 +448,7 @@ const Counter = () => {
     // Assign public interface
     return html<Counter>/**//*html*/`
         <div>
-            <div>${Macro.signal<number>("state", 0)}</div>
+            <div>${html.signal<number>("state", 0)}</div>
             <button m-id="btn">Increment</button>
         </div>
         `.box().then((_self, children, dom) => {

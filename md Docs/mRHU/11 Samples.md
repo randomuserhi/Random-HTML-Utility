@@ -32,7 +32,7 @@ const Counter = () => {
     return html<Record<string, never>>/**//*html*/`
         <div>
             <div>Global State: ${globalState}</div>
-            <div>State: ${Macro.signal("state", 0)}</div>
+            <div>State: ${html.signal("state", 0)}</div>
             <button m-id="btn">Increment</button>
         </div>
         `.box().then((_self) => {
@@ -80,7 +80,7 @@ const Counter = Macro(class Counter extends MacroElement {
     }
 }, () => html`
     <div>
-        <div>state: ${Macro.signal<number>("state", 0)}</div>
+        <div>state: ${html.signal<number>("state", 0)}</div>
         <button m-id="btn">Increment</button>
     </div>
     `);
