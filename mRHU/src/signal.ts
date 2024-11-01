@@ -2,8 +2,10 @@
 export interface SignalEvent<T = any> {
     (): T;
     equals(other: T): boolean;
-    on(callback: Callback<T>, options?: { signal?: AbortSignal, guard?: () => boolean }): Callback<T>;
+    on(callback: Callback<T>, options?: { signal?: AbortSignal, condition?: () => boolean }): Callback<T>;
     off(handle: Callback<T>): boolean;
+    release(): void;
+    check(): number;
 }
 const proto = {};
 
@@ -53,12 +55,12 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
 
                 // Update value and trigger regular callbacks
                 ref.value = value;
-                for (const [callback, guard] of callbacks.value) {
-                    if (guard !== undefined && !guard()) {
+                for (const [callback, condition] of callbacks.value) {
+                    if (condition !== undefined && !condition()) {
                         continue;
                     }
                     callback(ref.value);
-                    callbacks.buffer.set(callback, guard);
+                    callbacks.buffer.set(callback, condition);
                 }
                 callbacks.value.clear();
                 const temp = callbacks.buffer;
@@ -77,8 +79,13 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
     } as Signal<T>;
     signal.on = function(callback, options): Callback<T> {
         if (!callbacks.value.has(callback)) {
+            // Check condition, if it fails, don't even add callback
+            if (options?.condition !== undefined && !options.condition()) {
+                return callback;
+            }
+
             callback(ref.value);
-            callbacks.value.set(callback, options?.guard);
+            callbacks.value.set(callback, options?.condition);
             if (options?.signal !== undefined) {
                 options.signal.addEventListener("abort", () => callbacks.value.delete(callback), { once: true });
             }
@@ -94,6 +101,24 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
         }
         return equality(ref.value, other);
     };
+    signal.release = function() {
+        callbacks.value.clear();
+        callbacks.buffer.clear();
+    };
+    signal.check = function() {
+        for (const [callback, condition] of callbacks.value) {
+            if (condition !== undefined && !condition()) {
+                continue;
+            }
+            callbacks.buffer.set(callback, condition);
+        }
+        callbacks.value.clear();
+        const temp = callbacks.buffer;
+        callbacks.buffer = callbacks.value;
+        callbacks.value = temp;
+
+        return callbacks.value.size;
+    };
     Object.setPrototypeOf(signal, proto);
     return signal;
 }
@@ -103,22 +128,17 @@ export interface Effect {
     (): void;
     [destructors]: (() => void)[];
     release(): void;
+    check(): boolean;
 }
 
 const effectProto = {};
 Object.setPrototypeOf(effectProto, proto);
 export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototypeOf.bind(effectProto);
 
-export function effect(expression: () => ((() => void) | void), dependencies: SignalEvent[], options?: { signal?: AbortSignal, guard?: () => boolean }): Effect {
+export function effect(expression: () => ((() => void) | void), dependencies: SignalEvent[], options?: { signal?: AbortSignal, condition?: () => boolean }): Effect {
     const effect = function() {
         // Check guard
-        if (options?.guard !== undefined) {
-            // If guard returns false, release resources
-            if (!options.guard()) {
-                effect.release();
-                return;
-            }
-        }
+        if (!effect.check()) return;
 
         // Clear destructors
         effect[destructors] = [];
@@ -129,14 +149,6 @@ export function effect(expression: () => ((() => void) | void), dependencies: Si
             effect[destructors].push(destructor);
         }
     } as Effect;
-    effect[destructors] = [];
-
-    const destructor = expression();
-    if (destructor !== undefined) {
-        effect[destructors].push(destructor);
-    }
-
-    Object.setPrototypeOf(effect, effectProto);
 
     // Add effect to dependency map
     let deps: WeakRef<Set<Effect>>[] | undefined = [];
@@ -160,11 +172,26 @@ export function effect(expression: () => ((() => void) | void), dependencies: Si
         deps = undefined;
     };
 
+    effect.check = function() {
+        if (options?.condition !== undefined) {
+            if (!options.condition()) {
+                effect.release();
+                return false;
+            }
+        }
+        return true;
+    };
+
+    Object.setPrototypeOf(effect, effectProto);
+
     if (options?.signal !== undefined) {
         options.signal.addEventListener("abort", () => {
             effect.release();
         }, { once: true });
     }
+
+    // Execute effect for the first time
+    effect();
 
     return effect;
 }
@@ -173,7 +200,6 @@ const dependencyMap = new WeakMap<SignalEvent, Set<Effect>>();
 export interface Computed<T> extends SignalEvent<T> {
     (): T;
     effect: Effect;
-    release(): void;
 }
 
 export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void), dependencies: SignalEvent[], equality?: Equality<T>, options?: { signal?: AbortSignal, guard?: () => boolean }): Computed<T> {
@@ -193,6 +219,12 @@ export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void
     };
     computed.effect = effect(() => expression(value), dependencies, options);
     computed.release = computed.effect.release;
+    computed.check = function() {
+        if (!computed.effect.check()) {
+            value.release();
+        }
+        return value.check();
+    };
     Object.setPrototypeOf(computed, proto);
 
     return computed;

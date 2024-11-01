@@ -202,14 +202,22 @@ a(1); // "destructor: 0"
       // "behaviour: 1"
 ```
 
-## Releasing Effect / Computed
+## Releasing Signal / Effect / Computed
 
-`computed` and `effect` both remain active and in memory as long as the signals / computed states they depend on remain active and in memory.
+`signal`, `computed` and `effect` all remain active and in memory as long as the signals / computed states / callbacks they depend on remain active and in memory.
 
-To free the resources and stop a `computed` or `effect` from running, simply call `release()` on it:
+To free the resources and stop a `signal`, `computed` or `effect` from running and using memory, simply call `release()` on it:
+
+> Note that releasing a `signal` simply clears its assigned callbacks
 
 ```typescript
 const a = signal<number>(0);
+
+a.on(() => {
+    console.log(`signal: ${a()}`);
+}, { signal: abortSignal });
+
+// "signal: 0"
 
 const eff = effect(() => {
     console.log(`effect: ${a()}`);
@@ -224,24 +232,34 @@ const comp = computed<number>((state) => {
 
 // "computed: 0"
 
-a(1); // "effect: 1"
+a(1); // "signal: 1"
+      // "effect: 1"
       // "computed: 1"
+signal.release();
+a(2); // "effect: 2"
+      // "computed: 2"
 eff.release();
-a(2); // "computed: 2"
+a(3); // "computed: 3"
 comp.release();
-a(3); // 
+a(4); // 
 ```
 
 > **Much like event listeners, it's really important to release `effect` or `computed` when they are no longer in use otherwise they create memory leaks.**
 > 
 > *If all the original signals an `effect` or `computed` depend on get garbage collected, the `effect` and `computed` is also garbage collected. This rule only applies when constantly creating new effects on a persistent dependency.*
 
-`computed` and `effect` also support the [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) paradigm from event listeners:
+`signal`, `computed` and `effect` also support the [AbortSignal](https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal) paradigm from event listeners:
 ```typescript
 const controller = new AbortController();
 const abortSignal = controller.signal;
 
 const a = signal<number>(0);
+
+a.on(() => {
+    console.log(`signal: ${a()}`);
+}, { signal: abortSignal });
+
+// "signal: 0"
 
 const eff = effect(() => {
     console.log(`effect: ${a()}`);
@@ -256,17 +274,18 @@ const comp = computed<number>((state) => {
 
 // "computed: 0"
 
-a(1); // "effect: 1"
+a(1); // "signal: 1"
+      // "effect: 1"
       // "computed: 1"
 controller.abort();
 a(2); // 
 ```
 
-%% TODO(randomuserhi): Document guard option that allows signals to be destroyed when guard returns false %%
+%% TODO(randomuserhi): Document condition option that allows signals to be destroyed when guard returns false %%
 
 ```typescript
 const state = signal<number>(0);
-state.on((value) => console.log(value), { guard: () => testSignal() <= 5 });
+state.on((value) => console.log(value), { condition: () => testSignal() <= 5 });
 
 state(1); // "1"
 state(2); // "2"
@@ -294,10 +313,16 @@ const state = signal<number>(0);
 // its callback.
 const ref = new WeakRef(el);
 state.on((value) => {
-        const el = ref.deref();
-        if (el === undefined) return;
-        el.innerText = `${value}`;
-    }, { guard: () => ref.deref() !== undefined });
+    const el = ref.deref();
+    if (el === undefined) return;
+    el.innerText = `${value}`;
+}, { condition: () => ref.deref() !== undefined });
 ```
 
-> Note that the guard only triggers when a state change is invoked (ignoring memoization). Thus if the signal is never touched again, the element can get garbage collected but not the callback.
+> Note that the condition only triggers when a state change is invoked (writes, not reads). Thus if the signal is never written to again, the element can get garbage collected but not the callback.
+> 
+> This includes memoization such that writing the same value to the signal also will not trigger a guard check.
+> 
+> This behaviour extends to `computed` and `effect` where if no changes are ever invoked, the callbacks cannot be garbage collected.
+> 
+> To manually trigger a condition check simply use `.check()`, for example in the above code snippet `state.check()` would check all conditions on all of the callbacks assigned to `state`.

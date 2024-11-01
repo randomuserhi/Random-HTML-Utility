@@ -145,7 +145,7 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
             const node = ref.deref();
             if (node === undefined) return;
             node.nodeValue = `${value}`;
-        }, { guard: () => ref.deref() !== undefined });
+        }, { condition: () => ref.deref() !== undefined });
 
         return [instance, node, [node]];
     }
@@ -355,7 +355,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
                         const node = ref.deref();
                         if (node === undefined) return;
                         node.nodeValue = `${value}`;
-                    }, { guard: () => ref.deref() !== undefined });
+                    }, { condition: () => ref.deref() !== undefined });
                     slotElement.replaceWith(node);
                 }
             } catch (e) {
