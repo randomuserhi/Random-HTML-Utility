@@ -9,8 +9,8 @@ const Counter = () => {
     
     return html`
         <div>
-            <div>${Macro.signal("shallowCount")}</div>
-            <div>${Macro.signal("deepCount")}</div>
+            <div>Shallow State: ${shallowState}</div>
+            <div>Deep State: ${Macro.signal("deepState", 0)}</div>
             <button m-id="btn">Increment</button>
         </div>
         `.box().then((self) => {
@@ -19,10 +19,9 @@ const Counter = () => {
         // instances when copied through `.copy()`.
         //
         // Each copy will have it's own state.
-        const deepState = signal(0);
-
-        deepState.on((value) => self.deepCount(`deepState: ${value}`));
-        shallowState.on((value) => self.shallowCount(`shallowState: ${value}`));
+        const deepState = self.deepState;
+        
+        // Update DOM
         self.btn.addEventListener("click", () => {
             deepState(deepState() + 1);
             shallowState(shallowState() + 1);
@@ -34,8 +33,12 @@ const temp = Counter();
 
 export const Demo_Counter = () => html`
     <h1>Independent Counter</h1>
+    <br />
     ${Counter()}
-    <br /><h1>Counter and its copy</h1>
+    <br />
+    <h1>Counter and its copy</h1>
+    <br />
     ${temp}
+    <br />
     ${temp.copy()}
     `.dom()[1];

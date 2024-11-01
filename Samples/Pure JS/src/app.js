@@ -29,11 +29,35 @@ const style = Style(({ css }) => {
     `;
     const body = css.class`
     flex: 1;
+    margin: 5px;
+    `;
+
+    const nav = css.class`
+    padding: 5px;
+    `;
+
+    css`
+    button {
+        background-color: #ccc;
+        border-radius: 5px;
+        padding: 0 5px;
+    }
+
+    li::before {
+        content: "-";
+        padding: 5px;
+    }
+
+    h1 {
+        font-size: 20px;
+        margin-bottom: 5px;
+    }
     `;
 
     return {
         wrapper,
-        body
+        body,
+        nav
     };
 });
 
@@ -53,7 +77,7 @@ const App = Macro(class App extends MacroElement {
     }
 }, html`
     <div class="${theme} ${style.wrapper}">
-        <div><button m-id="back">Back</button></div>
+        <div class="${style.nav}"><button m-id="back">Back</button></div>
         <div m-id="body" class="${style.body}">
             <ul m-id="demoList">
                 ${

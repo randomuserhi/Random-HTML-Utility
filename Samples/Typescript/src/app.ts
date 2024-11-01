@@ -31,6 +31,24 @@ const style = Style(({ css }) => {
     flex: 1;
     `;
 
+    css`
+    button {
+        background-color: #ccc;
+        border-radius: 5px;
+        padding: 0 5px;
+    }
+
+    li::before {
+        content: "-";
+        padding: 5px;
+    }
+
+    h1 {
+        font-size: 20px;
+        margin-bottom: 5px;
+    }
+    `;
+
     return {
         wrapper,
         body
