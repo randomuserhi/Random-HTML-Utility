@@ -281,3 +281,23 @@ state(2); //
 
 // works on effect and computed as well (part of their options param)
 ```
+
+This useful to prevent memory leaks from elements that should be garbage collected once removed from DOM, but can't as a signal is holding a reference to it:
+
+```typescript
+const el = document.createElement("div");
+
+const state = signal<number>(0);
+
+// Store a weakref to the element such that
+// when it is garbage collected, the signal destroys
+// its callback.
+const ref = new WeakRef(el);
+state.on((value) => {
+        const el = ref.deref();
+        if (el === undefined) return;
+        el.innerText = `${value}`;
+    }, { guard: () => ref.deref() !== undefined });
+```
+
+> Note that the guard only triggers when a state change is invoked (ignoring memoization). Thus if the signal is never touched again, the element can get garbage collected but not the callback.
