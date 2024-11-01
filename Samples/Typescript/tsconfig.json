@@ -2,9 +2,9 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "build",
-    "module": "ES2022",
+    "module": "esnext",
     "moduleResolution": "Node",
-    "target": "ES2021",
+    "target": "es6",
     "noImplicitAny": true,
     "noImplicitThis": true,
     "strictNullChecks": true,

@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+      "checkJs": true,   
+      "noEmit": true,
+      "target": "es6",
+      "module": "esnext",
+      "baseUrl": "./",
+      "paths": {
+        "*": ["node_modules/*", "./@types/*"]
+      }
+    },
+    "include": ["./src/**/*"]
+  }
