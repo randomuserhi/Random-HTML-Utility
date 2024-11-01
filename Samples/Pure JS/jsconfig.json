@@ -3,9 +3,9 @@
       "noEmit": true,
       "target": "es6",
       "module": "esnext",
-      "baseUrl": "./",
+      "baseUrl": "./src",
       "paths": {
-        "*": ["node_modules/*", "./@types/*"]
+        "*": ["../@types/*", "../node_modules/fuse.js/dist/*"]
       }
     },
     "include": ["./src/**/*"],
