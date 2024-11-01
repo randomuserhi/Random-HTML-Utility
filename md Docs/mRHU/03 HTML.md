@@ -382,7 +382,7 @@ import { signal, Signal, computed, effect } from "rhu/signal.js";
 const Counter = () => {
     // Type definition of instance
     interface Counter { 
-        readonly count: Signal<string>;
+        readonly state: Signal<number>;
         readonly btn: HTMLButtonElement;
 
         debug: () => void;
@@ -391,18 +391,17 @@ const Counter = () => {
     // Return html factory
     return html<Counter>/**//*html*/`
         <div>
-            <div>${Macro.signal("count")}</div>
+            <div>count: ${Macro.signal<number>("state", 0)}</div>
             <button m-id="btn">Increment</button>
         </div>
         `.box().then((self, children, dom) => {
         // On instantiation, setup stuff:
 
-        // Create State
-        const count = signal<number>(0);
+        // Get State
+        const { state } = self;
     
         // Update DOM
-        count.on((value) => self.count(`count: ${value}`));
-        self.btn.addEventListener("click", () => count(count() + 1););
+        self.btn.addEventListener("click", () => state(state() + 1));
 
         // Create methods
         self.debug = () => {
@@ -455,7 +454,7 @@ const Counter = () => {
         `.box().then((_self, children, dom) => {
         // Coerce type into (public & private) interface
         const self = _self as unknown as (_Counter & Counter);
-        
+        const { state } = self; // Get state
         (self as any).dom = dom; // forcing readonly assignments
 
         // Continue as normal
