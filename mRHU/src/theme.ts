@@ -71,6 +71,7 @@ export const Theme: Theme = <T extends {} = {}>(factory: (worker: Factory) => T)
 Theme.dispose = (theme) => {
     const el: HTMLStyleElement | undefined = theme[element];
     if (el === undefined) throw new Error("Cannot dispose a non-style object.");
+    theme[element] = undefined;
     el.remove();
 };
 

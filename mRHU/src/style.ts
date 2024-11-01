@@ -95,5 +95,6 @@ export const Style: Style = (<T>(factory: (worker: Factory) => T): T => {
 Style.dispose = (style) => {
     const el: HTMLStyleElement | undefined = style[element];
     if (el === undefined) throw new Error("Cannot dispose a non-style object.");
+    style[element] = undefined;
     el.remove();
 };
