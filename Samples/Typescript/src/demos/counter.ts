@@ -1,8 +1,5 @@
-## Simple Counter (Functional Macro)
-
-```typescript
 import { html, Macro } from "rhu/macro.js";
-import { signal, Signal, computed, effect } from "rhu/signal.js";
+import { signal, Signal } from "rhu/signal.js";
 
 const Counter = () => {
     interface Counter { 
@@ -47,48 +44,12 @@ const Counter = () => {
     });
 };
 
-const temp = Counter(); // Store a counter to make a copy of to demonstrate
-                        // Shallow and Deep state copies.
-const [_, fragment] = html`
-<h1>Independent Counter</h1>
-${Counter()}
-<br /><h1>Counter and its copy</h1>
-${temp}
-${temp.copy()}
-`.dom();
+const temp = Counter();
 
-document.body.append(fragment);
-```
-
-## Simple Counter (Macro)
-
-> Unlike *Functional Macros*, there are no copy semantics.
-
-```typescript
-import { html, Macro, MacroElement } from "rhu/macro.js";
-import { signal, Signal, computed, effect } from "rhu/signal.js";
-
-const Counter = Macro(class Counter extends MacroElement {
-    private state: Signal<number>;
-    private btn: HTMLButtonElement;
-
-    constructor(dom: Node[], bindings: any) {
-        super(dom, bindings);
-        
-        this.btn.addEventListener("click", () => {
-            this.state(this.state() + 1);
-        });
-    }
-}, html`
-    <div>
-        <div>state: ${Macro.signal<number>("state", 0)}</div>
-        <button m-id="btn">Increment</button>
-    </div>
-    `);
-    
-const [_, fragment] = html`
-${Counter()}
-`;
-
-document.body.append(fragment);
-```
+export const Demo_Counter = () => html`
+    <h1>Independent Counter</h1>
+    ${Counter()}
+    <br /><h1>Counter and its copy</h1>
+    ${temp}
+    ${temp.copy()}
+    `.dom()[1];

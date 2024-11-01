@@ -1,6 +1,5 @@
 {
-    "compilerOptions": {
-      "checkJs": true,   
+    "compilerOptions": { 
       "noEmit": true,
       "target": "es6",
       "module": "esnext",

@@ -1,6 +1,7 @@
 import { html, Macro, MacroElement } from "rhu/macro.js";
 import { Style } from "rhu/style.js";
 import { Theme } from "rhu/theme.js";
+import { Demo_Counter } from "./demos/counter.js";
 
 export const theme = Theme(({ theme }) => {
     return {
@@ -36,12 +37,34 @@ const style = Style(({ css }) => {
     };
 });
 
+const demos = [
+    Demo_Counter
+];
+
 const App = Macro(class App extends MacroElement {
     constructor(dom, bindings) {
         super(dom, bindings);
+        
+        this.back.addEventListener("click", () => this.load(this.demoList));
+    }
+
+    load(fragment) {
+        this.body.replaceChildren(fragment);
     }
 }, html`
     <div class="${theme} ${style.wrapper}">
+        <div><button m-id="back">Back</button></div>
+        <div m-id="body" class="${style.body}">
+            <ul m-id="demoList">
+                ${
+    [...([
+        "Counter"
+    ].entries())].map((v) => html`<li><button m-id="item">${v[1]}</button></li>`.box()
+        .then((self) => { 
+            self.item.addEventListener("click", () => { app().load(demos[v[0]]()); }) ;
+        }))}
+            </ul>
+        </div>
     </div>
     `);
 
