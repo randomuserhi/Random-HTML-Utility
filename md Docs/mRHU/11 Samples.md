@@ -60,6 +60,9 @@ ${temp.copy()}
 document.body.append(fragment);
 ```
 
+> Note that the general consensus for copy semantics is that when using `.copy()` instead of creating a new instance, you should assume the copy will use the same state as the original unless explicitly told otherwise.
+> 
+> Especially since `.copy()` does not copy all properties internally, but just the factory properties. So for Functional Macros you should avoid it entirely and only use the function to instantiate elements.
 ## Simple Counter (Macro)
 
 > Unlike *Functional Macros*, there are no copy semantics.
