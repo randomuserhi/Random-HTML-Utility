@@ -80,3 +80,16 @@ baseTheme.classList.add(`${theme}`);
 const darkTheme = document.createElement("div");
 darkTheme.classList.add(`${theme} ${skins.dark}`);
 ```
+## Releasing resources
+
+Since `Theme` generates a `<style>` element, you may want to clear the element from DOM for garbage collection or to remove the style entirely. To do this, simply:
+
+```typescript
+Theme.dispose(theme);
+```
+
+If you are using skins, you need to dispose of the skins as well:
+
+```typescript
+Style.dispose(skins);
+```

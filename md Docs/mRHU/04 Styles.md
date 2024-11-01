@@ -65,3 +65,11 @@ div.classList.add(`${style.box}`);
 ```
 
 > Note that the class name is a JavaScript object, `ClassName`, and relies on the [`Symbol.toPrimitive`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/toPrimitive) cast to actually return the generated name string.
+
+## Releasing resources
+
+Since `Style` generates a `<style>` element, you may want to clear the element from DOM for garbage collection or to remove the style entirely. To do this, simply:
+
+```typescript
+Style.dispose(style);
+```
