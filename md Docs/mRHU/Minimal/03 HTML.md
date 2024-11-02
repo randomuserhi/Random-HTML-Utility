@@ -26,6 +26,8 @@ const elements: Node[] = HTML[DOM].elements;
 The HTML object also has [`Symbol.Iterator`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/iterator) defined, so you can also:
 
 ```typescript
+// Both of the following work
+const elements: Node[] = [...HTML];
 const elements: Node[] = [...HTML[DOM]];
 ```
 
