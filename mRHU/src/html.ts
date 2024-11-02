@@ -30,6 +30,13 @@ class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     static is: (object: any) => object is RHU_NODE = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
 }
 
+const RHU_HTML_PROTOTYPE = {};
+Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.iterator, {
+    get() {
+        return this[DOM][Symbol.iterator];
+    }
+});
+
 type RHU_CHILDREN = NodeListOf<ChildNode>;
 
 export const DOM = Symbol("html.dom"); 
@@ -57,7 +64,7 @@ class RHU_DOM {
     static is: (object: any) => object is RHU_DOM = Object.prototype.isPrototypeOf.bind(RHU_DOM.prototype);
 }
 
-type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { [DOM]: RHU_DOM }; 
+type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { [DOM]: RHU_DOM; [Symbol.iterator]: () => IterableIterator<Node> }; 
 export type html<T extends (...args: any[]) => HTML<any>> = ReturnType<T> extends HTML<infer Binds> ? Binds : any;
 export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is HTML<T> => {
     return RHU_DOM.is(object[DOM]);
@@ -142,7 +149,8 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
 
     // create bindings
     const implementation = new RHU_DOM();
-    const instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM } = { [DOM]: implementation };
+    const instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM } = Object.create(RHU_HTML_PROTOTYPE);
+    instance[DOM] = implementation;
     (implementation as any)[DOM] = instance;
     for (const el of fragment.querySelectorAll("*[m-id]")) {
         const key = el.getAttribute("m-id")!;

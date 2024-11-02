@@ -28,6 +28,7 @@ declare class RHU_DOM {
 }
 type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & {
     [DOM]: RHU_DOM;
+    [Symbol.iterator]: () => IterableIterator<Node>;
 };
 export type html<T extends (...args: any[]) => HTML<any>> = ReturnType<T> extends HTML<infer Binds> ? Binds : any;
 export declare const isHTML: <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any) => object is HTML<T>;

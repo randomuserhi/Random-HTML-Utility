@@ -19,6 +19,12 @@ class RHU_NODE {
     }
 }
 RHU_NODE.is = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
+const RHU_HTML_PROTOTYPE = {};
+Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.iterator, {
+    get() {
+        return this[DOM][Symbol.iterator];
+    }
+});
 export const DOM = Symbol("html.dom");
 class RHU_DOM {
     constructor() {
@@ -103,7 +109,8 @@ export const html = ((first, ...interpolations) => {
         }
     }).nextNode();
     const implementation = new RHU_DOM();
-    const instance = { [DOM]: implementation };
+    const instance = Object.create(RHU_HTML_PROTOTYPE);
+    instance[DOM] = implementation;
     implementation[DOM] = instance;
     for (const el of fragment.querySelectorAll("*[m-id]")) {
         const key = el.getAttribute("m-id");

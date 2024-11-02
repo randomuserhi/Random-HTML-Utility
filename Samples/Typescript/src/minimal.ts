@@ -1,4 +1,4 @@
-import { DOM, html } from "rhu/html.js";
+import { html } from "rhu/html.js";
 import { signal } from "rhu/signal.js";
 
 const Counter = () => {
@@ -35,4 +35,4 @@ document.body.replaceChildren(...html`
     ${html.open(Counter())}
         <div>Child!</div>
     ${html.close()}
-`[DOM]);
+`);
