@@ -1,4 +1,5 @@
 const proto = {};
+const noStringOp = (v) => `${v}`;
 export const isSignal = Object.prototype.isPrototypeOf.bind(proto);
 export const always = () => false;
 export function signal(value, equality) {
@@ -83,6 +84,7 @@ export function signal(value, equality) {
         callbacks.value = temp;
         return callbacks.value.size;
     };
+    signal.string = noStringOp;
     Object.setPrototypeOf(signal, proto);
     return signal;
 }
@@ -161,6 +163,7 @@ export function computed(expression, dependencies, equality, options) {
         }
         return value.check();
     };
+    computed.string = noStringOp;
     Object.setPrototypeOf(computed, proto);
     return computed;
 }

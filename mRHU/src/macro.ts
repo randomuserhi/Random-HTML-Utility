@@ -149,17 +149,13 @@ export class RHU_SIGNAL<T = any> extends RHU_ELEMENT<Signal<T>> {
         if (doBinding) target[this._bind!] = instance;
 
         // create text node and signal event
-        const toString = this._toString;
+        if (this._toString !== undefined) instance.string = this._toString;
         const node = document.createTextNode(`${this._value}`);
         const ref = new WeakRef(node);
         instance.on((value) => {
             const node = ref.deref();
             if (node === undefined) return;
-            if (toString) {
-                node.nodeValue = `${toString(value)}`;
-            } else {
-                node.nodeValue = `${value}`;
-            }
+            node.nodeValue = instance!.string(value);
         }, { condition: () => ref.deref() !== undefined });
 
         return [instance, node, [node]];
@@ -374,7 +370,7 @@ export class RHU_HTML<T extends Record<PropertyKey, any> = any> extends RHU_ELEM
                     slot.on((value) => {
                         const node = ref.deref();
                         if (node === undefined) return;
-                        node.nodeValue = `${value}`;
+                        node.nodeValue = slot.string(value);                    
                     }, { condition: () => ref.deref() !== undefined });
                     slotElement.replaceWith(node);
                 } else if (isNode(slot)) {

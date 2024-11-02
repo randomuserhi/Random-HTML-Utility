@@ -114,19 +114,15 @@ class RHU_SIGNAL extends RHU_ELEMENT {
         }
         if (doBinding)
             target[this._bind] = instance;
-        const toString = this._toString;
+        if (this._toString !== undefined)
+            instance.string = this._toString;
         const node = document.createTextNode(`${this._value}`);
         const ref = new WeakRef(node);
         instance.on((value) => {
             const node = ref.deref();
             if (node === undefined)
                 return;
-            if (toString) {
-                node.nodeValue = `${toString(value)}`;
-            }
-            else {
-                node.nodeValue = `${value}`;
-            }
+            node.nodeValue = instance.string(value);
         }, { condition: () => ref.deref() !== undefined });
         return [instance, node, [node]];
     }
@@ -299,7 +295,7 @@ class RHU_HTML extends RHU_ELEMENT {
                         const node = ref.deref();
                         if (node === undefined)
                             return;
-                        node.nodeValue = `${value}`;
+                        node.nodeValue = slot.string(value);
                     }, { condition: () => ref.deref() !== undefined });
                     slotElement.replaceWith(node);
                 }

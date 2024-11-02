@@ -6,8 +6,11 @@ export interface SignalEvent<T = any> {
     off(handle: Callback<T>): boolean;
     release(): void;
     check(): number;
+    string: (value: T) => string;
 }
 const proto = {};
+
+const noStringOp = (v: any) => `${v}`;
 
 export interface Signal<T> extends SignalEvent<T> {
     (value: T): T;
@@ -119,6 +122,7 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
 
         return callbacks.value.size;
     };
+    signal.string = noStringOp;
     Object.setPrototypeOf(signal, proto);
     return signal;
 }
@@ -225,6 +229,7 @@ export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void
         }
         return value.check();
     };
+    computed.string = noStringOp;
     Object.setPrototypeOf(computed, proto);
 
     return computed;
