@@ -252,6 +252,13 @@ html.children = (el, cb: (children: RHU_CHILDREN) => void) => {
 (html as any).dom = DOM;
 
 // Custom event and observer to add some nice events
+declare global {
+    interface GlobalEventHandlersEventMap {
+        "mount": CustomEvent;
+        "dismount": CustomEvent;
+    }
+}
+
 const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype);
 const recursiveDispatch = function(node: Node, event: keyof GlobalEventHandlersEventMap): void {
     if (isElement(node)) node.dispatchEvent(new CustomEvent(event));

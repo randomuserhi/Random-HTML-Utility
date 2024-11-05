@@ -1,3 +1,7 @@
+/**
+ * @deprecated
+ */
+
 import { isSignal, signal, Signal, SignalEvent } from "./signal.js";
 
 const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.bind(Node.prototype); 
@@ -233,7 +237,6 @@ interface FACTORY_HTML {
     <T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T>;
     readonly close: RHU_CLOSURE;
     signal<T>(binding: string, value?: T, toString?: (value: T) => string): RHU_SIGNAL<T>;
-    observe(node: Node): void;
     map: typeof MapFactory;
     set: typeof SetFactory;
     list: typeof ListFactory;
@@ -804,46 +807,3 @@ const ListFactory = function<V, Wrapper extends RHU_COMPONENT, Item extends RHU_
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? (() => wrapper) : wrapper.html, RHU_LIST<V, Wrapper, Item>, [wrapper, item, append, update, remove]);
 };
 html.list = ListFactory;
-
-declare global {
-    interface GlobalEventHandlersEventMap {
-        "mount": CustomEvent;
-        "dismount": CustomEvent;
-    }
-}
-
-// Custom event and observer to add some nice events
-const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype);
-const recursiveDispatch = function(node: Node, event: keyof GlobalEventHandlersEventMap): void {
-    if (isElement(node)) node.dispatchEvent(new CustomEvent(event));
-    for (const child of node.childNodes)
-        recursiveDispatch(child, event);
-};
-const observer = new MutationObserver(function(mutationList) {
-    for (const mutation of mutationList) {
-        switch (mutation.type) {
-        case "childList": {
-            for (const node of mutation.addedNodes)
-                recursiveDispatch(node, "mount");
-            for (const node of mutation.removedNodes)
-                recursiveDispatch(node, "dismount");
-        } break;
-        }
-    }
-});
-// Allows you to assign macro observation to other docs to trigger macro updates
-html.observe = function(target: Node): void {
-    observer.observe(target, {
-        childList: true,
-        subtree: true
-    });
-};
-
-const onDocumentLoad = function() {
-    html.observe(document);
-};
-if (document.readyState === "loading") 
-    document.addEventListener("DOMContentLoaded", onDocumentLoad);
-// Document may have loaded already if the script is declared as defer, in this case just call onload
-else 
-    onDocumentLoad();
