@@ -64,8 +64,9 @@ class RHU_DOM {
     static is: (object: any) => object is RHU_DOM = Object.prototype.isPrototypeOf.bind(RHU_DOM.prototype);
 }
 
+type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => HTML<T>;
 type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { [DOM]: RHU_DOM; [Symbol.iterator]: () => IterableIterator<Node> }; 
-export type html<T extends (...args: any[]) => HTML<any>> = ReturnType<T> extends HTML<infer Binds> ? Binds : any;
+export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
 export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is HTML<T> => {
     return RHU_DOM.is(object[DOM]);
 };

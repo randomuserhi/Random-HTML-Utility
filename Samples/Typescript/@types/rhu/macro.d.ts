@@ -64,7 +64,6 @@ interface FACTORY_HTML {
     <T extends {} = any>(first: RHU_HTML["first"], ...interpolations: RHU_HTML["interpolations"]): RHU_HTML<T>;
     readonly close: RHU_CLOSURE;
     signal<T>(binding: string, value?: T, toString?: (value: T) => string): RHU_SIGNAL<T>;
-    observe(node: Node): void;
     map: typeof MapFactory;
     set: typeof SetFactory;
     list: typeof ListFactory;
@@ -170,10 +169,4 @@ declare const ListFactory: <V, Wrapper extends RHU_COMPONENT, Item extends RHU_C
     new (dom: Node[], bindings: ElementInstance<Wrapper>, children: RHU_CHILDREN, wrapperFactory: RHU_COMPONENT, itemFactory: RHU_COMPONENT, append?: ((wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, value: V, index: number) => void) | undefined, update?: ((item: ElementInstance<Item>, value: V, index: number) => void) | undefined, remove?: ((wrapper: ElementInstance<Wrapper>, dom: Node[], item: ElementInstance<Item>, value: V, index: number) => void) | undefined): RHU_LIST<V, Wrapper, Item>;
     is: (object: any) => object is MacroElement;
 }>;
-declare global {
-    interface GlobalEventHandlersEventMap {
-        "mount": CustomEvent;
-        "dismount": CustomEvent;
-    }
-}
 export {};
