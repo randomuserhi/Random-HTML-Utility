@@ -1,41 +1,65 @@
+import { exists } from "./rhu.js";
 import { ThemeVariable } from "./theme.js";
+
+export type ClassName<T extends {} = {}> = {
+    [Symbol.toPrimitive]: () => string;
+    name: string;
+} & T;
+interface ClassNameConstructor {
+    new<T extends {} = {}>(name?: string): ClassName<T>;
+    prototype: ClassName;
+}
+
 let id = 69;
-export const ClassName = function (name) {
-    if (name !== undefined) {
+
+export const ClassName = function(this: ClassName, name: string) {
+    if (exists(name)) {
         this.name = name;
-    }
-    else {
+    } else {
         this.name = `rhu-${++id}`;
     }
-};
-ClassName.prototype[Symbol.toPrimitive] = function () {
+} as any as ClassNameConstructor;
+ClassName.prototype[Symbol.toPrimitive] = function() {
     return this.name;
 };
-const element = Symbol("style.element");
-export const Style = ((factory) => {
+
+interface Generator {
+    (first: TemplateStringsArray, ...interpolations: (string | ClassName | ThemeVariable)[]): void;
+    class<T extends {} = {}>(first: TemplateStringsArray, ...interpolations: (string | ThemeVariable)[]): ClassName & T;
+}
+
+interface Factory  {
+    css: Generator;
+}
+
+const element: unique symbol = Symbol("style.element");
+
+interface Style {
+    <T>(factory: (worker: Factory) => T): T;
+    dispose(obj: any): void;
+}
+
+export const Style: Style = (<T>(factory: (worker: Factory) => T): T => {
     let generatedCode = "";
-    const generator = function (first, ...interpolations) {
+    const generator = function (first: TemplateStringsArray, ...interpolations: (string | ClassName | ThemeVariable)[]): void {
         generatedCode += first[0];
         for (let i = 0; i < interpolations.length; ++i) {
             const interpolation = interpolations[i];
             if (typeof interpolation === "object") {
                 if (interpolation instanceof ClassName) {
                     generatedCode += `.${interpolation}`;
-                }
-                else if (interpolation instanceof ThemeVariable) {
+                } else if (interpolation instanceof ThemeVariable) {
                     generatedCode += `${interpolation}`;
-                }
-                else {
+                } else {
                     generatedCode += interpolation;
                 }
-            }
-            else {
+            } else {
                 generatedCode += interpolation;
             }
             generatedCode += first[i + 1];
         }
-    };
-    generator.class = function (first, ...interpolations) {
+    } as Generator;
+    generator.class = function<T extends {} = {}>(first: TemplateStringsArray, ...interpolations: (string | ThemeVariable)[]): ClassName & T {
         const classname = new ClassName();
         if (first.length > 1 || first[0] !== '' || interpolations.length !== 0) {
             generatedCode += `.${classname} {${first[0]}`;
@@ -44,32 +68,33 @@ export const Style = ((factory) => {
                 if (typeof interpolation === "object") {
                     if (interpolation instanceof ThemeVariable) {
                         generatedCode += `${interpolation}`;
-                    }
-                    else {
+                    } else {
                         generatedCode += interpolation;
                     }
-                }
-                else {
+                } else {
                     generatedCode += interpolation;
                 }
                 generatedCode += first[i + 1];
             }
             generatedCode += "}";
         }
-        return classname;
+        return classname as ClassName & T;
     };
     const exports = factory({ css: generator });
+
     generatedCode = generatedCode.replace(/(\r\n|\n|\r)/gm, "").replace(/ +/g, ' ').trim();
     const el = document.createElement("style");
     el.innerHTML = generatedCode;
     document.head.append(el);
-    exports[element] = el;
+
+    (exports as any)[element] = el;
+
     return exports;
-});
+}) as any;
+
 Style.dispose = (style) => {
-    const el = style[element];
-    if (el === undefined)
-        throw new Error("Cannot dispose a non-style object.");
+    const el: HTMLStyleElement | undefined = style[element];
+    if (el === undefined) throw new Error("Cannot dispose a non-style object.");
     style[element] = undefined;
     el.remove();
 };

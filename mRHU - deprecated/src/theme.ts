@@ -1,3 +1,4 @@
+import { exists } from "./rhu.js";
 import { ClassName } from "./style.js";
 
 const element: unique symbol = Symbol("theme.element");
@@ -22,8 +23,8 @@ interface Factory  {
 
 let id = 69;
 
-export const ThemeVariable = function(this: ThemeVariable, name?: string) {
-    if (name !== undefined) {
+export const ThemeVariable = function(this: ThemeVariable, name: string) {
+    if (exists(name)) {
         this.name = name;
     } else {
         this.name = `--rhu-${++id}`;

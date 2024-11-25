@@ -1,4 +1,3 @@
-import { exists } from "./rhu.js";
 import { ThemeVariable } from "./theme.js";
 
 export type ClassName<T extends {} = {}> = {
@@ -12,8 +11,8 @@ interface ClassNameConstructor {
 
 let id = 69;
 
-export const ClassName = function(this: ClassName, name: string) {
-    if (exists(name)) {
+export const ClassName = function(this: ClassName, name?: string) {
+    if (name !== undefined) {
         this.name = name;
     } else {
         this.name = `rhu-${++id}`;
