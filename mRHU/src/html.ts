@@ -23,6 +23,18 @@ class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
         return this;
     }
 
+    private onChildren?: (children: RHU_CHILDREN) => void; 
+    public children(cb?: (children: RHU_CHILDREN) => void) {
+        this.onChildren = cb;
+        return this;
+    }
+
+    private boxed?: boolean;
+    public box(boxed: boolean = true) {
+        this.boxed = boxed;
+        return this;
+    }
+
     constructor(node: HTML<T>) {
         this.node = node;
     }
@@ -46,10 +58,10 @@ type RHU_CHILDREN = NodeListOf<ChildNode>;
 
 export const DOM = Symbol("html.dom"); 
 
-class RHU_DOM {
+class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     public readonly elements: Node[];
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
-    public readonly [DOM]: HTML;
+    public readonly [DOM]: HTML<T>;
 
     private binds: PropertyKey[] = [];
     public close: RHU_CLOSURE = RHU_CLOSURE.instance;
@@ -70,7 +82,7 @@ class RHU_DOM {
 }
 
 type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => HTML<T>;
-type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { [DOM]: RHU_DOM; [Symbol.iterator]: () => IterableIterator<Node> }; 
+type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
 export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
 export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is HTML<T> => {
     return RHU_DOM.is(object[DOM]);
@@ -81,15 +93,15 @@ type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | SignalEvent<any>;
 type Interp = Single | (Single[]);
 
 interface RHU_HTML {
+    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>;
     <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): HTML<T>;
     observe(node: Node): void;
     close(): RHU_CLOSURE;
     readonly closure: RHU_CLOSURE;
-    open<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_NODE<T>;
-    bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>, name: PropertyKey): RHU_NODE<T>;
-    box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): HTML<T>;
-    children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>, cb: (children: RHU_CHILDREN) => void): HTML<T>;
-    readonly dom: typeof DOM;
+    open<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
+    bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
+    box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
+    children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
 }
 
 function stitch(interp: Interp, slots: (Node | HTML | RHU_NODE | SignalEvent<any>)[]): string | undefined {
@@ -112,7 +124,15 @@ function stitch(interp: Interp, slots: (Node | HTML | RHU_NODE | SignalEvent<any
     }
 }
 
-export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]) => {
+export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | HTML, ...interpolations: Interp[]) => {
+    // edit dom properties func
+    
+    if (isHTML(first)) {
+        return first[DOM];
+    }
+
+    // html parsing func
+
     // stitch together source
     let source = first[0];
     const slots: (Node | HTML | RHU_NODE | SignalEvent<any>)[] = [];
@@ -155,7 +175,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
 
     // create bindings
     const implementation = new RHU_DOM();
-    const instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM } = Object.create(RHU_HTML_PROTOTYPE);
+    const instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM<T> } = Object.create(RHU_HTML_PROTOTYPE);
     instance[DOM] = implementation;
     (implementation as any)[DOM] = instance;
     for (const el of fragment.querySelectorAll("*[m-id]")) {
@@ -202,8 +222,15 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
 
                 const slotImplementation = node[DOM];
 
+                // Obtain overridable settings
+                let boxed: boolean | undefined = (descriptor as any)?.boxed;
+                if (boxed === undefined) boxed = (slotImplementation as any).boxed;
+
+                let onChildren: ((children: RHU_CHILDREN) => void) | undefined = (descriptor as any)?.onChildren;
+                if (onChildren === undefined) onChildren = (slotImplementation as any).onChildren;
+
                 // Manage binds
-                if ((node[DOM] as any).boxed || (descriptor as any)?.name !== undefined) {
+                if (boxed || (descriptor as any)?.name !== undefined) {
                     const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
                     if (slotName !== undefined) {
                         if (slotName in instance) throw new Error(`The binding '${slotName.toString()}' already exists.`);
@@ -216,7 +243,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                     }
                 }
 
-                if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
+                if (onChildren !== undefined) onChildren(slotElement.childNodes);
                 slotElement.replaceWith(...slotImplementation.elements);
             }
         } catch (e) {
@@ -247,15 +274,20 @@ html.bind = (el, name: PropertyKey) => {
     }
     return new RHU_NODE(el).bind(name);
 };
-html.box = (el) => {
-    el[DOM].box();
-    return el;
+html.box = (el, boxed?: boolean) => {
+    if (RHU_NODE.is(el)) {
+        el.box(boxed);
+        return el;
+    }
+    return new RHU_NODE(el).box(boxed);
 };
 html.children = (el, cb: (children: RHU_CHILDREN) => void) => {
-    el[DOM].children(cb);
-    return el;
+    if (RHU_NODE.is(el)) {
+        el.children(cb);
+        return el;
+    }
+    return new RHU_NODE(el).children(cb);
 };
-(html as any).dom = DOM;
 
 // Custom event and observer to add some nice events
 declare global {

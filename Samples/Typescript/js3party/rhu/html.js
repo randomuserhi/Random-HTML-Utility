@@ -13,6 +13,14 @@ class RHU_NODE {
         this.isOpen = true;
         return this;
     }
+    children(cb) {
+        this.onChildren = cb;
+        return this;
+    }
+    box(boxed = true) {
+        this.boxed = boxed;
+        return this;
+    }
     constructor(node) {
         this.isOpen = false;
         this.node = node;
@@ -75,6 +83,9 @@ function stitch(interp, slots) {
     }
 }
 export const html = ((first, ...interpolations) => {
+    if (isHTML(first)) {
+        return first[DOM];
+    }
     let source = first[0];
     const slots = [];
     for (let i = 1; i < first.length; ++i) {
@@ -161,7 +172,13 @@ export const html = ((first, ...interpolations) => {
                     node = slot;
                 }
                 const slotImplementation = node[DOM];
-                if (node[DOM].boxed || descriptor?.name !== undefined) {
+                let boxed = descriptor?.boxed;
+                if (boxed === undefined)
+                    boxed = slotImplementation.boxed;
+                let onChildren = descriptor?.onChildren;
+                if (onChildren === undefined)
+                    onChildren = slotImplementation.onChildren;
+                if (boxed || descriptor?.name !== undefined) {
                     const slotName = descriptor?.name;
                     if (slotName !== undefined) {
                         if (slotName in instance)
@@ -176,8 +193,8 @@ export const html = ((first, ...interpolations) => {
                         instance[key] = node[key];
                     }
                 }
-                if (slotImplementation.onChildren !== undefined)
-                    slotImplementation.onChildren(slotElement.childNodes);
+                if (onChildren !== undefined)
+                    onChildren(slotElement.childNodes);
                 slotElement.replaceWith(...slotImplementation.elements);
             }
         }
@@ -207,15 +224,20 @@ html.bind = (el, name) => {
     }
     return new RHU_NODE(el).bind(name);
 };
-html.box = (el) => {
-    el[DOM].box();
-    return el;
+html.box = (el, boxed) => {
+    if (RHU_NODE.is(el)) {
+        el.box(boxed);
+        return el;
+    }
+    return new RHU_NODE(el).box(boxed);
 };
 html.children = (el, cb) => {
-    el[DOM].children(cb);
-    return el;
+    if (RHU_NODE.is(el)) {
+        el.children(cb);
+        return el;
+    }
+    return new RHU_NODE(el).children(cb);
 };
-html.dom = DOM;
 const isElement = Object.prototype.isPrototypeOf.bind(Element.prototype);
 const recursiveDispatch = function (node, event) {
     if (isElement(node))
