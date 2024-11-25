@@ -40,3 +40,31 @@ document.body.replaceChildren(...html`
     ${html.close()}
 `[DOM]);
 ```
+
+## Private & Public Interfaces
+
+```typescript
+const App = () => {
+    /*private:*/
+    interface _App {
+        readonly body: HTMLDivElement;
+    }
+    /*public:*/
+    interface App {
+
+    }
+
+    const dom = html<_App & App>/**//*html*/`
+    <div class="${theme} ${style.wrapper}">
+        <div m-id="body" class="${style.body}">
+        </div>
+    </div>
+    `;
+    html.box(dom);
+    
+    return dom as html<App>;
+};
+
+// Accessing type
+const app: html<typeof App>;
+```
