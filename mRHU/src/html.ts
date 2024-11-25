@@ -118,6 +118,11 @@ function stitch(interp: Interp, slots: (Node | HTML | RHU_NODE | SignalEvent<any
     }
 }
 
+function html_addBind(instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM }, key: PropertyKey, value: any) {
+    if (key in instance) throw new Error(`The binding '${key.toString()}' already exists.`);
+    instance[key] = value; 
+    (instance[DOM] as any).binds.push(key);
+}
 export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | HTML, ...interpolations: Interp[]) => {
     // edit dom properties func
     
@@ -175,9 +180,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     for (const el of fragment.querySelectorAll("*[m-id]")) {
         const key = el.getAttribute("m-id")!;
         el.removeAttribute("m-id");
-        if (key in instance) throw new Error(`The binding '${key}' already exists.`);
-        instance[key] = el; 
-        (implementation as any).binds.push(key);
+        html_addBind(instance, key, el);
     }
 
     // parse slots
@@ -220,24 +223,19 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 let boxed: boolean | undefined = (descriptor as any)?.boxed;
                 if (boxed === undefined) boxed = (slotImplementation as any).boxed;
 
-                let onChildren: ((children: RHU_CHILDREN) => void) | undefined = (descriptor as any)?.onChildren;
-                if (onChildren === undefined) onChildren = (slotImplementation as any).onChildren;
-
                 // Manage binds
                 if (boxed || (descriptor as any)?.name !== undefined) {
                     const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
                     if (slotName !== undefined) {
-                        if (slotName in instance) throw new Error(`The binding '${slotName.toString()}' already exists.`);
-                        instance[slotName] = node; 
+                        html_addBind(instance, slotName, node);
                     }
                 } else {
                     for (const key of ((slotImplementation as any).binds as RHU_DOM["binds"])) {
-                        if (key in instance) throw new Error(`The binding '${key.toString()}' already exists.`);
-                        instance[key] = node[key]; 
+                        html_addBind(instance, key, node[key]);
                     }
                 }
 
-                if (onChildren !== undefined) onChildren(slotElement.childNodes);
+                if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
                 slotElement.replaceWith(...slotImplementation.elements);
             }
         } catch (e) {

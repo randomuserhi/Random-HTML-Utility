@@ -78,6 +78,12 @@ function stitch(interp, slots) {
         return undefined;
     }
 }
+function html_addBind(instance, key, value) {
+    if (key in instance)
+        throw new Error(`The binding '${key.toString()}' already exists.`);
+    instance[key] = value;
+    instance[DOM].binds.push(key);
+}
 export const html = ((first, ...interpolations) => {
     if (isHTML(first)) {
         return first[DOM];
@@ -127,10 +133,7 @@ export const html = ((first, ...interpolations) => {
     for (const el of fragment.querySelectorAll("*[m-id]")) {
         const key = el.getAttribute("m-id");
         el.removeAttribute("m-id");
-        if (key in instance)
-            throw new Error(`The binding '${key}' already exists.`);
-        instance[key] = el;
-        implementation.binds.push(key);
+        html_addBind(instance, key, el);
     }
     for (const slotElement of fragment.querySelectorAll("rhu-slot[rhu-internal]")) {
         try {
@@ -171,26 +174,19 @@ export const html = ((first, ...interpolations) => {
                 let boxed = descriptor?.boxed;
                 if (boxed === undefined)
                     boxed = slotImplementation.boxed;
-                let onChildren = descriptor?.onChildren;
-                if (onChildren === undefined)
-                    onChildren = slotImplementation.onChildren;
                 if (boxed || descriptor?.name !== undefined) {
                     const slotName = descriptor?.name;
                     if (slotName !== undefined) {
-                        if (slotName in instance)
-                            throw new Error(`The binding '${slotName.toString()}' already exists.`);
-                        instance[slotName] = node;
+                        html_addBind(instance, slotName, node);
                     }
                 }
                 else {
                     for (const key of slotImplementation.binds) {
-                        if (key in instance)
-                            throw new Error(`The binding '${key.toString()}' already exists.`);
-                        instance[key] = node[key];
+                        html_addBind(instance, key, node[key]);
                     }
                 }
-                if (onChildren !== undefined)
-                    onChildren(slotElement.childNodes);
+                if (slotImplementation.onChildren !== undefined)
+                    slotImplementation.onChildren(slotElement.childNodes);
                 slotElement.replaceWith(...slotImplementation.elements);
             }
         }
