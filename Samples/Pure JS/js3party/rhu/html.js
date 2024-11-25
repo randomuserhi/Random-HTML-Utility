@@ -25,6 +25,11 @@ Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.iterator, {
         return this[DOM][Symbol.iterator];
     }
 });
+Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.toStringTag, {
+    get() {
+        return "RHU_HTML";
+    }
+});
 export const DOM = Symbol("html.dom");
 class RHU_DOM {
     constructor() {

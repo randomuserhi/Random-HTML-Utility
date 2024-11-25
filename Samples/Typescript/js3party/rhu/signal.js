@@ -85,6 +85,14 @@ export function signal(value, equality) {
         return callbacks.value.size;
     };
     signal.string = noStringOp;
+    signal[Symbol.toPrimitive] = function (hint) {
+        if (ref.value[Symbol.toPrimitive]) {
+            return ref.value[Symbol.toPrimitive](hint);
+        }
+        else {
+            return ref.value;
+        }
+    };
     Object.setPrototypeOf(signal, proto);
     return signal;
 }
@@ -164,6 +172,9 @@ export function computed(expression, dependencies, equality, options) {
         return value.check();
     };
     computed.string = noStringOp;
+    computed[Symbol.toPrimitive] = function (hint) {
+        return value[Symbol.toPrimitive](hint);
+    };
     Object.setPrototypeOf(computed, proto);
     return computed;
 }

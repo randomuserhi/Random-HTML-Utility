@@ -26,11 +26,12 @@ declare class RHU_DOM {
     box(boxed?: boolean): this;
     static is: (object: any) => object is RHU_DOM;
 }
+type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => HTML<T>;
 type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & {
     [DOM]: RHU_DOM;
     [Symbol.iterator]: () => IterableIterator<Node>;
 };
-export type html<T extends (...args: any[]) => HTML<any>> = ReturnType<T> extends HTML<infer Binds> ? Binds : any;
+export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
 export declare const isHTML: <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any) => object is HTML<T>;
 type First = TemplateStringsArray;
 type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | SignalEvent<any>;
@@ -47,4 +48,10 @@ interface RHU_HTML {
     readonly dom: typeof DOM;
 }
 export declare const html: RHU_HTML;
+declare global {
+    interface GlobalEventHandlersEventMap {
+        "mount": CustomEvent;
+        "dismount": CustomEvent;
+    }
+}
 export {};

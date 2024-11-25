@@ -698,37 +698,3 @@ const ListFactory = function (wrapper, item, append, update, remove) {
     return new RHU_MACRO(RHU_HTML.is(wrapper) ? (() => wrapper) : wrapper.html, (RHU_LIST), [wrapper, item, append, update, remove]);
 };
 html.list = ListFactory;
-const isElement = Object.prototype.isPrototypeOf.bind(Element.prototype);
-const recursiveDispatch = function (node, event) {
-    if (isElement(node))
-        node.dispatchEvent(new CustomEvent(event));
-    for (const child of node.childNodes)
-        recursiveDispatch(child, event);
-};
-const observer = new MutationObserver(function (mutationList) {
-    for (const mutation of mutationList) {
-        switch (mutation.type) {
-            case "childList":
-                {
-                    for (const node of mutation.addedNodes)
-                        recursiveDispatch(node, "mount");
-                    for (const node of mutation.removedNodes)
-                        recursiveDispatch(node, "dismount");
-                }
-                break;
-        }
-    }
-});
-html.observe = function (target) {
-    observer.observe(target, {
-        childList: true,
-        subtree: true
-    });
-};
-const onDocumentLoad = function () {
-    html.observe(document);
-};
-if (document.readyState === "loading")
-    document.addEventListener("DOMContentLoaded", onDocumentLoad);
-else
-    onDocumentLoad();

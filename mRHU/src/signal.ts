@@ -123,6 +123,13 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
         return callbacks.value.size;
     };
     signal.string = noStringOp;
+    (signal as any)[Symbol.toPrimitive] = function(hint: "string" | "number" | "default") {
+        if ((ref.value as any)[Symbol.toPrimitive]) {
+            return (ref.value as any)[Symbol.toPrimitive](hint);
+        } else {
+            return ref.value;
+        }
+    };
     Object.setPrototypeOf(signal, proto);
     return signal;
 }
@@ -230,6 +237,9 @@ export function computed<T>(expression: (set: Signal<T>) => ((() => void) | void
         return value.check();
     };
     computed.string = noStringOp;
+    (computed as any)[Symbol.toPrimitive] = function(hint: "string" | "number" | "default") {
+        return (value as any)[Symbol.toPrimitive](hint);
+    };
     Object.setPrototypeOf(computed, proto);
 
     return computed;
