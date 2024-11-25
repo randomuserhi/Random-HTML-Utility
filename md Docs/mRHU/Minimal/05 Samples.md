@@ -38,7 +38,7 @@ document.body.replaceChildren(...html`
     ${html.open(Counter())}
         <div>Child!</div>
     ${html.close()}
-`[DOM]);
+`);
 ```
 
 ## Private & Public Interfaces

@@ -34,6 +34,7 @@ const elements: Node[] = [...HTML[DOM]];
 Which allows you to:
 
 ```typescript
+document.body.append(...HTML);
 document.body.append(...HTML[DOM]);
 ```
 
