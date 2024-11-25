@@ -13,10 +13,6 @@ class RHU_NODE {
         this.isOpen = true;
         return this;
     }
-    children(cb) {
-        this.onChildren = cb;
-        return this;
-    }
     box(boxed = true) {
         this.boxed = boxed;
         return this;
@@ -230,13 +226,6 @@ html.box = (el, boxed) => {
         return el;
     }
     return new RHU_NODE(el).box(boxed);
-};
-html.children = (el, cb) => {
-    if (RHU_NODE.is(el)) {
-        el.children(cb);
-        return el;
-    }
-    return new RHU_NODE(el).children(cb);
 };
 const isElement = Object.prototype.isPrototypeOf.bind(Element.prototype);
 const recursiveDispatch = function (node, event) {

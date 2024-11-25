@@ -23,12 +23,6 @@ class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
         return this;
     }
 
-    private onChildren?: (children: RHU_CHILDREN) => void; 
-    public children(cb?: (children: RHU_CHILDREN) => void) {
-        this.onChildren = cb;
-        return this;
-    }
-
     private boxed?: boolean;
     public box(boxed: boolean = true) {
         this.boxed = boxed;
@@ -280,13 +274,6 @@ html.box = (el, boxed?: boolean) => {
         return el;
     }
     return new RHU_NODE(el).box(boxed);
-};
-html.children = (el, cb: (children: RHU_CHILDREN) => void) => {
-    if (RHU_NODE.is(el)) {
-        el.children(cb);
-        return el;
-    }
-    return new RHU_NODE(el).children(cb);
 };
 
 // Custom event and observer to add some nice events

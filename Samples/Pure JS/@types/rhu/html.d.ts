@@ -9,8 +9,6 @@ declare class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, 
     private isOpen;
     bind(name?: PropertyKey): this;
     open(): this;
-    private onChildren?;
-    children(cb?: (children: RHU_CHILDREN) => void): this;
     private boxed?;
     box(boxed?: boolean): this;
     constructor(node: HTML<T>);
