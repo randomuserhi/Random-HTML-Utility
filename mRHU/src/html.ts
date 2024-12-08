@@ -56,7 +56,7 @@ type RHU_CHILDREN = NodeListOf<ChildNode>;
 export const DOM = Symbol("html.dom"); 
 
 class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    public readonly metadata: (HTML | Node)[];
+    public readonly elements: (HTML | Node)[];
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
 
@@ -190,8 +190,8 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         html_addBind(instance, key, el);
     }
 
-    // create metadata
-    let metadata: (HTML | Node)[] = [];
+    // create element list
+    let elements: (HTML | Node)[] = [];
     for (const node of fragment.childNodes) {
         let attr: string | null;
         if (isElement(node) && (attr = node.getAttribute("rhu-internal"))) {
@@ -200,10 +200,10 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 throw new Error("Could not obtain slot id.");
             }
 
-            node.setAttribute("rhu-metadata", metadata.length.toString());
-            metadata.push(undefined!);
+            node.setAttribute("rhu-elements", elements.length.toString());
+            elements.push(undefined!);
         } else {
-            metadata.push(node);
+            elements.push(node);
         }
     }
     
@@ -220,7 +220,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 throw new Error("Could not find slot id.");
             }
 
-            let hole: undefined | number | string | null = slotElement.getAttribute("rhu-metadata");
+            let hole: undefined | number | string | null = slotElement.getAttribute("rhu-elements");
             if (hole === null) {
                 hole = undefined;
             } else {
@@ -241,10 +241,10 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 }, { condition: () => ref.deref() !== undefined });
 
                 slotElement.replaceWith(node);
-                if (hole !== undefined) metadata[hole] = node;
+                if (hole !== undefined) elements[hole] = node;
             } else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
-                if (hole !== undefined) metadata[hole] = slot;
+                if (hole !== undefined) elements[hole] = slot;
             } else {
                 let descriptor: RHU_NODE | undefined = undefined;
                 let node: HTML;
@@ -276,7 +276,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
                 
                 slotElement.replaceWith(...slotImplementation);
-                if (hole !== undefined) metadata[hole] = node;
+                if (hole !== undefined) elements[hole] = node;
             }
         } catch (e) {
             if (slotElement.parentNode === fragment) error = true;
@@ -287,21 +287,21 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     }
 
     if (error) {
-        metadata = metadata.filter(v => v !== undefined);
+        elements = elements.filter(v => v !== undefined);
     }
 
-    if (metadata.length === 0) {
+    if (elements.length === 0) {
         // NOTE(randomuserhi): Empty HTML fragments need to contain atleast 1 node for positional referencing.
         //                     Create a blank node in the event of no children found.
         const marker = document.createComment(" << rhu-node >> ");
         fragment.append(marker);
-        metadata.push(marker);
+        elements.push(marker);
     }
 
-    // Setup metadata and accessors using said metadata format
-    (implementation as any).metadata = metadata;
+    // Setup element list and accessors
+    (implementation as any).elements = elements;
     (implementation as any).first = () => {
-        const node: HTML | Node = implementation.metadata[0];
+        const node: HTML | Node = implementation.elements[0];
         if (isHTML(node)) {
             return node.first();
         } else {
@@ -309,7 +309,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         }
     };
     (implementation as any).last = () => {
-        const node: HTML | Node = implementation.metadata[implementation.metadata.length - 1];
+        const node: HTML | Node = implementation.elements[implementation.elements.length - 1];
         if (isHTML(node)) {
             return node.first();
         } else {
@@ -317,7 +317,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         }
     };
     (implementation as any)[Symbol.iterator] = function* () {
-        for (const node of (implementation.metadata as (HTML | Node)[])) {
+        for (const node of (implementation.elements as (HTML | Node)[])) {
             if (isHTML(node)) {
                 yield* node;
             } else {
@@ -378,7 +378,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
             kvIter = value.entries();
         }
 
-        internal.metadata.length = 0;
+        internal.elements.length = 0;
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
             let prev: number | undefined = undefined;
@@ -449,7 +449,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                     _elements.set(key, old);
                 }
 
-                if (el !== undefined) internal.metadata.push(el);
+                if (el !== undefined) internal.elements.push(el);
             }
 
             // Append remaining elements in stack to the end of the map
@@ -480,7 +480,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
         _elements = elements;
         elements = temp;
 
-        internal.metadata.push(marker);
+        internal.elements.push(marker);
     };
 
     // Update map on signal change

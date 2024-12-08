@@ -135,7 +135,7 @@ export const html = ((first, ...interpolations) => {
         el.removeAttribute("m-id");
         html_addBind(instance, key, el);
     }
-    let metadata = [];
+    let elements = [];
     for (const node of fragment.childNodes) {
         let attr;
         if (isElement(node) && (attr = node.getAttribute("rhu-internal"))) {
@@ -143,11 +143,11 @@ export const html = ((first, ...interpolations) => {
             if (isNaN(i)) {
                 throw new Error("Could not obtain slot id.");
             }
-            node.setAttribute("rhu-metadata", metadata.length.toString());
-            metadata.push(undefined);
+            node.setAttribute("rhu-elements", elements.length.toString());
+            elements.push(undefined);
         }
         else {
-            metadata.push(node);
+            elements.push(node);
         }
     }
     let error = false;
@@ -161,7 +161,7 @@ export const html = ((first, ...interpolations) => {
             if (isNaN(i)) {
                 throw new Error("Could not find slot id.");
             }
-            let hole = slotElement.getAttribute("rhu-metadata");
+            let hole = slotElement.getAttribute("rhu-elements");
             if (hole === null) {
                 hole = undefined;
             }
@@ -183,12 +183,12 @@ export const html = ((first, ...interpolations) => {
                 }, { condition: () => ref.deref() !== undefined });
                 slotElement.replaceWith(node);
                 if (hole !== undefined)
-                    metadata[hole] = node;
+                    elements[hole] = node;
             }
             else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
                 if (hole !== undefined)
-                    metadata[hole] = slot;
+                    elements[hole] = slot;
             }
             else {
                 let descriptor = undefined;
@@ -219,7 +219,7 @@ export const html = ((first, ...interpolations) => {
                     slotImplementation.onChildren(slotElement.childNodes);
                 slotElement.replaceWith(...slotImplementation);
                 if (hole !== undefined)
-                    metadata[hole] = node;
+                    elements[hole] = node;
             }
         }
         catch (e) {
@@ -231,16 +231,16 @@ export const html = ((first, ...interpolations) => {
         }
     }
     if (error) {
-        metadata = metadata.filter(v => v !== undefined);
+        elements = elements.filter(v => v !== undefined);
     }
-    if (metadata.length === 0) {
+    if (elements.length === 0) {
         const marker = document.createComment(" << rhu-node >> ");
         fragment.append(marker);
-        metadata.push(marker);
+        elements.push(marker);
     }
-    implementation.metadata = metadata;
+    implementation.elements = elements;
     implementation.first = () => {
-        const node = implementation.metadata[0];
+        const node = implementation.elements[0];
         if (isHTML(node)) {
             return node.first();
         }
@@ -249,7 +249,7 @@ export const html = ((first, ...interpolations) => {
         }
     };
     implementation.last = () => {
-        const node = implementation.metadata[implementation.metadata.length - 1];
+        const node = implementation.elements[implementation.elements.length - 1];
         if (isHTML(node)) {
             return node.first();
         }
@@ -258,7 +258,7 @@ export const html = ((first, ...interpolations) => {
         }
     };
     implementation[Symbol.iterator] = function* () {
-        for (const node of implementation.metadata) {
+        for (const node of implementation.elements) {
             if (isHTML(node)) {
                 yield* node;
             }
@@ -309,7 +309,7 @@ html.map = ((signal, factory, transform) => {
         else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();
         }
-        internal.metadata.length = 0;
+        internal.elements.length = 0;
         if (kvIter != undefined) {
             let prev = undefined;
             for (const kv of kvIter) {
@@ -356,7 +356,7 @@ html.map = ((signal, factory, transform) => {
                     _elements.set(key, old);
                 }
                 if (el !== undefined)
-                    internal.metadata.push(el);
+                    internal.elements.push(el);
             }
             if (stack.length > 0 && parent !== null) {
                 for (const el of stack) {
@@ -382,7 +382,7 @@ html.map = ((signal, factory, transform) => {
         const temp = _elements;
         _elements = elements;
         elements = temp;
-        internal.metadata.push(marker);
+        internal.elements.push(marker);
     };
     signal.on(update);
     return dom;
