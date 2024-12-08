@@ -136,10 +136,14 @@ export const html = ((first, ...interpolations) => {
         html_addBind(instance, key, el);
     }
     let metadata = [];
-    const holes = [];
     for (const node of fragment.childNodes) {
-        if (isElement(node) && node.hasAttribute("rhu-internal")) {
-            holes.push(metadata.length);
+        let attr;
+        if (isElement(node) && (attr = node.getAttribute("rhu-internal"))) {
+            const i = parseInt(attr);
+            if (isNaN(i)) {
+                throw new Error("Could not obtain slot id.");
+            }
+            node.setAttribute("rhu-metadata", metadata.length.toString());
             metadata.push(undefined);
         }
         else {
@@ -157,8 +161,17 @@ export const html = ((first, ...interpolations) => {
             if (isNaN(i)) {
                 throw new Error("Could not find slot id.");
             }
+            let hole = slotElement.getAttribute("rhu-metadata");
+            if (hole === null) {
+                hole = undefined;
+            }
+            else {
+                hole = parseInt(hole);
+                if (isNaN(hole)) {
+                    hole = undefined;
+                }
+            }
             const slot = slots[i];
-            const hole = holes[i];
             if (isSignal(slot)) {
                 const node = document.createTextNode(`${slot()}`);
                 const ref = new WeakRef(node);
@@ -169,11 +182,13 @@ export const html = ((first, ...interpolations) => {
                     node.nodeValue = slot.string(value);
                 }, { condition: () => ref.deref() !== undefined });
                 slotElement.replaceWith(node);
-                metadata[hole] = node;
+                if (hole !== undefined)
+                    metadata[hole] = node;
             }
             else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
-                metadata[hole] = slot;
+                if (hole !== undefined)
+                    metadata[hole] = slot;
             }
             else {
                 let descriptor = undefined;
@@ -203,13 +218,15 @@ export const html = ((first, ...interpolations) => {
                 if (slotImplementation.onChildren !== undefined)
                     slotImplementation.onChildren(slotElement.childNodes);
                 slotElement.replaceWith(...slotImplementation);
-                metadata[hole] = node;
+                if (hole !== undefined)
+                    metadata[hole] = node;
             }
         }
         catch (e) {
+            if (slotElement.parentNode === fragment)
+                error = true;
             slotElement.replaceWith();
             console.error(e);
-            error = true;
             continue;
         }
     }

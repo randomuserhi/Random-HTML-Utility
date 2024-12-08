@@ -56,7 +56,7 @@ type RHU_CHILDREN = NodeListOf<ChildNode>;
 export const DOM = Symbol("html.dom"); 
 
 class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    public readonly metadata: any;
+    public readonly metadata: (HTML | Node)[];
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
 
@@ -192,10 +192,15 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
 
     // create metadata
     let metadata: (HTML | Node)[] = [];
-    const holes = [];
     for (const node of fragment.childNodes) {
-        if (isElement(node) && node.hasAttribute("rhu-internal")) {
-            holes.push(metadata.length);
+        let attr: string | null;
+        if (isElement(node) && (attr = node.getAttribute("rhu-internal"))) {
+            const i = parseInt(attr);
+            if (isNaN(i)) {
+                throw new Error("Could not obtain slot id.");
+            }
+
+            node.setAttribute("rhu-metadata", metadata.length.toString());
             metadata.push(undefined!);
         } else {
             metadata.push(node);
@@ -215,8 +220,17 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 throw new Error("Could not find slot id.");
             }
 
+            let hole: undefined | number | string | null = slotElement.getAttribute("rhu-metadata");
+            if (hole === null) {
+                hole = undefined;
+            } else {
+                hole = parseInt(hole);
+                if (isNaN(hole)) {
+                    hole = undefined;
+                }
+            }
+
             const slot = slots[i];
-            const hole = holes[i];
             if (isSignal(slot)) {
                 const node = document.createTextNode(`${slot()}`);
                 const ref = new WeakRef(node);
@@ -227,10 +241,10 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 }, { condition: () => ref.deref() !== undefined });
 
                 slotElement.replaceWith(node);
-                metadata[hole] = node;
+                if (hole !== undefined) metadata[hole] = node;
             } else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
-                metadata[hole] = slot;
+                if (hole !== undefined) metadata[hole] = slot;
             } else {
                 let descriptor: RHU_NODE | undefined = undefined;
                 let node: HTML;
@@ -262,12 +276,12 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
                 
                 slotElement.replaceWith(...slotImplementation);
-                metadata[hole] = node;
+                if (hole !== undefined) metadata[hole] = node;
             }
         } catch (e) {
+            if (slotElement.parentNode === fragment) error = true;
             slotElement.replaceWith();
             console.error(e);
-            error = true;
             continue;
         }
     }
