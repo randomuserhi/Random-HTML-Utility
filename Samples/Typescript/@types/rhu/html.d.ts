@@ -14,9 +14,9 @@ declare class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, 
     constructor(node: HTML<T>);
     static is: (object: any) => object is RHU_NODE;
 }
-declare class RHU_MAP<T = any, K = any, V = any> {
+declare class RHU_MAP<T = any, K = any, V = any, H extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     readonly signal: Signal<T>;
-    readonly factory: (kv: [k: K, v: V], el?: HTML<any>) => HTML<any> | undefined;
+    readonly factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined;
     readonly transform?: (item: T) => Iterable<[key: K, value: V]>;
     constructor(signal: Signal<T>, factory: RHU_MAP["factory"], transform?: RHU_MAP["transform"]);
     static is: (object: any) => object is RHU_MAP;
@@ -55,7 +55,8 @@ interface RHU_HTML {
     bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
     box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
-    map<T, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: RHU_MAP<T, K, V>["factory"], transform?: RHU_MAP<T, K, V>["transform"]): RHU_MAP<T, K, V>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: RHU_MAP<T, K, V, H>["factory"]): RHU_MAP<T, K, V, H>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: RHU_MAP<T, K, V, H>["factory"], transform: RHU_MAP<T, K, V, H>["transform"]): RHU_MAP<T, K, V, H>;
 }
 export declare const html: RHU_HTML;
 declare global {
