@@ -17,9 +17,11 @@ declare class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, 
 type RHU_CHILDREN = NodeListOf<ChildNode>;
 export declare const DOM: unique symbol;
 declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    readonly elements: Node[];
+    readonly metadata: any;
     readonly [Symbol.iterator]: () => IterableIterator<Node>;
     readonly [DOM]: HTML<T>;
+    readonly first: () => Node;
+    readonly last: () => Node;
     private binds;
     close: RHU_CLOSURE;
     private onChildren?;

@@ -55,6 +55,8 @@ class RHU_DOM {
 Symbol.iterator;
 RHU_DOM.is = Object.prototype.isPrototypeOf.bind(RHU_DOM.prototype);
 export const isHTML = (object) => {
+    if (object === undefined)
+        return false;
     return RHU_DOM.is(object[DOM]);
 };
 function stitch(interp, slots) {
@@ -133,6 +135,18 @@ export const html = ((first, ...interpolations) => {
         el.removeAttribute("m-id");
         html_addBind(instance, key, el);
     }
+    let metadata = [];
+    const holes = [];
+    for (const node of fragment.childNodes) {
+        if (isElement(node) && node.hasAttribute("rhu-internal")) {
+            holes.push(metadata.length);
+            metadata.push(undefined);
+        }
+        else {
+            metadata.push(node);
+        }
+    }
+    let error = false;
     for (const slotElement of fragment.querySelectorAll("rhu-slot[rhu-internal]")) {
         try {
             const attr = slotElement.getAttribute("rhu-internal");
@@ -144,6 +158,7 @@ export const html = ((first, ...interpolations) => {
                 throw new Error("Could not find slot id.");
             }
             const slot = slots[i];
+            const hole = holes[i];
             if (isSignal(slot)) {
                 const node = document.createTextNode(`${slot()}`);
                 const ref = new WeakRef(node);
@@ -154,9 +169,11 @@ export const html = ((first, ...interpolations) => {
                     node.nodeValue = slot.string(value);
                 }, { condition: () => ref.deref() !== undefined });
                 slotElement.replaceWith(node);
+                metadata[hole] = node;
             }
             else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
+                metadata[hole] = slot;
             }
             else {
                 let descriptor = undefined;
@@ -185,20 +202,54 @@ export const html = ((first, ...interpolations) => {
                 }
                 if (slotImplementation.onChildren !== undefined)
                     slotImplementation.onChildren(slotElement.childNodes);
-                slotElement.replaceWith(...slotImplementation.elements);
+                slotElement.replaceWith(...slotImplementation);
+                metadata[hole] = node;
             }
         }
         catch (e) {
             slotElement.replaceWith();
             console.error(e);
+            error = true;
             continue;
         }
     }
-    if (fragment.childNodes.length === 0) {
-        fragment.append(document.createComment(" << rhu-node >> "));
+    if (error) {
+        metadata = metadata.filter(v => v !== undefined);
     }
-    implementation.elements = [...fragment.childNodes];
-    implementation[Symbol.iterator] = Array.prototype[Symbol.iterator].bind(implementation.elements);
+    if (metadata.length === 0) {
+        const marker = document.createComment(" << rhu-node >> ");
+        fragment.append(marker);
+        metadata.push(marker);
+    }
+    implementation.metadata = metadata;
+    implementation.first = () => {
+        const node = implementation.metadata[0];
+        if (isHTML(node)) {
+            return node.first();
+        }
+        else {
+            return node;
+        }
+    };
+    implementation.last = () => {
+        const node = implementation.metadata[implementation.metadata.length - 1];
+        if (isHTML(node)) {
+            return node.first();
+        }
+        else {
+            return node;
+        }
+    };
+    implementation[Symbol.iterator] = function* () {
+        for (const node of implementation.metadata) {
+            if (isHTML(node)) {
+                yield* node;
+            }
+            else {
+                yield node;
+            }
+        }
+    };
     return instance;
 });
 html.close = () => RHU_CLOSURE.instance;
@@ -228,7 +279,7 @@ html.map = ((signal, factory, transform) => {
     const dom = html ``;
     dom.signal = signal;
     const internal = dom[DOM];
-    const marker = internal.elements[0];
+    const marker = internal.last();
     let elements = new Map();
     let _elements = new Map();
     const stack = [];
@@ -241,7 +292,7 @@ html.map = ((signal, factory, transform) => {
         else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();
         }
-        internal.elements.length = 0;
+        internal.metadata.length = 0;
         if (kvIter != undefined) {
             let prev = undefined;
             for (const kv of kvIter) {
@@ -261,7 +312,7 @@ html.map = ((signal, factory, transform) => {
                     if (oldEl !== undefined && parent !== null) {
                         for (const el of stack) {
                             for (const node of el) {
-                                parent.insertBefore(node, oldEl[DOM].elements[0]);
+                                parent.insertBefore(node, oldEl[DOM].first());
                             }
                         }
                         stack.length = 0;
@@ -288,7 +339,7 @@ html.map = ((signal, factory, transform) => {
                     _elements.set(key, old);
                 }
                 if (el !== undefined)
-                    internal.elements.push(...el);
+                    internal.metadata.push(el);
             }
             if (stack.length > 0 && parent !== null) {
                 for (const el of stack) {
@@ -314,7 +365,7 @@ html.map = ((signal, factory, transform) => {
         const temp = _elements;
         _elements = elements;
         elements = temp;
-        internal.elements.push(marker);
+        internal.metadata.push(marker);
     };
     signal.on(update);
     return dom;

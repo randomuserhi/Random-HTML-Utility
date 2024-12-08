@@ -56,9 +56,12 @@ type RHU_CHILDREN = NodeListOf<ChildNode>;
 export const DOM = Symbol("html.dom"); 
 
 class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    public readonly elements: Node[];
+    public readonly metadata: any;
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
+
+    public readonly first: () => Node;
+    public readonly last: () => Node;
 
     private binds: PropertyKey[] = [];
     public close: RHU_CLOSURE = RHU_CLOSURE.instance;
@@ -82,6 +85,7 @@ type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (.
 type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
 export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
 export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is HTML<T> => {
+    if (object === undefined) return false;
     return RHU_DOM.is(object[DOM]);
 };
 
@@ -186,7 +190,20 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         html_addBind(instance, key, el);
     }
 
+    // create metadata
+    let metadata: (HTML | Node)[] = [];
+    const holes = [];
+    for (const node of fragment.childNodes) {
+        if (isElement(node) && node.hasAttribute("rhu-internal")) {
+            holes.push(metadata.length);
+            metadata.push(undefined!);
+        } else {
+            metadata.push(node);
+        }
+    }
+    
     // parse slots
+    let error = false;
     for (const slotElement of fragment.querySelectorAll("rhu-slot[rhu-internal]")) {
         try {
             const attr = slotElement.getAttribute("rhu-internal");
@@ -199,6 +216,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
             }
 
             const slot = slots[i];
+            const hole = holes[i];
             if (isSignal(slot)) {
                 const node = document.createTextNode(`${slot()}`);
                 const ref = new WeakRef(node);
@@ -207,9 +225,12 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                     if (node === undefined) return;
                     node.nodeValue = slot.string(value);
                 }, { condition: () => ref.deref() !== undefined });
+
                 slotElement.replaceWith(node);
+                metadata[hole] = node;
             } else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
+                metadata[hole] = slot;
             } else {
                 let descriptor: RHU_NODE | undefined = undefined;
                 let node: HTML;
@@ -239,22 +260,57 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 }
 
                 if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
-                slotElement.replaceWith(...slotImplementation.elements);
+                
+                slotElement.replaceWith(...slotImplementation);
+                metadata[hole] = node;
             }
         } catch (e) {
             slotElement.replaceWith();
             console.error(e);
+            error = true;
             continue;
         }
     }
 
-    if (fragment.childNodes.length === 0) {
+    if (error) {
+        metadata = metadata.filter(v => v !== undefined);
+    }
+
+    if (metadata.length === 0) {
         // NOTE(randomuserhi): Empty HTML fragments need to contain atleast 1 node for positional referencing.
         //                     Create a blank node in the event of no children found.
-        fragment.append(document.createComment(" << rhu-node >> "));
+        const marker = document.createComment(" << rhu-node >> ");
+        fragment.append(marker);
+        metadata.push(marker);
     }
-    (implementation as any).elements = [...fragment.childNodes];
-    (implementation as any)[Symbol.iterator] = Array.prototype[Symbol.iterator].bind((implementation as any).elements);
+
+    // Setup metadata and accessors using said metadata format
+    (implementation as any).metadata = metadata;
+    (implementation as any).first = () => {
+        const node: HTML | Node = implementation.metadata[0];
+        if (isHTML(node)) {
+            return node.first();
+        } else {
+            return node;
+        }
+    };
+    (implementation as any).last = () => {
+        const node: HTML | Node = implementation.metadata[implementation.metadata.length - 1];
+        if (isHTML(node)) {
+            return node.first();
+        } else {
+            return node;
+        }
+    };
+    (implementation as any)[Symbol.iterator] = function* () {
+        for (const node of (implementation.metadata as (HTML | Node)[])) {
+            if (isHTML(node)) {
+                yield* node;
+            } else {
+                yield node;
+            }
+        }
+    };
 
     return instance as HTML<T>;
 }) as RHU_HTML;
@@ -286,8 +342,8 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
     dom.signal = signal;
     const internal = dom[DOM];
 
-    // Marker used to indicate the foot of the map. This indicates the position of where nodes should be inserted to.
-    const marker = internal.elements[0];
+    // Grab marker used to indicate the foot of the map. This indicates the position of where nodes should be inserted to.
+    const marker = internal.last();
 
     // Keep track of existing DOM elements and their positions (as to not duplicate nodes or unnecessarily move them)
     let elements = new Map<any, [el: HTML | undefined, pos: number]>();
@@ -308,7 +364,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
             kvIter = value.entries();
         }
 
-        internal.elements.length = 0;
+        internal.metadata.length = 0;
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
             let prev: number | undefined = undefined;
@@ -347,7 +403,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                     if (oldEl !== undefined && parent !== null) {
                         for (const el of stack) {
                             for (const node of el) {
-                                parent.insertBefore(node, oldEl[DOM].elements[0]);
+                                parent.insertBefore(node, oldEl[DOM].first());
                             }
                         }
                         stack.length = 0;
@@ -379,7 +435,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                     _elements.set(key, old);
                 }
 
-                if (el !== undefined) internal.elements.push(...el);
+                if (el !== undefined) internal.metadata.push(el);
             }
 
             // Append remaining elements in stack to the end of the map
@@ -410,7 +466,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
         _elements = elements;
         elements = temp;
 
-        internal.elements.push(marker);
+        internal.metadata.push(marker);
     };
 
     // Update map on signal change
