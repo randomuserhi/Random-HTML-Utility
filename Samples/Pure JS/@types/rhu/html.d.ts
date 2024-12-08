@@ -1,4 +1,4 @@
-import { SignalEvent } from "./signal.js";
+import { Signal, SignalEvent } from "./signal.js";
 declare class RHU_CLOSURE {
     static instance: RHU_CLOSURE;
     static is: (object: any) => object is RHU_CLOSURE;
@@ -13,6 +13,13 @@ declare class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, 
     box(boxed?: boolean): this;
     constructor(node: HTML<T>);
     static is: (object: any) => object is RHU_NODE;
+}
+declare class RHU_MAP<T = any> {
+    readonly signal: Signal<T>;
+    readonly factory: (kv: [k: any, v: any], el?: HTML<any>) => HTML<any> | undefined;
+    readonly transform?: (item: T) => Iterable<[key: any, value: any]>;
+    constructor(signal: Signal<T>, factory: RHU_MAP["factory"], transform?: RHU_MAP["transform"]);
+    static is: (object: any) => object is RHU_MAP;
 }
 type RHU_CHILDREN = NodeListOf<ChildNode>;
 export declare const DOM: unique symbol;
@@ -48,6 +55,7 @@ interface RHU_HTML {
     bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
     box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
+    map<T>(signal: Signal<T>, factory: RHU_MAP<T>["factory"], transform?: RHU_MAP<T>["transform"]): RHU_MAP<T>;
 }
 export declare const html: RHU_HTML;
 declare global {
