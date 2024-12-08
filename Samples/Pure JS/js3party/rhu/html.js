@@ -25,14 +25,6 @@ class RHU_NODE {
     }
 }
 RHU_NODE.is = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
-class RHU_MAP {
-    constructor(signal, factory, transform) {
-        this.signal = signal;
-        this.factory = factory;
-        this.transform = transform;
-    }
-}
-RHU_MAP.is = Object.prototype.isPrototypeOf.bind(RHU_MAP.prototype);
 const RHU_HTML_PROTOTYPE = {};
 Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.iterator, {
     get() {
@@ -69,7 +61,7 @@ function stitch(interp, slots) {
     if (interp === undefined)
         return undefined;
     const index = slots.length;
-    if (isNode(interp) || isHTML(interp) || isSignal(interp) || RHU_MAP.is(interp)) {
+    if (isNode(interp) || isHTML(interp) || isSignal(interp)) {
         slots.push(interp);
         return `<rhu-slot rhu-internal="${index}"></rhu-slot>`;
     }
@@ -166,99 +158,6 @@ export const html = ((first, ...interpolations) => {
             else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
             }
-            else if (RHU_MAP.is(slot)) {
-                const signal = slot.signal;
-                const transform = slot.transform;
-                const factory = slot.factory;
-                const marker = document.createComment(" << rhu-map footer >> ");
-                let elements = new Map();
-                let _elements = new Map();
-                const stack = [];
-                const parent = slotElement.parentNode;
-                if (parent == null) {
-                    throw new Error("Could not find parent node of 'html.map'.");
-                }
-                slotElement.replaceWith(marker);
-                signal.on((value) => {
-                    let kvIter = undefined;
-                    if (transform !== undefined) {
-                        kvIter = transform(value);
-                    }
-                    else if (isMap(value) || isArray(value)) {
-                        kvIter = value.entries();
-                    }
-                    if (kvIter != undefined) {
-                        let prev = undefined;
-                        for (const kv of kvIter) {
-                            const key = kv[0];
-                            if (_elements.has(key)) {
-                                console.warn("'html.map' does not support non-unique keys.");
-                                continue;
-                            }
-                            const pos = _elements.size;
-                            const old = elements.get(key);
-                            const oldEl = old === undefined ? undefined : old[0];
-                            const el = factory(kv, oldEl);
-                            const inOrder = old === undefined || prev === undefined || old[1] > prev;
-                            const outOfOrder = !inOrder;
-                            if (old !== undefined && inOrder) {
-                                prev = old[1];
-                                if (oldEl !== undefined) {
-                                    for (const el of stack) {
-                                        for (const node of el) {
-                                            parent.insertBefore(node, oldEl[DOM].elements[0]);
-                                        }
-                                    }
-                                    stack.length = 0;
-                                }
-                            }
-                            if (el !== oldEl || outOfOrder) {
-                                if (oldEl !== undefined) {
-                                    for (const node of oldEl) {
-                                        if (node.parentNode !== null) {
-                                            node.parentNode.removeChild(node);
-                                        }
-                                    }
-                                }
-                                if (el !== undefined) {
-                                    stack.push(el);
-                                }
-                            }
-                            if (old === undefined) {
-                                _elements.set(key, [el, pos]);
-                            }
-                            else {
-                                old[0] = el;
-                                old[1] = pos;
-                                _elements.set(key, old);
-                            }
-                        }
-                        if (stack.length > 0) {
-                            for (const el of stack) {
-                                for (const node of el) {
-                                    parent.insertBefore(node, marker);
-                                }
-                            }
-                        }
-                        stack.length = 0;
-                    }
-                    for (const [key, [el]] of elements) {
-                        if (_elements.has(key))
-                            continue;
-                        if (el === undefined)
-                            continue;
-                        for (const node of el) {
-                            if (node.parentNode !== null) {
-                                node.parentNode.removeChild(node);
-                            }
-                        }
-                    }
-                    elements.clear();
-                    const temp = _elements;
-                    _elements = elements;
-                    elements = temp;
-                });
-            }
             else {
                 let descriptor = undefined;
                 let node;
@@ -296,7 +195,7 @@ export const html = ((first, ...interpolations) => {
         }
     }
     if (fragment.childNodes.length === 0) {
-        fragment.append(document.createComment(" << rhu-node blank >> "));
+        fragment.append(document.createComment(" << rhu-node >> "));
     }
     implementation.elements = [...fragment.childNodes];
     implementation[Symbol.iterator] = Array.prototype[Symbol.iterator].bind(implementation.elements);
@@ -325,9 +224,101 @@ html.box = (el, boxed) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.map = (signal, factory, transform) => {
-    return new RHU_MAP(signal, factory, transform);
-};
+html.map = ((signal, factory, transform) => {
+    const dom = html ``;
+    dom.signal = signal;
+    const internal = dom[DOM];
+    const marker = internal.elements[0];
+    let elements = new Map();
+    let _elements = new Map();
+    const stack = [];
+    const update = (value) => {
+        const parent = marker.parentNode;
+        let kvIter = undefined;
+        if (transform !== undefined) {
+            kvIter = transform(value);
+        }
+        else if (isMap(value) || isArray(value)) {
+            kvIter = value.entries();
+        }
+        internal.elements.length = 0;
+        if (kvIter != undefined) {
+            let prev = undefined;
+            for (const kv of kvIter) {
+                const key = kv[0];
+                if (_elements.has(key)) {
+                    console.warn("'html.map' does not support non-unique keys.");
+                    continue;
+                }
+                const pos = _elements.size;
+                const old = elements.get(key);
+                const oldEl = old === undefined ? undefined : old[0];
+                const el = factory(kv, oldEl);
+                const inOrder = old === undefined || prev === undefined || old[1] > prev;
+                const outOfOrder = !inOrder;
+                if (old !== undefined && inOrder) {
+                    prev = old[1];
+                    if (oldEl !== undefined && parent !== null) {
+                        for (const el of stack) {
+                            for (const node of el) {
+                                parent.insertBefore(node, oldEl[DOM].elements[0]);
+                            }
+                        }
+                        stack.length = 0;
+                    }
+                }
+                if (el !== oldEl || outOfOrder) {
+                    if (oldEl !== undefined) {
+                        for (const node of oldEl) {
+                            if (node.parentNode !== null) {
+                                node.parentNode.removeChild(node);
+                            }
+                        }
+                    }
+                    if (el !== undefined) {
+                        stack.push(el);
+                    }
+                }
+                if (old === undefined) {
+                    _elements.set(key, [el, pos]);
+                }
+                else {
+                    old[0] = el;
+                    old[1] = pos;
+                    _elements.set(key, old);
+                }
+                if (el !== undefined)
+                    internal.elements.push(...el);
+            }
+            if (stack.length > 0 && parent !== null) {
+                for (const el of stack) {
+                    for (const node of el) {
+                        parent.insertBefore(node, marker);
+                    }
+                }
+            }
+            stack.length = 0;
+        }
+        for (const [key, [el]] of elements) {
+            if (_elements.has(key))
+                continue;
+            if (el === undefined)
+                continue;
+            for (const node of el) {
+                if (node.parentNode !== null) {
+                    node.parentNode.removeChild(node);
+                }
+            }
+        }
+        elements.clear();
+        const temp = _elements;
+        _elements = elements;
+        elements = temp;
+        internal.elements.push(marker);
+    };
+    signal.on(update);
+    return dom;
+});
 const isElement = Object.prototype.isPrototypeOf.bind(Element.prototype);
 const recursiveDispatch = function (node, event) {
     if (isElement(node))

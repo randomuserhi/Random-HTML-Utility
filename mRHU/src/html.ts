@@ -39,20 +39,6 @@ class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     static is: (object: any) => object is RHU_NODE = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
 }
 
-class RHU_MAP<T = any, K = any, V = any, H extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    public readonly signal: Signal<T>;
-    public readonly factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined;
-    public readonly transform?: (item: T) => Iterable<[key: K, value: V]>;
-
-    constructor(signal: Signal<T>, factory: RHU_MAP["factory"], transform?: RHU_MAP["transform"]) {
-        this.signal = signal;
-        this.factory = factory;
-        this.transform = transform;
-    }
-
-    static is: (object: any) => object is RHU_MAP = Object.prototype.isPrototypeOf.bind(RHU_MAP.prototype);
-}
-
 const RHU_HTML_PROTOTYPE = {};
 Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.iterator, {
     get() {
@@ -101,7 +87,7 @@ export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, 
 
 type First = TemplateStringsArray;
 type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | SignalEvent<any>;
-type Slot = Node | HTML | RHU_NODE | SignalEvent<any> | RHU_MAP
+type Slot = Node | HTML | RHU_NODE | SignalEvent<any>
 type Interp = Single | (Single[]);
 
 interface RHU_HTML {
@@ -114,15 +100,15 @@ interface RHU_HTML {
     bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
     box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: RHU_MAP<T, K, V, H>["factory"]): RHU_MAP<T, K, V, H>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: RHU_MAP<T, K, V, H>["factory"], transform: RHU_MAP<T, K, V, H>["transform"]): RHU_MAP<T, K, V, H>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{ readonly signal: Signal<T> }>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, transform: (item: T) => Iterable<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
     if (interp === undefined) return undefined;
     
     const index = slots.length;
-    if (isNode(interp) || isHTML(interp) || isSignal(interp) || RHU_MAP.is(interp)) {
+    if (isNode(interp) || isHTML(interp) || isSignal(interp)) {
         slots.push(interp);
         return `<rhu-slot rhu-internal="${index}"></rhu-slot>`;
     } else if (RHU_NODE.is(interp)) {
@@ -224,144 +210,6 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 slotElement.replaceWith(node);
             } else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
-            } else if (RHU_MAP.is(slot)) {
-                const signal = slot.signal;
-                const transform = slot.transform;
-                const factory = slot.factory;
-
-                // Map implementation
-
-                // Marker used to indicate the foot of the map. This indicates the position of where nodes should be inserted to.
-                const marker = document.createComment(" << rhu-map footer >> ");
-
-                // Keep track of existing DOM elements and their positions (as to not duplicate nodes or unnecessarily move them)
-                let elements = new Map<any, [el: HTML | undefined, pos: number]>();
-                let _elements = new Map<any, [el: HTML | undefined, pos: number]>();
-                
-                // Stores elements that should exist prior a previously existing one 
-                // (Used when updating the map).
-                const stack: HTML[] = [];
-
-                // Parent of map
-                const parent: Node | null = slotElement.parentNode;
-                if (parent == null) {
-                    throw new Error("Could not find parent node of 'html.map'.");
-                }
-
-                // Place marker into DOM
-                slotElement.replaceWith(marker);
-
-                // Update map on signal change
-                signal.on((value) => {
-
-                    // Obtain iterable
-                    let kvIter: Iterable<[key: any, value: any]> | undefined = undefined;
-                    if (transform !== undefined) {
-                        kvIter = transform(value);
-                    } else if (isMap(value) || isArray(value)) {
-                        kvIter = value.entries();
-                    }
-
-                    if (kvIter != undefined) {
-                        // Store the old position of the previous existing element
-                        let prev: number | undefined = undefined;
-
-                        for (const kv of kvIter) {
-                            const key = kv[0];
-
-                            if (_elements.has(key)) {
-                                console.warn("'html.map' does not support non-unique keys.");
-                                continue;
-                            }
-
-                            const pos = _elements.size; // Position of current element
-
-                            // Get previous state if the element existed previously
-                            const old = elements.get(key);
-                            const oldEl = old === undefined ? undefined : old[0];
-
-                            // Generate new state
-                            const el = factory(kv, oldEl);
-
-                            // If the element previously existed, and its old position is less than
-                            // the last seen existing element, then it must be out of order since
-                            // it now needs to exist after the last seen existing element.
-                            //
-                            // NOTE(randomuserhi): The below code is simply the inverse of the above statement
-                            //                     for if the element is in order.
-                            const inOrder = old === undefined || prev === undefined || old[1] > prev;
-                            const outOfOrder = !inOrder;
-
-                            // If the element last existed and is in order, append
-                            // elements from the stack and update `prev`.
-                            if (old !== undefined && inOrder) {
-                                prev = old[1];
-                                
-                                if (oldEl !== undefined) {
-                                    for (const el of stack) {
-                                        for (const node of el) {
-                                            parent.insertBefore(node, oldEl[DOM].elements[0]);
-                                        }
-                                    }
-                                    stack.length = 0;
-                                }
-                            }
-
-                            // If the element is out of order / is different to the existing 
-                            // one, remove it and append to stack
-                            if (el !== oldEl || outOfOrder) {
-                                if (oldEl !== undefined) {
-                                    for (const node of oldEl) {
-                                        if (node.parentNode !== null) {
-                                            node.parentNode.removeChild(node);
-                                        }
-                                    }
-                                }
-
-                                if (el !== undefined) {
-                                    stack.push(el);
-                                }
-                            }
-
-                            // Update element map
-                            if (old === undefined) {
-                                _elements.set(key, [el, pos]);
-                            } else {
-                                old[0] = el;
-                                old[1] = pos;
-                                _elements.set(key, old);
-                            }
-                        }
-
-                        // Append remaining elements in stack to the end of the map
-                        if (stack.length > 0) {
-                            for (const el of stack) {
-                                for (const node of el) {
-                                    parent.insertBefore(node, marker);
-                                }
-                            }
-                        }
-                        stack.length = 0;
-                    }
-
-                    // Remove elements that no longer exist
-                    for (const [key, [el]] of elements) {
-                        if (_elements.has(key)) continue;
-                        if (el === undefined) continue;
-
-                        for (const node of el) {
-                            if (node.parentNode !== null) {
-                                node.parentNode.removeChild(node);
-                            }
-                        }
-                    }
-                    elements.clear();
-
-                    const temp = _elements; 
-                    _elements = elements;
-                    elements = temp;
-                });
-
             } else {
                 let descriptor: RHU_NODE | undefined = undefined;
                 let node: HTML;
@@ -403,7 +251,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     if (fragment.childNodes.length === 0) {
         // NOTE(randomuserhi): Empty HTML fragments need to contain atleast 1 node for positional referencing.
         //                     Create a blank node in the event of no children found.
-        fragment.append(document.createComment(" << rhu-node blank >> "));
+        fragment.append(document.createComment(" << rhu-node >> "));
     }
     (implementation as any).elements = [...fragment.childNodes];
     (implementation as any)[Symbol.iterator] = Array.prototype[Symbol.iterator].bind((implementation as any).elements);
@@ -433,8 +281,142 @@ html.box = (el, boxed?: boolean) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.map = ((signal: any, factory: any, transform: any) => {
-    return new RHU_MAP(signal, factory, transform);
+html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, transform: (item: any) => Iterable<[key: any, value: any]>) => {
+    const dom = html<{ signal: Signal<any> }>``;
+    dom.signal = signal;
+    const internal = dom[DOM];
+
+    // Marker used to indicate the foot of the map. This indicates the position of where nodes should be inserted to.
+    const marker = internal.elements[0];
+
+    // Keep track of existing DOM elements and their positions (as to not duplicate nodes or unnecessarily move them)
+    let elements = new Map<any, [el: HTML | undefined, pos: number]>();
+    let _elements = new Map<any, [el: HTML | undefined, pos: number]>();
+    
+    // Stores elements that should exist prior a previously existing one 
+    // (Used when updating the map).
+    const stack: HTML[] = [];
+
+    const update = (value: any) => {
+        const parent = marker.parentNode;
+
+        // Obtain iterable
+        let kvIter: Iterable<[key: any, value: any]> | undefined = undefined;
+        if (transform !== undefined) {
+            kvIter = transform(value);
+        } else if (isMap(value) || isArray(value)) {
+            kvIter = value.entries();
+        }
+
+        internal.elements.length = 0;
+        if (kvIter != undefined) {
+            // Store the old position of the previous existing element
+            let prev: number | undefined = undefined;
+
+            for (const kv of kvIter) {
+                const key = kv[0];
+
+                if (_elements.has(key)) {
+                    console.warn("'html.map' does not support non-unique keys.");
+                    continue;
+                }
+
+                const pos = _elements.size; // Position of current element
+
+                // Get previous state if the element existed previously
+                const old = elements.get(key);
+                const oldEl = old === undefined ? undefined : old[0];
+
+                // Generate new state
+                const el = factory(kv, oldEl);
+
+                // If the element previously existed, and its old position is less than
+                // the last seen existing element, then it must be out of order since
+                // it now needs to exist after the last seen existing element.
+                //
+                // NOTE(randomuserhi): The below code is simply the inverse of the above statement
+                //                     for if the element is in order.
+                const inOrder = old === undefined || prev === undefined || old[1] > prev;
+                const outOfOrder = !inOrder;
+
+                // If the element last existed and is in order, append
+                // elements from the stack and update `prev`.
+                if (old !== undefined && inOrder) {
+                    prev = old[1];
+                    
+                    if (oldEl !== undefined && parent !== null) {
+                        for (const el of stack) {
+                            for (const node of el) {
+                                parent.insertBefore(node, oldEl[DOM].elements[0]);
+                            }
+                        }
+                        stack.length = 0;
+                    }
+                }
+
+                // If the element is out of order / is different to the existing 
+                // one, remove it and append to stack
+                if (el !== oldEl || outOfOrder) {
+                    if (oldEl !== undefined) {
+                        for (const node of oldEl) {
+                            if (node.parentNode !== null) {
+                                node.parentNode.removeChild(node);
+                            }
+                        }
+                    }
+
+                    if (el !== undefined) {
+                        stack.push(el);
+                    }
+                }
+
+                // Update element map
+                if (old === undefined) {
+                    _elements.set(key, [el, pos]);
+                } else {
+                    old[0] = el;
+                    old[1] = pos;
+                    _elements.set(key, old);
+                }
+
+                if (el !== undefined) internal.elements.push(...el);
+            }
+
+            // Append remaining elements in stack to the end of the map
+            if (stack.length > 0 && parent !== null) {
+                for (const el of stack) {
+                    for (const node of el) {
+                        parent.insertBefore(node, marker);
+                    }
+                }
+            }
+            stack.length = 0;
+        }
+
+        // Remove elements that no longer exist
+        for (const [key, [el]] of elements) {
+            if (_elements.has(key)) continue;
+            if (el === undefined) continue;
+
+            for (const node of el) {
+                if (node.parentNode !== null) {
+                    node.parentNode.removeChild(node);
+                }
+            }
+        }
+        elements.clear();
+
+        const temp = _elements; 
+        _elements = elements;
+        elements = temp;
+
+        internal.elements.push(marker);
+    };
+
+    // Update map on signal change
+    signal.on(update);
+
+    return dom;
 }) as any;
 
 // Custom event and observer to add some nice events
