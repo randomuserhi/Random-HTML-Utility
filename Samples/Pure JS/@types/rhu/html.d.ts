@@ -3,6 +3,11 @@ declare class RHU_CLOSURE {
     static instance: RHU_CLOSURE;
     static is: (object: any) => object is RHU_CLOSURE;
 }
+declare class RHU_MARKER {
+    private name?;
+    bind(name?: PropertyKey): this;
+    static is: (object: any) => object is RHU_MARKER;
+}
 declare class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     readonly node: HTML<T>;
     private name?;
@@ -38,7 +43,7 @@ type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & {
 export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
 export declare const isHTML: <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any) => object is HTML<T>;
 type First = TemplateStringsArray;
-type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | SignalEvent<any>;
+type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | RHU_MARKER | SignalEvent<any>;
 type Interp = Single | (Single[]);
 interface RHU_HTML {
     <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>;
@@ -56,6 +61,7 @@ interface RHU_HTML {
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{
         readonly signal: Signal<T>;
     }>;
+    marker(name?: PropertyKey): RHU_MARKER;
 }
 export declare const html: RHU_HTML;
 declare global {

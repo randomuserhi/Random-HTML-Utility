@@ -10,6 +10,16 @@ class RHU_CLOSURE {
     static is: (object: any) => object is RHU_CLOSURE = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
 }
 
+class RHU_MARKER {
+    private name?: PropertyKey;
+    public bind(name?: PropertyKey) {
+        this.name = name;
+        return this;
+    }
+
+    static is: (object: any) => object is RHU_MARKER = Object.prototype.isPrototypeOf.bind(RHU_MARKER.prototype);
+}
+
 class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     public readonly node: HTML<T>;
 
@@ -56,6 +66,10 @@ type RHU_CHILDREN = NodeListOf<ChildNode>;
 export const DOM = Symbol("html.dom"); 
 
 class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
+    // NOTE(randomuserhi): This is an immutable list that represents the root elements
+    //                     that make up the component. Removing these root elements from DOM
+    //                     and not from this list prevents garbage collection if a reference
+    //                     is held to this list.
     public readonly elements: (HTML | Node)[];
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
@@ -90,8 +104,8 @@ export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, 
 };
 
 type First = TemplateStringsArray;
-type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | SignalEvent<any>;
-type Slot = Node | HTML | RHU_NODE | SignalEvent<any>
+type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | RHU_MARKER | SignalEvent<any>;
+type Slot = Node | HTML | RHU_NODE | SignalEvent<any> | RHU_MARKER
 type Interp = Single | (Single[]);
 
 interface RHU_HTML {
@@ -106,13 +120,14 @@ interface RHU_HTML {
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{ readonly signal: Signal<T> }>;
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
+    marker(name?: PropertyKey): RHU_MARKER;
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
     if (interp === undefined) return undefined;
     
     const index = slots.length;
-    if (isNode(interp) || isHTML(interp) || isSignal(interp)) {
+    if (isNode(interp) || isHTML(interp) || isSignal(interp) || RHU_MARKER.is(interp)) {
         slots.push(interp);
         return `<rhu-slot rhu-internal="${index}"></rhu-slot>`;
     } else if (RHU_NODE.is(interp)) {
@@ -245,6 +260,16 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
             } else if (isNode(slot)) {
                 slotElement.replaceWith(slot);
                 if (hole !== undefined) elements[hole] = slot;
+            } else if (RHU_MARKER.is(slot)) {
+                const node = document.createComment(" << rhu-marker >> ");
+
+                const key: RHU_MARKER["name"] = (slot as any).name;
+                if (key !== undefined) {
+                    html_addBind(instance, key, node);
+                }
+
+                slotElement.replaceWith(node);
+                if (hole !== undefined) elements[hole] = node;
             } else {
                 let descriptor: RHU_NODE | undefined = undefined;
                 let node: HTML;
@@ -292,7 +317,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
 
     if (elements.length === 0) {
         // NOTE(randomuserhi): Empty HTML fragments need to contain atleast 1 node for positional referencing.
-        //                     Create a blank node in the event of no children found.
+        //                     Create a blank node in the event of no children found to use as an anchor.
         const marker = document.createComment(" << rhu-node >> ");
         fragment.append(marker);
         elements.push(marker);
@@ -352,22 +377,34 @@ html.box = (el, boxed?: boolean) => {
     return new RHU_NODE(el).box(boxed);
 };
 html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
-    const dom = html<{ signal: Signal<any> }>``;
+    const dom = html<{ signal: Signal<any>, foot: Node }>`${html.marker("foot")}`;
     dom.signal = signal;
-    const internal = dom[DOM];
 
     // Grab marker used to indicate the foot of the map. This indicates the position of where nodes should be inserted to.
-    const marker = internal.last();
+    const _marker = dom.foot;
+
+    // Tie relevant data to the marker, this way the marker controls garbage collection and all references pass through it.
+    // This allows the map to be properly garbage collected as it prevents circular references from the symbol.
+    (_marker as any)[DOM] = { 
+        elements: dom[DOM].elements
+    };
+
+    // Use a weak ref for garbage collection.
+    const markerRef = new WeakRef(_marker);
 
     // Keep track of existing DOM elements and their positions (as to not duplicate nodes or unnecessarily move them)
-    let elements = new Map<any, [el: HTML | undefined, pos: number]>();
-    let _elements = new Map<any, [el: HTML | undefined, pos: number]>();
+    let existingEls = new Map<any, [el: HTML | undefined, pos: number]>();
+    let _existingEls = new Map<any, [el: HTML | undefined, pos: number]>();
     
     // Stores elements that should exist prior a previously existing one 
     // (Used when updating the map).
     const stack: HTML[] = [];
 
     const update = (value: any) => {
+        const marker = markerRef.deref();
+        if (marker === undefined) return;
+
+        const elements = (marker as any)[DOM].elements;
         const parent = marker.parentNode;
 
         // Obtain iterable
@@ -378,7 +415,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
             kvIter = value.entries();
         }
 
-        internal.elements.length = 0;
+        elements.length = 0;
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
             let prev: number | undefined = undefined;
@@ -386,15 +423,15 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
             for (const kv of kvIter) {
                 const key = kv[0];
 
-                if (_elements.has(key)) {
+                if (_existingEls.has(key)) {
                     console.warn("'html.map' does not support non-unique keys.");
                     continue;
                 }
 
-                const pos = _elements.size; // Position of current element
+                const pos = _existingEls.size; // Position of current element
 
                 // Get previous state if the element existed previously
-                const old = elements.get(key);
+                const old = existingEls.get(key);
                 const oldEl = old === undefined ? undefined : old[0];
 
                 // Generate new state
@@ -442,14 +479,14 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
 
                 // Update element map
                 if (old === undefined) {
-                    _elements.set(key, [el, pos]);
+                    _existingEls.set(key, [el, pos]);
                 } else {
                     old[0] = el;
                     old[1] = pos;
-                    _elements.set(key, old);
+                    _existingEls.set(key, old);
                 }
 
-                if (el !== undefined) internal.elements.push(el);
+                if (el !== undefined) elements.push(el);
             }
 
             // Append remaining elements in stack to the end of the map
@@ -464,8 +501,8 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
         }
 
         // Remove elements that no longer exist
-        for (const [key, [el]] of elements) {
-            if (_elements.has(key)) continue;
+        for (const [key, [el]] of existingEls) {
+            if (_existingEls.has(key)) continue;
             if (el === undefined) continue;
 
             for (const node of el) {
@@ -474,20 +511,23 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                 }
             }
         }
-        elements.clear();
+        existingEls.clear();
 
-        const temp = _elements; 
-        _elements = elements;
-        elements = temp;
+        const temp = _existingEls; 
+        _existingEls = existingEls;
+        existingEls = temp;
 
-        internal.elements.push(marker);
+        elements.push(marker);
     };
 
     // Update map on signal change
-    signal.on(update);
+    signal.on(update, { condition: () => markerRef.deref() !== undefined });
 
     return dom;
 }) as any;
+html.marker = (name) => {
+    return new RHU_MARKER().bind(name);
+};
 
 // Custom event and observer to add some nice events
 declare global {

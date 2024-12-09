@@ -6,6 +6,13 @@ class RHU_CLOSURE {
 }
 RHU_CLOSURE.instance = new RHU_CLOSURE();
 RHU_CLOSURE.is = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
+class RHU_MARKER {
+    bind(name) {
+        this.name = name;
+        return this;
+    }
+}
+RHU_MARKER.is = Object.prototype.isPrototypeOf.bind(RHU_MARKER.prototype);
 class RHU_NODE {
     bind(name) {
         this.name = name;
@@ -63,7 +70,7 @@ function stitch(interp, slots) {
     if (interp === undefined)
         return undefined;
     const index = slots.length;
-    if (isNode(interp) || isHTML(interp) || isSignal(interp)) {
+    if (isNode(interp) || isHTML(interp) || isSignal(interp) || RHU_MARKER.is(interp)) {
         slots.push(interp);
         return `<rhu-slot rhu-internal="${index}"></rhu-slot>`;
     }
@@ -190,6 +197,16 @@ export const html = ((first, ...interpolations) => {
                 if (hole !== undefined)
                     elements[hole] = slot;
             }
+            else if (RHU_MARKER.is(slot)) {
+                const node = document.createComment(" << rhu-marker >> ");
+                const key = slot.name;
+                if (key !== undefined) {
+                    html_addBind(instance, key, node);
+                }
+                slotElement.replaceWith(node);
+                if (hole !== undefined)
+                    elements[hole] = node;
+            }
             else {
                 let descriptor = undefined;
                 let node;
@@ -293,14 +310,21 @@ html.box = (el, boxed) => {
     return new RHU_NODE(el).box(boxed);
 };
 html.map = ((signal, factory, iterator) => {
-    const dom = html ``;
+    const dom = html `${html.marker("foot")}`;
     dom.signal = signal;
-    const internal = dom[DOM];
-    const marker = internal.last();
-    let elements = new Map();
-    let _elements = new Map();
+    const _marker = dom.foot;
+    _marker[DOM] = {
+        elements: dom[DOM].elements
+    };
+    const markerRef = new WeakRef(_marker);
+    let existingEls = new Map();
+    let _existingEls = new Map();
     const stack = [];
     const update = (value) => {
+        const marker = markerRef.deref();
+        if (marker === undefined)
+            return;
+        const elements = marker[DOM].elements;
         const parent = marker.parentNode;
         let kvIter = undefined;
         if (iterator !== undefined) {
@@ -309,17 +333,17 @@ html.map = ((signal, factory, iterator) => {
         else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();
         }
-        internal.elements.length = 0;
+        elements.length = 0;
         if (kvIter != undefined) {
             let prev = undefined;
             for (const kv of kvIter) {
                 const key = kv[0];
-                if (_elements.has(key)) {
+                if (_existingEls.has(key)) {
                     console.warn("'html.map' does not support non-unique keys.");
                     continue;
                 }
-                const pos = _elements.size;
-                const old = elements.get(key);
+                const pos = _existingEls.size;
+                const old = existingEls.get(key);
                 const oldEl = old === undefined ? undefined : old[0];
                 const el = factory(kv, oldEl);
                 const inOrder = old === undefined || prev === undefined || old[1] > prev;
@@ -348,15 +372,15 @@ html.map = ((signal, factory, iterator) => {
                     }
                 }
                 if (old === undefined) {
-                    _elements.set(key, [el, pos]);
+                    _existingEls.set(key, [el, pos]);
                 }
                 else {
                     old[0] = el;
                     old[1] = pos;
-                    _elements.set(key, old);
+                    _existingEls.set(key, old);
                 }
                 if (el !== undefined)
-                    internal.elements.push(el);
+                    elements.push(el);
             }
             if (stack.length > 0 && parent !== null) {
                 for (const el of stack) {
@@ -367,8 +391,8 @@ html.map = ((signal, factory, iterator) => {
             }
             stack.length = 0;
         }
-        for (const [key, [el]] of elements) {
-            if (_elements.has(key))
+        for (const [key, [el]] of existingEls) {
+            if (_existingEls.has(key))
                 continue;
             if (el === undefined)
                 continue;
@@ -378,15 +402,18 @@ html.map = ((signal, factory, iterator) => {
                 }
             }
         }
-        elements.clear();
-        const temp = _elements;
-        _elements = elements;
-        elements = temp;
-        internal.elements.push(marker);
+        existingEls.clear();
+        const temp = _existingEls;
+        _existingEls = existingEls;
+        existingEls = temp;
+        elements.push(marker);
     };
-    signal.on(update);
+    signal.on(update, { condition: () => markerRef.deref() !== undefined });
     return dom;
 });
+html.marker = (name) => {
+    return new RHU_MARKER().bind(name);
+};
 const isElement = Object.prototype.isPrototypeOf.bind(Element.prototype);
 const recursiveDispatch = function (node, event) {
     if (isElement(node))
