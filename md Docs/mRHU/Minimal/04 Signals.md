@@ -345,7 +345,7 @@ const ref = html.ref(el);
 state.on((value) => {
     const el = ref.deref();
     if (el === undefined) return;
-    el.innerText = `${value}`;
+    el.text.innerText = `${value}`;
 }, { condition: () => ref.deref() !== undefined });
 ```
 
