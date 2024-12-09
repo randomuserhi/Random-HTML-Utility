@@ -331,6 +331,24 @@ state.on((value) => {
 }, { condition: () => ref.deref() !== undefined });
 ```
 
+If the signal is associated with a HTML component, you can obtain a weak reference to it using `html.ref`:
+
+```typescript
+const el = html`<div m-id="text"></div>`;
+
+const state = signal<number>(0);
+
+// Store a weakref to the element such that
+// when it is garbage collected, the signal destroys
+// its callback.
+const ref = html.ref(el);
+state.on((value) => {
+    const el = ref.deref();
+    if (el === undefined) return;
+    el.innerText = `${value}`;
+}, { condition: () => ref.deref() !== undefined });
+```
+
 > Note that the condition only triggers when a state change is invoked (writes, not reads). Thus if the signal is never written to again, the element can get garbage collected but not the callback.
 > 
 > This includes memoization such that writing the same value to the signal also will not trigger a guard check.

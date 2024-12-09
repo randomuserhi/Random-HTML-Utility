@@ -93,11 +93,13 @@ function html_addBind(instance, key, value) {
     instance[DOM].binds.push(key);
 }
 function make_ref(ref) {
-    return () => {
-        const marker = ref();
-        if (marker === undefined)
-            return undefined;
-        return marker[DOM];
+    return {
+        deref() {
+            const marker = ref();
+            if (marker === undefined)
+                return undefined;
+            return marker[DOM];
+        }
     };
 }
 export const html = ((first, ...interpolations) => {
@@ -358,7 +360,7 @@ html.map = ((signal, factory, iterator) => {
     let _existingEls = new Map();
     const stack = [];
     const update = (value) => {
-        const dom = ref();
+        const dom = ref.deref();
         if (dom === undefined)
             return;
         const internal = dom[DOM];
@@ -446,7 +448,7 @@ html.map = ((signal, factory, iterator) => {
         existingEls = temp;
         internal.elements.push(last);
     };
-    signal.on(update, { condition: () => ref() !== undefined });
+    signal.on(update, { condition: () => ref.deref() !== undefined });
     return dom;
 });
 html.marker = (name) => {

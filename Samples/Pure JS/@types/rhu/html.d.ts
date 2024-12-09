@@ -25,7 +25,9 @@ declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, a
     readonly elements: (HTML | Node)[];
     readonly [Symbol.iterator]: () => IterableIterator<Node>;
     readonly [DOM]: HTML<T>;
-    readonly ref: () => HTML<T> | undefined;
+    readonly ref: {
+        deref(): HTML<T> | undefined;
+    };
     readonly first: Node;
     readonly last: Node;
     readonly parent: Node | null;

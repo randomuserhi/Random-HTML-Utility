@@ -74,7 +74,7 @@ class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
 
-    public readonly ref: () => HTML<T> | undefined;
+    public readonly ref: { deref(): HTML<T> | undefined };
     public readonly first: Node;
     public readonly last: Node;
     public readonly parent: Node | null;
@@ -151,10 +151,12 @@ function html_addBind(instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM }, k
     (instance[DOM] as any).binds.push(key);
 }
 function make_ref(ref: WeakRef<Comment & { [DOM]: HTML }>["deref"]) {
-    return () => {
-        const marker = ref();
-        if (marker === undefined) return undefined;
-        return marker[DOM];
+    return {
+        deref() {
+            const marker = ref();
+            if (marker === undefined) return undefined;
+            return marker[DOM];
+        }
     };
 }
 export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | HTML, ...interpolations: Interp[]) => {
@@ -457,7 +459,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
     const stack: HTML[] = [];
 
     const update = (value: any) => {
-        const dom = ref();
+        const dom = ref.deref();
         if (dom === undefined) return;
         
         const internal = dom[DOM];
@@ -578,7 +580,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
     };
 
     // Update map on signal change
-    signal.on(update, { condition: () => ref() !== undefined });
+    signal.on(update, { condition: () => ref.deref() !== undefined });
 
     return dom;
 }) as any;
