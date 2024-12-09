@@ -25,8 +25,10 @@ declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, a
     readonly elements: (HTML | Node)[];
     readonly [Symbol.iterator]: () => IterableIterator<Node>;
     readonly [DOM]: HTML<T>;
-    readonly first: () => Node;
-    readonly last: () => Node;
+    readonly ref: () => HTML<T> | undefined;
+    readonly first: Node;
+    readonly last: Node;
+    readonly parent: Node | null;
     private binds;
     close: RHU_CLOSURE;
     private onChildren?;
@@ -62,6 +64,7 @@ interface RHU_HTML {
         readonly signal: Signal<T>;
     }>;
     marker(name?: PropertyKey): RHU_MARKER;
+    ref<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>["ref"];
 }
 export declare const html: RHU_HTML;
 declare global {

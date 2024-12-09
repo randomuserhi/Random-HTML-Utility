@@ -85,11 +85,20 @@ function stitch(interp, slots) {
         return undefined;
     }
 }
+const defineProperties = Object.defineProperties;
 function html_addBind(instance, key, value) {
     if (key in instance)
         throw new Error(`The binding '${key.toString()}' already exists.`);
     instance[key] = value;
     instance[DOM].binds.push(key);
+}
+function make_ref(ref) {
+    return () => {
+        const marker = ref();
+        if (marker === undefined)
+            return undefined;
+        return marker[DOM];
+    };
 }
 export const html = ((first, ...interpolations) => {
     if (isHTML(first)) {
@@ -123,10 +132,12 @@ export const html = ((first, ...interpolations) => {
     const template = document.createElement("template");
     template.innerHTML = source;
     const fragment = template.content;
-    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT, {
         acceptNode(node) {
             const value = node.nodeValue;
-            if (value === null || value === undefined)
+            if (node.nodeType === Node.COMMENT_NODE && node[DOM] === undefined)
+                node.parentNode?.removeChild(node);
+            else if (value === null || value === undefined)
                 node.parentNode?.removeChild(node);
             else if (value.trim() === "")
                 node.parentNode?.removeChild(node);
@@ -199,6 +210,7 @@ export const html = ((first, ...interpolations) => {
             }
             else if (RHU_MARKER.is(slot)) {
                 const node = document.createComment(" << rhu-marker >> ");
+                node[DOM] = "marker";
                 const key = slot.name;
                 if (key !== undefined) {
                     html_addBind(instance, key, node);
@@ -250,31 +262,13 @@ export const html = ((first, ...interpolations) => {
     if (error) {
         elements = elements.filter(v => v !== undefined);
     }
-    if (elements.length === 0) {
-        const marker = document.createComment(" << rhu-node >> ");
-        fragment.append(marker);
-        elements.push(marker);
-    }
-    implementation.elements = elements;
-    implementation.first = () => {
-        const node = implementation.elements[0];
-        if (isHTML(node)) {
-            return node.first();
-        }
-        else {
-            return node;
-        }
-    };
-    implementation.last = () => {
-        const node = implementation.elements[implementation.elements.length - 1];
-        if (isHTML(node)) {
-            return node.first();
-        }
-        else {
-            return node;
-        }
-    };
-    implementation[Symbol.iterator] = function* () {
+    const marker = document.createComment(" << rhu-node >> ");
+    fragment.append(marker);
+    elements.push(marker);
+    marker[DOM] = instance;
+    const markerRef = new WeakRef(marker);
+    const ref = make_ref(markerRef.deref.bind(markerRef));
+    const iter = function* () {
         for (const node of implementation.elements) {
             if (isHTML(node)) {
                 yield* node;
@@ -284,6 +278,50 @@ export const html = ((first, ...interpolations) => {
             }
         }
     };
+    defineProperties(implementation, {
+        elements: {
+            get() {
+                return elements;
+            },
+            configurable: false
+        },
+        ref: {
+            get() {
+                return ref;
+            },
+            configurable: false
+        },
+        first: {
+            get() {
+                const node = implementation.elements[0];
+                if (isHTML(node)) {
+                    return node.first();
+                }
+                else {
+                    return node;
+                }
+            },
+            configurable: false
+        },
+        last: {
+            get() {
+                return marker;
+            },
+            configurable: false
+        },
+        parent: {
+            get() {
+                return marker.parentNode;
+            },
+            configurable: false
+        },
+        [Symbol.iterator]: {
+            get() {
+                return iter;
+            },
+            configurable: false
+        }
+    });
     return instance;
 });
 html.close = () => RHU_CLOSURE.instance;
@@ -309,23 +347,23 @@ html.box = (el, boxed) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
+html.ref = (el) => {
+    return el[DOM].ref;
+};
 html.map = ((signal, factory, iterator) => {
-    const dom = html `${html.marker("foot")}`;
+    const dom = html ``;
     dom.signal = signal;
-    const _marker = dom.foot;
-    _marker[DOM] = {
-        elements: dom[DOM].elements
-    };
-    const markerRef = new WeakRef(_marker);
+    const ref = dom[DOM].ref;
     let existingEls = new Map();
     let _existingEls = new Map();
     const stack = [];
     const update = (value) => {
-        const marker = markerRef.deref();
-        if (marker === undefined)
+        const dom = ref();
+        if (dom === undefined)
             return;
-        const elements = marker[DOM].elements;
-        const parent = marker.parentNode;
+        const internal = dom[DOM];
+        const last = internal.last;
+        const parent = last.parentNode;
         let kvIter = undefined;
         if (iterator !== undefined) {
             kvIter = iterator(value);
@@ -333,7 +371,7 @@ html.map = ((signal, factory, iterator) => {
         else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();
         }
-        elements.length = 0;
+        internal.elements.length = 0;
         if (kvIter != undefined) {
             let prev = undefined;
             for (const kv of kvIter) {
@@ -353,7 +391,7 @@ html.map = ((signal, factory, iterator) => {
                     if (oldEl !== undefined && parent !== null) {
                         for (const el of stack) {
                             for (const node of el) {
-                                parent.insertBefore(node, oldEl[DOM].first());
+                                parent.insertBefore(node, oldEl[DOM].first);
                             }
                         }
                         stack.length = 0;
@@ -380,12 +418,12 @@ html.map = ((signal, factory, iterator) => {
                     _existingEls.set(key, old);
                 }
                 if (el !== undefined)
-                    elements.push(el);
+                    internal.elements.push(el);
             }
             if (stack.length > 0 && parent !== null) {
                 for (const el of stack) {
                     for (const node of el) {
-                        parent.insertBefore(node, marker);
+                        parent.insertBefore(node, last);
                     }
                 }
             }
@@ -406,9 +444,9 @@ html.map = ((signal, factory, iterator) => {
         const temp = _existingEls;
         _existingEls = existingEls;
         existingEls = temp;
-        elements.push(marker);
+        internal.elements.push(last);
     };
-    signal.on(update, { condition: () => markerRef.deref() !== undefined });
+    signal.on(update, { condition: () => ref() !== undefined });
     return dom;
 });
 html.marker = (name) => {

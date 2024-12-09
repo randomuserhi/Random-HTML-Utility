@@ -74,8 +74,10 @@ class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
 
-    public readonly first: () => Node;
-    public readonly last: () => Node;
+    public readonly ref: () => HTML<T> | undefined;
+    public readonly first: Node;
+    public readonly last: Node;
+    public readonly parent: Node | null;
 
     private binds: PropertyKey[] = [];
     public close: RHU_CLOSURE = RHU_CLOSURE.instance;
@@ -121,6 +123,7 @@ interface RHU_HTML {
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{ readonly signal: Signal<T> }>;
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
     marker(name?: PropertyKey): RHU_MARKER;
+    ref<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>["ref"];
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
@@ -140,10 +143,19 @@ function stitch(interp: Interp, slots: Slot[]): string | undefined {
     }
 }
 
+const defineProperties = Object.defineProperties;
+
 function html_addBind(instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM }, key: PropertyKey, value: any) {
     if (key in instance) throw new Error(`The binding '${key.toString()}' already exists.`);
     instance[key] = value; 
     (instance[DOM] as any).binds.push(key);
+}
+function make_ref(ref: WeakRef<Comment & { [DOM]: HTML }>["deref"]) {
+    return () => {
+        const marker = ref();
+        if (marker === undefined) return undefined;
+        return marker[DOM];
+    };
 }
 export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | HTML, ...interpolations: Interp[]) => {
     // edit dom properties func
@@ -185,10 +197,11 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     const fragment = template.content;
 
     // Remove nonsense text nodes
-    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT, {
         acceptNode(node) {
             const value = node.nodeValue;
-            if (value === null || value === undefined) node.parentNode?.removeChild(node);
+            if (node.nodeType === Node.COMMENT_NODE && (node as any)[DOM] === undefined) node.parentNode?.removeChild(node);
+            else if (value === null || value === undefined) node.parentNode?.removeChild(node);
             else if (value.trim() === "") node.parentNode?.removeChild(node);
             return NodeFilter.FILTER_REJECT;
         }
@@ -262,6 +275,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 if (hole !== undefined) elements[hole] = slot;
             } else if (RHU_MARKER.is(slot)) {
                 const node = document.createComment(" << rhu-marker >> ");
+                (node as any)[DOM] = "marker";
 
                 const key: RHU_MARKER["name"] = (slot as any).name;
                 if (key !== undefined) {
@@ -315,33 +329,37 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         elements = elements.filter(v => v !== undefined);
     }
 
-    if (elements.length === 0) {
-        // NOTE(randomuserhi): Empty HTML fragments need to contain atleast 1 node for positional referencing.
-        //                     Create a blank node in the event of no children found to use as an anchor.
-        const marker = document.createComment(" << rhu-node >> ");
-        fragment.append(marker);
-        elements.push(marker);
-    }
+    // NOTE(randomuserhi): A comment is used to control garbage collection when referencing RHU_HTML elements
+    //                     If some code needs to run without holding a strong reference to the elements / html object,
+    //                     it will pass all references through this comment.
+    //
+    //                     This way, if the comment html object is GC'd but the comment remains on DOM, everything still
+    //                     works and vice versa (since the comment holds a reference to the html object).
+    //                     
+    //                     But if both the comment and the html object is GC'd then the reference can be cleared and detected
+    //                     through the WeakRef to this comment node.
+    const marker = document.createComment(" << rhu-node >> ");
+    fragment.append(marker);
+    elements.push(marker);
 
-    // Setup element list and accessors
-    (implementation as any).elements = elements;
-    (implementation as any).first = () => {
-        const node: HTML | Node = implementation.elements[0];
-        if (isHTML(node)) {
-            return node.first();
-        } else {
-            return node;
-        }
-    };
-    (implementation as any).last = () => {
-        const node: HTML | Node = implementation.elements[implementation.elements.length - 1];
-        if (isHTML(node)) {
-            return node.first();
-        } else {
-            return node;
-        }
-    };
-    (implementation as any)[Symbol.iterator] = function* () {
+    (marker as any)[DOM] = instance;
+
+    const markerRef = new WeakRef(marker);
+
+    // NOTE(randomuserhi): We have to call a separate function to prevent context hoisting from 
+    //                     preventing garbage collection of the marker node.
+    //
+    //                     By declaring an inline function, it will include the context of the above scope,
+    //                     this is what allows us to reference `marker` despite it being outside of the
+    //                     inline functions scope. However, this means that the inline function holds a reference
+    //                     to the context, thus preventing GC of variables inside of said context (such as `marker`).
+    //
+    //                     Since we want to be able to hold a reference to the `ref` inlien function but not the context
+    //                     it resides in, we call a separate function. The separate function has its own context (hence
+    //                     we can no longer access `marker` as per its scope) and thus circumvents this issue.
+    const ref = make_ref(markerRef.deref.bind(markerRef));
+
+    const iter = function* () {
         for (const node of (implementation.elements as (HTML | Node)[])) {
             if (isHTML(node)) {
                 yield* node;
@@ -350,6 +368,52 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
             }
         }
     };
+    
+    // Setup getters
+    defineProperties(implementation, {
+        elements: {
+            get() {
+                return elements;
+            },
+            configurable: false
+        },
+        ref: {
+            get() {
+                return ref;
+            },
+            configurable: false
+        },
+        first: {
+            get() {
+                const node: HTML | Node = implementation.elements[0];
+                if (isHTML(node)) {
+                    return node.first();
+                } else {
+                    return node;
+                }
+            },
+            configurable: false
+        },
+        last: {
+            // NOTE(randomuserhi): The last node should always be the marker comment
+            get() {
+                return marker;
+            },
+            configurable: false
+        },
+        parent: {
+            get() {
+                return marker.parentNode;
+            },
+            configurable: false
+        },
+        [Symbol.iterator]: {
+            get() {
+                return iter;
+            },
+            configurable: false
+        }
+    });
 
     return instance as HTML<T>;
 }) as RHU_HTML;
@@ -376,21 +440,13 @@ html.box = (el, boxed?: boolean) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
+html.ref = (el) => {
+    return el[DOM].ref;
+};
 html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
-    const dom = html<{ signal: Signal<any>, foot: Node }>`${html.marker("foot")}`;
+    const dom = html<{ signal: Signal<any> }>``;
     dom.signal = signal;
-
-    // Grab marker used to indicate the foot of the map. This indicates the position of where nodes should be inserted to.
-    const _marker = dom.foot;
-
-    // Tie relevant data to the marker, this way the marker controls garbage collection and all references pass through it.
-    // This allows the map to be properly garbage collected as it prevents circular references from the symbol.
-    (_marker as any)[DOM] = { 
-        elements: dom[DOM].elements
-    };
-
-    // Use a weak ref for garbage collection.
-    const markerRef = new WeakRef(_marker);
+    const ref = dom[DOM].ref;
 
     // Keep track of existing DOM elements and their positions (as to not duplicate nodes or unnecessarily move them)
     let existingEls = new Map<any, [el: HTML | undefined, pos: number]>();
@@ -401,11 +457,12 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
     const stack: HTML[] = [];
 
     const update = (value: any) => {
-        const marker = markerRef.deref();
-        if (marker === undefined) return;
-
-        const elements = (marker as any)[DOM].elements;
-        const parent = marker.parentNode;
+        const dom = ref();
+        if (dom === undefined) return;
+        
+        const internal = dom[DOM];
+        const last = internal.last;
+        const parent = last.parentNode;
 
         // Obtain iterable
         let kvIter: Iterable<[key: any, value: any]> | undefined = undefined;
@@ -415,7 +472,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
             kvIter = value.entries();
         }
 
-        elements.length = 0;
+        internal.elements.length = 0;
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
             let prev: number | undefined = undefined;
@@ -454,7 +511,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                     if (oldEl !== undefined && parent !== null) {
                         for (const el of stack) {
                             for (const node of el) {
-                                parent.insertBefore(node, oldEl[DOM].first());
+                                parent.insertBefore(node, oldEl[DOM].first);
                             }
                         }
                         stack.length = 0;
@@ -486,14 +543,14 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                     _existingEls.set(key, old);
                 }
 
-                if (el !== undefined) elements.push(el);
+                if (el !== undefined) internal.elements.push(el);
             }
 
             // Append remaining elements in stack to the end of the map
             if (stack.length > 0 && parent !== null) {
                 for (const el of stack) {
                     for (const node of el) {
-                        parent.insertBefore(node, marker);
+                        parent.insertBefore(node, last);
                     }
                 }
             }
@@ -517,11 +574,11 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
         _existingEls = existingEls;
         existingEls = temp;
 
-        elements.push(marker);
+        internal.elements.push(last);
     };
 
     // Update map on signal change
-    signal.on(update, { condition: () => markerRef.deref() !== undefined });
+    signal.on(update, { condition: () => ref() !== undefined });
 
     return dom;
 }) as any;
