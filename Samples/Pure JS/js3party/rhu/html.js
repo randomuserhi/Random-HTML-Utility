@@ -292,7 +292,7 @@ html.box = (el, boxed) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.map = ((signal, factory, transform) => {
+html.map = ((signal, factory, iterator) => {
     const dom = html ``;
     dom.signal = signal;
     const internal = dom[DOM];
@@ -303,8 +303,8 @@ html.map = ((signal, factory, transform) => {
     const update = (value) => {
         const parent = marker.parentNode;
         let kvIter = undefined;
-        if (transform !== undefined) {
-            kvIter = transform(value);
+        if (iterator !== undefined) {
+            kvIter = iterator(value);
         }
         else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();

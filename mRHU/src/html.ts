@@ -105,7 +105,7 @@ interface RHU_HTML {
     box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{ readonly signal: Signal<T> }>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, transform: (item: T) => Iterable<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
@@ -351,7 +351,7 @@ html.box = (el, boxed?: boolean) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, transform: (item: any) => Iterable<[key: any, value: any]>) => {
+html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
     const dom = html<{ signal: Signal<any> }>``;
     dom.signal = signal;
     const internal = dom[DOM];
@@ -372,8 +372,8 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
 
         // Obtain iterable
         let kvIter: Iterable<[key: any, value: any]> | undefined = undefined;
-        if (transform !== undefined) {
-            kvIter = transform(value);
+        if (iterator !== undefined) {
+            kvIter = iterator(value);
         } else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();
         }
