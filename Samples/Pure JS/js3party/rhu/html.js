@@ -4,6 +4,10 @@ const isArray = Object.prototype.isPrototypeOf.bind(Array.prototype);
 const isNode = Object.prototype.isPrototypeOf.bind(Node.prototype);
 const fragNodeMap = new WeakMap();
 const baseNodes = new WeakMap();
+window.debug = {
+    fragNodeMap,
+    baseNodes
+};
 class FRAG {
     constructor(owner = undefined) {
         this.owner = owner;
@@ -129,15 +133,18 @@ class RHU_COLLECTION {
         else
             this._first = linkage;
         this.set.set(node, linkage);
-        const appendNode = isHTML(target.node) ? target.node[DOM].first : target?.node;
-        if (appendNode.parentNode !== null) {
+        if (this.last.parentNode !== null) {
+            let appendNode = isHTML(target.node) ? target.node[DOM].first : target.node;
+            if (appendNode.parentNode !== this.last.parentNode) {
+                appendNode = this.last;
+            }
             if (isHTML(node)) {
                 for (const n of node) {
-                    appendNode.parentNode.insertBefore(n, appendNode);
+                    this.last.parentNode.insertBefore(n, appendNode);
                 }
             }
             else {
-                appendNode.parentNode.insertBefore(node, appendNode);
+                this.last.parentNode.insertBefore(node, appendNode);
             }
         }
         ++this._length;
@@ -420,7 +427,7 @@ export const html = ((first, ...interpolations) => {
                 }
                 if (slotImplementation.onChildren !== undefined)
                     slotImplementation.onChildren(slotElement.childNodes);
-                html_replaceWith(slotElement, ...slotImplementation);
+                html_replaceWith(slotElement, node);
                 if (hole !== undefined)
                     elements[hole] = node;
             }
@@ -441,7 +448,7 @@ export const html = ((first, ...interpolations) => {
     const markerRef = new WeakRef(collection.last);
     const ref = html_makeRef(markerRef.deref.bind(markerRef));
     const iter = function* () {
-        for (const node of implementation.elements) {
+        for (const node of collection) {
             if (isHTML(node)) {
                 yield* node;
             }
@@ -469,7 +476,7 @@ export const html = ((first, ...interpolations) => {
         },
         first: {
             get() {
-                const node = implementation.elements.first;
+                const node = collection.first;
                 if (isHTML(node)) {
                     return node.first();
                 }
@@ -481,13 +488,13 @@ export const html = ((first, ...interpolations) => {
         },
         last: {
             get() {
-                return implementation.elements.last;
+                return collection.last;
             },
             configurable: false
         },
         parent: {
             get() {
-                return implementation.elements.last.parentNode;
+                return collection.last.parentNode;
             },
             configurable: false
         },
@@ -638,7 +645,6 @@ html.map = ((signal, factory, iterator) => {
         if (dom === undefined)
             return;
         const internal = dom[DOM];
-        const last = internal.last;
         let kvIter = undefined;
         if (iterator !== undefined) {
             kvIter = iterator(value);
@@ -669,7 +675,7 @@ html.map = ((signal, factory, iterator) => {
                         stack.length = 0;
                     }
                 }
-                if (el !== oldEl || outOfOrder) {
+                else if (el !== oldEl || outOfOrder) {
                     if (oldEl !== undefined) {
                         internal.remove(oldEl);
                     }
@@ -687,9 +693,7 @@ html.map = ((signal, factory, iterator) => {
                 }
             }
             if (stack.length > 0) {
-                for (const el of stack) {
-                    internal.insertBefore(el, last);
-                }
+                internal.append(...stack);
             }
             stack.length = 0;
         }

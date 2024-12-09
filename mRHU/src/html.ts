@@ -10,6 +10,11 @@ const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.b
 const fragNodeMap = new WeakMap<Node | HTML, FRAG>();
 const baseNodes = new WeakMap<Comment, HTML>();
 
+(window as any).debug = {
+    fragNodeMap,
+    baseNodes
+};
+
 class FRAG<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     public owner: HTML<T> | undefined;
 
@@ -181,14 +186,18 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
         this.set.set(node, linkage);
 
         // append to dom
-        const appendNode = isHTML(target.node) ? target.node[DOM].first : target?.node;
-        if (appendNode.parentNode !== null) {
+        if (this.last.parentNode !== null) {
+            let appendNode = isHTML(target.node) ? target.node[DOM].first : target.node;
+            if (appendNode.parentNode !== this.last.parentNode) {
+                appendNode = this.last;
+            }
+
             if (isHTML(node)) {
                 for (const n of node) {
-                    appendNode.parentNode.insertBefore(n, appendNode);
+                    this.last.parentNode.insertBefore(n, appendNode);
                 }
             } else {
-                appendNode.parentNode.insertBefore(node, appendNode);
+                this.last.parentNode.insertBefore(node, appendNode);
             }
         }
 
@@ -575,7 +584,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
 
                 if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
                 
-                html_replaceWith(slotElement, ...slotImplementation);
+                html_replaceWith(slotElement, node);
                 if (hole !== undefined) elements[hole] = node;
             }
         } catch (e) {
@@ -609,7 +618,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     const ref = html_makeRef(markerRef.deref.bind(markerRef));
 
     const iter = function* () {
-        for (const node of implementation.elements) {
+        for (const node of collection) {
             if (isHTML(node)) {
                 yield* node;
             } else {
@@ -640,7 +649,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         },
         first: {
             get() {
-                const node = implementation.elements.first;
+                const node = collection.first;
                 if (isHTML(node)) {
                     return node.first();
                 } else {
@@ -652,13 +661,13 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         last: {
             // NOTE(randomuserhi): The last node should always be the marker comment
             get() {
-                return implementation.elements.last;
+                return collection.last;
             },
             configurable: false
         },
         parent: {
             get() {
-                return implementation.elements.last.parentNode;
+                return collection.last.parentNode;
             },
             configurable: false
         },
@@ -830,7 +839,6 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
         if (dom === undefined) return;
         
         const internal = dom[DOM];
-        const last = internal.last;
 
         // Obtain iterable
         let kvIter: Iterable<[key: any, value: any]> | undefined = undefined;
@@ -870,9 +878,9 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                 const inOrder = old === undefined || prev === undefined || old[1] > prev;
                 const outOfOrder = !inOrder;
 
-                // If the element last existed and is in order, append
-                // elements from the stack and update `prev`.
                 if (old !== undefined && inOrder) {
+                    // If the element last existed and is in order, append
+                    // elements from the stack and update `prev`.
                     prev = old[1];
                     
                     if (oldEl !== undefined) {
@@ -881,11 +889,9 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                         }
                         stack.length = 0;
                     }
-                }
-
-                // If the element is out of order / is different to the existing 
-                // one, remove it and append to stack
-                if (el !== oldEl || outOfOrder) {
+                } else if (el !== oldEl || outOfOrder) {
+                    // If the element is out of order / is different to the existing 
+                    // one, remove it and append to stack
                     if (oldEl !== undefined) {
                         internal.remove(oldEl);
                     }
@@ -907,9 +913,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
 
             // Append remaining elements in stack to the end of the map
             if (stack.length > 0) {
-                for (const el of stack) {
-                    internal.insertBefore(el, last);
-                }
+                internal.append(...stack);
             }
             stack.length = 0;
         }
