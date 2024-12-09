@@ -172,7 +172,7 @@ const HTML = html`
 
 ## Markers
 
-%% TODO(randomuserhi): Explain `html.marker()` as well as the default `<!-- << rhu-node >> -->` comment marker on every component %%
+%% TODO(randomuserhi): Explain `html.marker()` as well as the default `<!-- << rhu-node >> -->` comment marker on every component and how it is used for garbage collection and weak referencing. %%
 
 ## Creating Components
 
