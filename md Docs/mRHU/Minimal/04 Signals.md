@@ -297,7 +297,7 @@ a(2); //
 
 ```typescript
 const state = signal<number>(0);
-state.on((value) => console.log(value), { condition: () => testSignal() <= 5 });
+state.on((value) => console.log(value), { condition: () => state() <= 5 });
 
 state(1); // "1"
 state(2); // "2"
