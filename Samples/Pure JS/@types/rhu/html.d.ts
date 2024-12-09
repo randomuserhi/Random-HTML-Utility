@@ -27,6 +27,7 @@ declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, a
     readonly [DOM]: HTML<T>;
     readonly ref: {
         deref(): HTML<T> | undefined;
+        hasref(): boolean;
     };
     readonly first: Node;
     readonly last: Node;
@@ -66,7 +67,10 @@ interface RHU_HTML {
         readonly signal: Signal<T>;
     }>;
     marker(name?: PropertyKey): RHU_MARKER;
-    ref<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>["ref"];
+    ref<T extends object>(obj: T): {
+        deref(): T | undefined;
+        hasref(): boolean;
+    };
 }
 export declare const html: RHU_HTML;
 declare global {

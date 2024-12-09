@@ -74,7 +74,7 @@ class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
 
-    public readonly ref: { deref(): HTML<T> | undefined };
+    public readonly ref: { deref(): HTML<T> | undefined, hasref(): boolean };
     public readonly first: Node;
     public readonly last: Node;
     public readonly parent: Node | null;
@@ -123,7 +123,7 @@ interface RHU_HTML {
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{ readonly signal: Signal<T> }>;
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
     marker(name?: PropertyKey): RHU_MARKER;
-    ref<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>["ref"];
+    ref<T extends object>(obj: T): { deref(): T | undefined, hasref(): boolean };
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
@@ -156,6 +156,9 @@ function make_ref(ref: WeakRef<Comment & { [DOM]: HTML }>["deref"]) {
             const marker = ref();
             if (marker === undefined) return undefined;
             return marker[DOM];
+        },
+        hasref() {
+            return ref() !== undefined;
         }
     };
 }
@@ -442,8 +445,15 @@ html.box = (el, boxed?: boolean) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.ref = (el) => {
-    return el[DOM].ref;
+html.ref = (obj) => {
+    if (isHTML(obj)) {
+        return obj[DOM].ref;
+    }
+    const deref = WeakRef.prototype.deref.bind(new WeakRef(obj));
+    return {
+        deref,
+        hasref: () => deref() !== undefined
+    };
 };
 html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
     const dom = html<{ signal: Signal<any> }>``;
@@ -580,7 +590,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
     };
 
     // Update map on signal change
-    signal.on(update, { condition: () => ref.deref() !== undefined });
+    signal.on(update, { condition: ref.hasref });
 
     return dom;
 }) as any;

@@ -99,6 +99,9 @@ function make_ref(ref) {
             if (marker === undefined)
                 return undefined;
             return marker[DOM];
+        },
+        hasref() {
+            return ref() !== undefined;
         }
     };
 }
@@ -349,8 +352,15 @@ html.box = (el, boxed) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.ref = (el) => {
-    return el[DOM].ref;
+html.ref = (obj) => {
+    if (isHTML(obj)) {
+        return obj[DOM].ref;
+    }
+    const deref = WeakRef.prototype.deref.bind(new WeakRef(obj));
+    return {
+        deref,
+        hasref: () => deref() !== undefined
+    };
 };
 html.map = ((signal, factory, iterator) => {
     const dom = html ``;
@@ -448,7 +458,7 @@ html.map = ((signal, factory, iterator) => {
         existingEls = temp;
         internal.elements.push(last);
     };
-    signal.on(update, { condition: () => ref.deref() !== undefined });
+    signal.on(update, { condition: ref.hasref });
     return dom;
 });
 html.marker = (name) => {
