@@ -169,6 +169,11 @@ const HTML = html`
 ```html
 <div></div>
 ```
+
+## Markers
+
+%% TODO(randomuserhi): Explain `html.marker()` as well as the default `<!-- << rhu-node >> -->` comment marker on every component %%
+
 ## Creating Components
 
 Refer to [[05 Samples]]
