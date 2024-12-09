@@ -1,9 +1,218 @@
 import { isSignal, Signal, SignalEvent } from "./signal.js";
 
+// Helper functions
 const isMap: <K = any, V = any>(object: any) => object is Map<K, V> = Object.prototype.isPrototypeOf.bind(Map.prototype);
 const isArray: <T = any>(object: any) => object is Array<T> = Object.prototype.isPrototypeOf.bind(Array.prototype);
-
 const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.bind(Node.prototype);
+
+// Maps used to determine what elements belong to what fragments and keep track of
+// base comment nodes used to positionaly disern fragments (HTML).
+const fragNodeMap = new WeakMap<Node | HTML, FRAG>();
+const baseNodes = new WeakMap<Comment, HTML>();
+
+class FRAG<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
+    public owner: HTML<T> | undefined;
+
+    constructor(owner: HTML<T> | undefined = undefined) {
+        this.owner = owner;
+    }
+}
+
+// Fragment collection manager (manages what elements make up a fragment)
+interface RHU_COLLECTION_NODE {
+    node: HTML | Node;
+    next?: RHU_COLLECTION_NODE;
+    prev?: RHU_COLLECTION_NODE;
+}
+
+class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
+    private set = new Map<HTML | Node, RHU_COLLECTION_NODE>();
+    
+    constructor(owner: HTML<T>, ...nodes: (HTML | Node)[]) {
+        this.owner = owner;
+
+        // NOTE(randomuserhi): A comment is used to control garbage collection when referencing RHU_HTML elements
+        //                     If some code needs to run without holding a strong reference to the elements / html object,
+        //                     it will pass all references through this comment.
+        //
+        //                     This way, if the comment html object is GC'd but the comment remains on DOM, everything still
+        //                     works and vice versa (since the comment holds a reference to the html object).
+        //                     
+        //                     But if both the comment and the html object is GC'd then the reference can be cleared and detected
+        //                     through the WeakRef to this comment node.
+        //
+        //                     The comment node also serves as a positional point so the code knows where to append / replace
+        //                     nodes to.
+        this.last = document.createComment(" << rhu-node >> ");
+        baseNodes.set(this.last as Comment, owner);
+
+        this._first = this._last = { node: this.last };
+
+        this.append(...nodes);
+    }
+
+    static unbind(node: HTML | Node) {
+        // Unbind node if it is bounded
+        const frag = fragNodeMap.get(node);
+        if (frag?.owner !== undefined) {
+            frag.owner[DOM].remove(node);
+        }
+    }
+
+    public remove(...nodes: (HTML | Node)[]) {
+        for (const node of nodes) {
+            if (node === this.owner) continue;
+
+            // skip if it is a base node
+            if (baseNodes.has(node as any)) continue;
+
+            // remove from collection
+            const frag = fragNodeMap.get(node);
+            if (frag?.owner === this.owner) {
+                frag.owner = undefined;
+                fragNodeMap.delete(node);
+            }
+            
+            const el = this.set.get(node);
+            if (el === undefined) continue;
+
+            if (el.prev !== undefined) el.prev.next = el.next;
+            else this._first = el.next!;
+            if (el.next !== undefined) el.next.prev = el.prev;
+
+            this.set.delete(node);
+
+            // remove from dom
+            const parentNode = this.last.parentNode;
+            if (parentNode !== null) {
+                if (isHTML(node)) {
+                    for (const n of node) {
+                        if (n.parentNode === parentNode) parentNode.removeChild(n);
+                    }
+                } else {
+                    if (node.parentNode === parentNode) {
+                        parentNode.removeChild(node);
+                    }
+                }
+            }
+
+            --this._length;
+        }
+    }
+
+    public append(...nodes: (HTML | Node)[]) {
+        for (const node of nodes) {
+            if (node === this.owner) continue;
+
+            // skip if it is a base node
+            if (baseNodes.has(node as any)) continue;
+            
+            // keep track of element in fragNodeMap
+            if (!fragNodeMap.has(node)) {
+                fragNodeMap.set(node, new FRAG());
+            }
+            const frag = fragNodeMap.get(node)!;
+
+            // remove from collection
+            if (frag.owner !== undefined) {
+                frag.owner[DOM].elements.remove(node);
+            }
+
+            // add to collection
+            frag.owner = this.owner;
+            const linkage: RHU_COLLECTION_NODE = { 
+                node,
+                prev: this._last.prev,
+                next: this._last
+            };
+            this._last.prev = linkage;
+            if (linkage.prev !== undefined) linkage.prev.next = linkage;
+            else this._first = linkage;
+            this.set.set(node, linkage);
+
+            // append to dom
+            if (this.last.parentNode !== null) {
+                if (isHTML(node)) {
+                    for (const n of node) {
+                        this.last.parentNode.insertBefore(n, this.last);
+                    }
+                } else {
+                    this.last.parentNode.insertBefore(node, this.last);
+                }
+            }
+
+            ++this._length;
+        }
+    }
+
+    public insertBefore(node: (HTML | Node), child?: (HTML | Node)) {
+        if (node === this.owner) return;
+
+        // skip if it is a base node
+        if (baseNodes.has(node as any)) return;
+        
+        // keep track of element in fragNodeMap
+        if (!fragNodeMap.has(node)) {
+            fragNodeMap.set(node, new FRAG());
+        }
+        const frag = fragNodeMap.get(node)!;
+
+        // remove from old collection
+        if (frag.owner !== undefined) {
+            frag.owner[DOM].elements.remove(node);
+        }
+
+        // find target
+        let target = child === undefined ? undefined : this.set.get(child);
+        if (target === undefined) {
+            target = this._last;
+        }
+
+        // add to collection
+        frag.owner = this.owner;
+        const linkage: RHU_COLLECTION_NODE = { 
+            node,
+            prev: target.prev,
+            next: target
+        };
+        target.prev = linkage;
+        if (linkage.prev !== undefined) linkage.prev.next = linkage;
+        else this._first = linkage;
+        this.set.set(node, linkage);
+
+        // append to dom
+        const appendNode = isHTML(target.node) ? target.node[DOM].first : target?.node;
+        if (appendNode.parentNode !== null) {
+            if (isHTML(node)) {
+                for (const n of node) {
+                    appendNode.parentNode.insertBefore(n, appendNode);
+                }
+            } else {
+                appendNode.parentNode.insertBefore(node, appendNode);
+            }
+        }
+
+        ++this._length;
+    }
+
+    private readonly owner: HTML<T>;
+
+    private _first: RHU_COLLECTION_NODE;
+    private _last: RHU_COLLECTION_NODE;
+    private _length: number = 0;
+    
+    get first() { return this._first.node; }
+    public readonly last: Node;
+    get length() { return this._length; }
+
+    public *[Symbol.iterator]() {
+        let current: RHU_COLLECTION_NODE | undefined = this._first;
+        while (current !== undefined) {
+            yield current.node;
+            current = current.next;
+        }
+    }
+}
 
 class RHU_CLOSURE {
     static instance = new RHU_CLOSURE();
@@ -63,21 +272,30 @@ Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.toStringTag, {
 
 type RHU_CHILDREN = NodeListOf<ChildNode>;
 
-export const DOM = Symbol("html.dom"); 
+export const DOM = Symbol("html.dom");
 
 class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    // NOTE(randomuserhi): This is an immutable list that represents the root elements
-    //                     that make up the component. Removing these root elements from DOM
-    //                     and not from this list prevents garbage collection if a reference
-    //                     is held to this list.
-    public readonly elements: (HTML | Node)[];
+    // NOTE(randomuserhi): List of nodes that belong to this fragment
+    //                     If you stick to the `html` based methods you do not
+    //                     have to worry about managing ownership.
+    //
+    //                     If you move nodes around yourself, you need to manually
+    //                     manage ownership and unregister / remove nodes from this
+    //                     collection.
+    public readonly elements: RHU_COLLECTION;
+
+    // Aliases to collection methods
+    public readonly first: Node;
+    public readonly last: Node;
+    public readonly parent: Node | null;
+    public readonly remove: RHU_COLLECTION["remove"];
+    public readonly append: RHU_COLLECTION["append"];
+    public readonly insertBefore: RHU_COLLECTION["insertBefore"];
+
     public readonly [Symbol.iterator]: () => IterableIterator<Node>;
     public readonly [DOM]: HTML<T>;
 
     public readonly ref: { deref(): HTML<T> | undefined, hasref(): boolean };
-    public readonly first: Node;
-    public readonly last: Node;
-    public readonly parent: Node | null;
 
     private binds: PropertyKey[] = [];
     public close: RHU_CLOSURE = RHU_CLOSURE.instance;
@@ -98,7 +316,7 @@ class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
 }
 
 type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => HTML<T>;
-type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
+type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
 export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
 export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is HTML<T> => {
     if (object === undefined) return false;
@@ -113,17 +331,34 @@ type Interp = Single | (Single[]);
 interface RHU_HTML {
     <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>;
     <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): HTML<T>;
+    
     observe(node: Node): void;
+    
     close(): RHU_CLOSURE;
     readonly closure: RHU_CLOSURE;
+    
+    marker(name?: PropertyKey): RHU_MARKER;
+    
     open<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
     bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
     box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
+    
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{ readonly signal: Signal<T> }>;
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
-    marker(name?: PropertyKey): RHU_MARKER;
+    
+    // Creates a weakref to the given object where its lifetime is tied to the provided target.
+    // - Whilst the target is still retained, the object is also retained.
+    // - If the target is GC'd, the object may be GC'd as long as no other references to it exist.
+    ref<T extends object, R extends object>(target: T, obj: R): { deref(): R | undefined, hasref(): boolean };
+
+    // Creates a weakref to the given object
     ref<T extends object>(obj: T): { deref(): T | undefined, hasref(): boolean };
+
+    append(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
+    insertBefore(target: Node | HTML, node: (Node | HTML), ref: (Node | HTML)): void;
+    remove(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
+    replaceWith(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
@@ -150,17 +385,38 @@ function html_addBind(instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM }, k
     instance[key] = value; 
     (instance[DOM] as any).binds.push(key);
 }
-function make_ref(ref: WeakRef<Comment & { [DOM]: HTML }>["deref"]) {
+function html_makeRef(ref: WeakRef<Comment>["deref"]) {
     return {
         deref() {
             const marker = ref();
             if (marker === undefined) return undefined;
-            return marker[DOM];
+            return baseNodes.get(marker as any);
         },
         hasref() {
             return ref() !== undefined;
         }
     };
+}
+function html_replaceWith(target: Node | HTML, ...nodes: (Node | HTML)[]) {
+    const _isHTML = isHTML(target);
+
+    const parent = _isHTML ? target[DOM].parent : target.parentNode;
+    if (parent === null) return;
+
+    const ref = _isHTML ? target[DOM].first : target;
+    for (const node of nodes) {
+        RHU_COLLECTION.unbind(node);
+
+        if (isHTML(node)) {
+            for (const n of node) {
+                parent.insertBefore(n, ref);
+            }
+        } else {
+            parent.insertBefore(node, ref);
+        }
+    }
+    
+    html.remove(parent, target);
 }
 export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | HTML, ...interpolations: Interp[]) => {
     // edit dom properties func
@@ -273,10 +529,10 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                     node.nodeValue = slot.string(value);
                 }, { condition: () => ref.deref() !== undefined });
 
-                slotElement.replaceWith(node);
+                html_replaceWith(slotElement, node);
                 if (hole !== undefined) elements[hole] = node;
             } else if (isNode(slot)) {
-                slotElement.replaceWith(slot);
+                html_replaceWith(slotElement, slot);
                 if (hole !== undefined) elements[hole] = slot;
             } else if (RHU_MARKER.is(slot)) {
                 const node = document.createComment(" << rhu-marker >> ");
@@ -287,7 +543,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                     html_addBind(instance, key, node);
                 }
 
-                slotElement.replaceWith(node);
+                html_replaceWith(slotElement, node);
                 if (hole !== undefined) elements[hole] = node;
             } else {
                 let descriptor: RHU_NODE | undefined = undefined;
@@ -319,7 +575,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
 
                 if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
                 
-                slotElement.replaceWith(...slotImplementation);
+                html_replaceWith(slotElement, ...slotImplementation);
                 if (hole !== undefined) elements[hole] = node;
             }
         } catch (e) {
@@ -334,23 +590,10 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         elements = elements.filter(v => v !== undefined);
     }
 
-    // NOTE(randomuserhi): A comment is used to control garbage collection when referencing RHU_HTML elements
-    //                     If some code needs to run without holding a strong reference to the elements / html object,
-    //                     it will pass all references through this comment.
-    //
-    //                     This way, if the comment html object is GC'd but the comment remains on DOM, everything still
-    //                     works and vice versa (since the comment holds a reference to the html object).
-    //                     
-    //                     But if both the comment and the html object is GC'd then the reference can be cleared and detected
-    //                     through the WeakRef to this comment node.
-    const marker = document.createComment(" << rhu-node >> ");
-    fragment.append(marker);
-    elements.push(marker);
-
-    (marker as any)[DOM] = instance;
-
-    const markerRef = new WeakRef(marker);
-
+    // Create frag collection to manage the fragment
+    const collection = new RHU_COLLECTION<T>(instance as HTML<T>, ...elements);
+    fragment.append(collection.last); // Append the fragment marker
+    
     // NOTE(randomuserhi): We have to call a separate function to prevent context hoisting from 
     //                     preventing garbage collection of the marker node.
     //
@@ -362,10 +605,11 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     //                     Since we want to be able to hold a reference to the `ref` inlien function but not the context
     //                     it resides in, we call a separate function. The separate function has its own context (hence
     //                     we can no longer access `marker` as per its scope) and thus circumvents this issue.
-    const ref = make_ref(markerRef.deref.bind(markerRef));
+    const markerRef = new WeakRef(collection.last);
+    const ref = html_makeRef(markerRef.deref.bind(markerRef));
 
     const iter = function* () {
-        for (const node of (implementation.elements as (HTML | Node)[])) {
+        for (const node of implementation.elements) {
             if (isHTML(node)) {
                 yield* node;
             } else {
@@ -374,11 +618,17 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         }
     };
     
+    // Setup alias methods
+    const replaceWith = html_replaceWith.bind(undefined, instance);
+    const remove = RHU_COLLECTION.prototype.remove.bind(collection);
+    const append = RHU_COLLECTION.prototype.append.bind(collection);
+    const insertBefore = RHU_COLLECTION.prototype.insertBefore.bind(collection);
+
     // Setup getters
     defineProperties(implementation, {
         elements: {
             get() {
-                return elements;
+                return collection;
             },
             configurable: false
         },
@@ -390,7 +640,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         },
         first: {
             get() {
-                const node: HTML | Node = implementation.elements[0];
+                const node = implementation.elements.first;
                 if (isHTML(node)) {
                     return node.first();
                 } else {
@@ -402,15 +652,35 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
         last: {
             // NOTE(randomuserhi): The last node should always be the marker comment
             get() {
-                return marker;
+                return implementation.elements.last;
             },
             configurable: false
         },
         parent: {
             get() {
-                return marker.parentNode;
+                return implementation.elements.last.parentNode;
             },
             configurable: false
+        },
+        replaceWith: {
+            get() {
+                return replaceWith;
+            }
+        },
+        remove: {
+            get() {
+                return remove;
+            },
+        },
+        append: {
+            get() {
+                return append;
+            },
+        },
+        insertBefore: {
+            get() {
+                return insertBefore;
+            },
         },
         [Symbol.iterator]: {
             get() {
@@ -445,28 +715,115 @@ html.box = (el, boxed?: boolean) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.ref = (obj) => {
-    if (isHTML(obj)) {
-        return obj[DOM].ref;
+html.ref = ((target: any, obj: any) => {
+    if (obj ===  undefined) {
+        if (isHTML(target)) {
+            return target[DOM].ref;
+        }
+        const deref = WeakRef.prototype.deref.bind(new WeakRef(target));
+        return {
+            deref,
+            hasref: () => deref() !== undefined
+        };
+    } else {
+        const wr = isHTML(target) ? target[DOM].ref : new WeakRef(target);
+        const wmap = new WeakMap();
+        wmap.set(target, obj);
+        return {
+            deref() {
+                return wmap.get(wr.deref()!);
+            },
+            hasref() {
+                return wr.deref() !== undefined;
+            }
+        };
     }
-    const deref = WeakRef.prototype.deref.bind(new WeakRef(obj));
-    return {
-        deref,
-        hasref: () => deref() !== undefined
-    };
+}) as any;
+html.replaceWith = html_replaceWith;
+html.remove = (target, ...nodes) => {
+    if (isHTML(target)) {
+        target[DOM].remove(...nodes);
+    } else {
+        for (const node of nodes) {
+            if (isHTML(node)) {
+                RHU_COLLECTION.unbind(node);
+
+                for (const n of node) {
+                    if (n.parentNode === target) target.removeChild(n);
+                }
+            } else {
+                if (node.parentNode === target) {
+                    RHU_COLLECTION.unbind(node);
+
+                    target.removeChild(node);
+                }
+            }
+        }
+    }
+};
+html.append = (target, ...nodes) => {
+    if (isHTML(target)) {
+        target[DOM].append(...nodes);
+    } else {
+        for (const node of nodes) {
+            RHU_COLLECTION.unbind(node);
+
+            if (isHTML(node)) {
+                for (const n of node) {
+                    target.appendChild(n);
+                }
+            } else {
+                target.appendChild(node);
+            }
+        }
+    }
+};
+html.insertBefore = (target, node, ref) => {
+    if (isHTML(target)) {
+        target[DOM].insertBefore(node, ref);
+    } else {
+        RHU_COLLECTION.unbind(node);
+
+        const nref = isHTML(ref) ? ref[DOM].first : ref;
+        if (isHTML(node)) {
+            for (const n of node) {
+                target.insertBefore(n, nref);
+            }
+        } else {
+            target.insertBefore(node, nref);
+        }
+    }
 };
 html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
-    const dom = html<{ signal: Signal<any> }>``;
+    const dom = html<{ 
+        signal: Signal<any>; 
+        
+        existingEls: Map<any, [el: HTML | undefined, pos: number]>;
+        _existingEls: Map<any, [el: HTML | undefined, pos: number]>;
+    }>``;
+    
     dom.signal = signal;
-    const ref = dom[DOM].ref;
 
     // Keep track of existing DOM elements and their positions (as to not duplicate nodes or unnecessarily move them)
-    let existingEls = new Map<any, [el: HTML | undefined, pos: number]>();
-    let _existingEls = new Map<any, [el: HTML | undefined, pos: number]>();
-    
-    // Stores elements that should exist prior a previously existing one 
-    // (Used when updating the map).
+    //
+    // NOTE(randomuserhi): These variables have to be members of dom as they hold strong references to the parent
+    //                     `dom` element. If they were not members, then due to scope referencing, the signal will hold 
+    //                     a strong reference to these variables. And as these variables hold strong references to
+    //                     `dom`, `dom` can no longer be garbage collected until the signal is also garbage collected.
+    //
+    //                     These maps hold a strong reference to `dom` as they store its child elements.
+    //                     The child elements prevent its parent (`dom`) from being GC'd.
+    //
+    //                     For more information about scopes and how they affect GC: 
+    //                     - https://jakearchibald.com/2024/garbage-collection-and-closures/#the-problem-case
+    dom.existingEls = new Map();
+    dom._existingEls = new Map();
+
+    // NOTE(randomuserhi): As the stack is empty by the end of `update`, it does not need to be a member as it holds no strong
+    //                     references to anything else (its empty array). Thus we can ignore the above.
     const stack: HTML[] = [];
+
+    const ref = dom[DOM].ref;
 
     const update = (value: any) => {
         const dom = ref.deref();
@@ -474,7 +831,6 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
         
         const internal = dom[DOM];
         const last = internal.last;
-        const parent = last.parentNode;
 
         // Obtain iterable
         let kvIter: Iterable<[key: any, value: any]> | undefined = undefined;
@@ -484,7 +840,6 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
             kvIter = value.entries();
         }
 
-        internal.elements.length = 0;
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
             let prev: number | undefined = undefined;
@@ -492,15 +847,15 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
             for (const kv of kvIter) {
                 const key = kv[0];
 
-                if (_existingEls.has(key)) {
+                if (dom._existingEls.has(key)) {
                     console.warn("'html.map' does not support non-unique keys.");
                     continue;
                 }
 
-                const pos = _existingEls.size; // Position of current element
+                const pos = dom._existingEls.size; // Position of current element
 
                 // Get previous state if the element existed previously
-                const old = existingEls.get(key);
+                const old = dom.existingEls.get(key);
                 const oldEl = old === undefined ? undefined : old[0];
 
                 // Generate new state
@@ -520,11 +875,9 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                 if (old !== undefined && inOrder) {
                     prev = old[1];
                     
-                    if (oldEl !== undefined && parent !== null) {
+                    if (oldEl !== undefined) {
                         for (const el of stack) {
-                            for (const node of el) {
-                                parent.insertBefore(node, oldEl[DOM].first);
-                            }
+                            internal.insertBefore(el, oldEl);
                         }
                         stack.length = 0;
                     }
@@ -534,11 +887,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
                 // one, remove it and append to stack
                 if (el !== oldEl || outOfOrder) {
                     if (oldEl !== undefined) {
-                        for (const node of oldEl) {
-                            if (node.parentNode !== null) {
-                                node.parentNode.removeChild(node);
-                            }
-                        }
+                        internal.remove(oldEl);
                     }
 
                     if (el !== undefined) {
@@ -548,45 +897,35 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
 
                 // Update element map
                 if (old === undefined) {
-                    _existingEls.set(key, [el, pos]);
+                    dom._existingEls.set(key, [el, pos]);
                 } else {
                     old[0] = el;
                     old[1] = pos;
-                    _existingEls.set(key, old);
+                    dom._existingEls.set(key, old);
                 }
-
-                if (el !== undefined) internal.elements.push(el);
             }
 
             // Append remaining elements in stack to the end of the map
-            if (stack.length > 0 && parent !== null) {
+            if (stack.length > 0) {
                 for (const el of stack) {
-                    for (const node of el) {
-                        parent.insertBefore(node, last);
-                    }
+                    internal.insertBefore(el, last);
                 }
             }
             stack.length = 0;
         }
 
         // Remove elements that no longer exist
-        for (const [key, [el]] of existingEls) {
-            if (_existingEls.has(key)) continue;
+        for (const [key, [el]] of dom.existingEls) {
+            if (dom._existingEls.has(key)) continue;
             if (el === undefined) continue;
 
-            for (const node of el) {
-                if (node.parentNode !== null) {
-                    node.parentNode.removeChild(node);
-                }
-            }
+            internal.remove(el);
         }
-        existingEls.clear();
+        dom.existingEls.clear();
 
-        const temp = _existingEls; 
-        _existingEls = existingEls;
-        existingEls = temp;
-
-        internal.elements.push(last);
+        const temp = dom._existingEls; 
+        dom._existingEls = dom.existingEls;
+        dom.existingEls = temp;
     };
 
     // Update map on signal change
@@ -635,8 +974,9 @@ html.observe = function(target: Node): void {
 const onDocumentLoad = function() {
     html.observe(document);
 };
-if (document.readyState === "loading") 
+if (document.readyState === "loading") { 
     document.addEventListener("DOMContentLoaded", onDocumentLoad);
-// Document may have loaded already if the script is declared as defer, in this case just call onload
-else 
+} else { 
+    // Document may have loaded already if the script is declared as defer, in this case just call onload
     onDocumentLoad();
+}

@@ -2,6 +2,156 @@ import { isSignal } from "./signal.js";
 const isMap = Object.prototype.isPrototypeOf.bind(Map.prototype);
 const isArray = Object.prototype.isPrototypeOf.bind(Array.prototype);
 const isNode = Object.prototype.isPrototypeOf.bind(Node.prototype);
+const fragNodeMap = new WeakMap();
+const baseNodes = new WeakMap();
+class FRAG {
+    constructor(owner = undefined) {
+        this.owner = owner;
+    }
+}
+class RHU_COLLECTION {
+    constructor(owner, ...nodes) {
+        this.set = new Map();
+        this._length = 0;
+        this.owner = owner;
+        this.last = document.createComment(" << rhu-node >> ");
+        baseNodes.set(this.last, owner);
+        this._first = this._last = { node: this.last };
+        this.append(...nodes);
+    }
+    static unbind(node) {
+        const frag = fragNodeMap.get(node);
+        if (frag?.owner !== undefined) {
+            frag.owner[DOM].remove(node);
+        }
+    }
+    remove(...nodes) {
+        for (const node of nodes) {
+            if (node === this.owner)
+                continue;
+            if (baseNodes.has(node))
+                continue;
+            const frag = fragNodeMap.get(node);
+            if (frag?.owner === this.owner) {
+                frag.owner = undefined;
+                fragNodeMap.delete(node);
+            }
+            const el = this.set.get(node);
+            if (el === undefined)
+                continue;
+            if (el.prev !== undefined)
+                el.prev.next = el.next;
+            else
+                this._first = el.next;
+            if (el.next !== undefined)
+                el.next.prev = el.prev;
+            this.set.delete(node);
+            const parentNode = this.last.parentNode;
+            if (parentNode !== null) {
+                if (isHTML(node)) {
+                    for (const n of node) {
+                        if (n.parentNode === parentNode)
+                            parentNode.removeChild(n);
+                    }
+                }
+                else {
+                    if (node.parentNode === parentNode) {
+                        parentNode.removeChild(node);
+                    }
+                }
+            }
+            --this._length;
+        }
+    }
+    append(...nodes) {
+        for (const node of nodes) {
+            if (node === this.owner)
+                continue;
+            if (baseNodes.has(node))
+                continue;
+            if (!fragNodeMap.has(node)) {
+                fragNodeMap.set(node, new FRAG());
+            }
+            const frag = fragNodeMap.get(node);
+            if (frag.owner !== undefined) {
+                frag.owner[DOM].elements.remove(node);
+            }
+            frag.owner = this.owner;
+            const linkage = {
+                node,
+                prev: this._last.prev,
+                next: this._last
+            };
+            this._last.prev = linkage;
+            if (linkage.prev !== undefined)
+                linkage.prev.next = linkage;
+            else
+                this._first = linkage;
+            this.set.set(node, linkage);
+            if (this.last.parentNode !== null) {
+                if (isHTML(node)) {
+                    for (const n of node) {
+                        this.last.parentNode.insertBefore(n, this.last);
+                    }
+                }
+                else {
+                    this.last.parentNode.insertBefore(node, this.last);
+                }
+            }
+            ++this._length;
+        }
+    }
+    insertBefore(node, child) {
+        if (node === this.owner)
+            return;
+        if (baseNodes.has(node))
+            return;
+        if (!fragNodeMap.has(node)) {
+            fragNodeMap.set(node, new FRAG());
+        }
+        const frag = fragNodeMap.get(node);
+        if (frag.owner !== undefined) {
+            frag.owner[DOM].elements.remove(node);
+        }
+        let target = child === undefined ? undefined : this.set.get(child);
+        if (target === undefined) {
+            target = this._last;
+        }
+        frag.owner = this.owner;
+        const linkage = {
+            node,
+            prev: target.prev,
+            next: target
+        };
+        target.prev = linkage;
+        if (linkage.prev !== undefined)
+            linkage.prev.next = linkage;
+        else
+            this._first = linkage;
+        this.set.set(node, linkage);
+        const appendNode = isHTML(target.node) ? target.node[DOM].first : target?.node;
+        if (appendNode.parentNode !== null) {
+            if (isHTML(node)) {
+                for (const n of node) {
+                    appendNode.parentNode.insertBefore(n, appendNode);
+                }
+            }
+            else {
+                appendNode.parentNode.insertBefore(node, appendNode);
+            }
+        }
+        ++this._length;
+    }
+    get first() { return this._first.node; }
+    get length() { return this._length; }
+    *[Symbol.iterator]() {
+        let current = this._first;
+        while (current !== undefined) {
+            yield current.node;
+            current = current.next;
+        }
+    }
+}
 class RHU_CLOSURE {
 }
 RHU_CLOSURE.instance = new RHU_CLOSURE();
@@ -92,18 +242,37 @@ function html_addBind(instance, key, value) {
     instance[key] = value;
     instance[DOM].binds.push(key);
 }
-function make_ref(ref) {
+function html_makeRef(ref) {
     return {
         deref() {
             const marker = ref();
             if (marker === undefined)
                 return undefined;
-            return marker[DOM];
+            return baseNodes.get(marker);
         },
         hasref() {
             return ref() !== undefined;
         }
     };
+}
+function html_replaceWith(target, ...nodes) {
+    const _isHTML = isHTML(target);
+    const parent = _isHTML ? target[DOM].parent : target.parentNode;
+    if (parent === null)
+        return;
+    const ref = _isHTML ? target[DOM].first : target;
+    for (const node of nodes) {
+        RHU_COLLECTION.unbind(node);
+        if (isHTML(node)) {
+            for (const n of node) {
+                parent.insertBefore(n, ref);
+            }
+        }
+        else {
+            parent.insertBefore(node, ref);
+        }
+    }
+    html.remove(parent, target);
 }
 export const html = ((first, ...interpolations) => {
     if (isHTML(first)) {
@@ -204,12 +373,12 @@ export const html = ((first, ...interpolations) => {
                         return;
                     node.nodeValue = slot.string(value);
                 }, { condition: () => ref.deref() !== undefined });
-                slotElement.replaceWith(node);
+                html_replaceWith(slotElement, node);
                 if (hole !== undefined)
                     elements[hole] = node;
             }
             else if (isNode(slot)) {
-                slotElement.replaceWith(slot);
+                html_replaceWith(slotElement, slot);
                 if (hole !== undefined)
                     elements[hole] = slot;
             }
@@ -220,7 +389,7 @@ export const html = ((first, ...interpolations) => {
                 if (key !== undefined) {
                     html_addBind(instance, key, node);
                 }
-                slotElement.replaceWith(node);
+                html_replaceWith(slotElement, node);
                 if (hole !== undefined)
                     elements[hole] = node;
             }
@@ -251,7 +420,7 @@ export const html = ((first, ...interpolations) => {
                 }
                 if (slotImplementation.onChildren !== undefined)
                     slotImplementation.onChildren(slotElement.childNodes);
-                slotElement.replaceWith(...slotImplementation);
+                html_replaceWith(slotElement, ...slotImplementation);
                 if (hole !== undefined)
                     elements[hole] = node;
             }
@@ -267,12 +436,10 @@ export const html = ((first, ...interpolations) => {
     if (error) {
         elements = elements.filter(v => v !== undefined);
     }
-    const marker = document.createComment(" << rhu-node >> ");
-    fragment.append(marker);
-    elements.push(marker);
-    marker[DOM] = instance;
-    const markerRef = new WeakRef(marker);
-    const ref = make_ref(markerRef.deref.bind(markerRef));
+    const collection = new RHU_COLLECTION(instance, ...elements);
+    fragment.append(collection.last);
+    const markerRef = new WeakRef(collection.last);
+    const ref = html_makeRef(markerRef.deref.bind(markerRef));
     const iter = function* () {
         for (const node of implementation.elements) {
             if (isHTML(node)) {
@@ -283,10 +450,14 @@ export const html = ((first, ...interpolations) => {
             }
         }
     };
+    const replaceWith = html_replaceWith.bind(undefined, instance);
+    const remove = RHU_COLLECTION.prototype.remove.bind(collection);
+    const append = RHU_COLLECTION.prototype.append.bind(collection);
+    const insertBefore = RHU_COLLECTION.prototype.insertBefore.bind(collection);
     defineProperties(implementation, {
         elements: {
             get() {
-                return elements;
+                return collection;
             },
             configurable: false
         },
@@ -298,7 +469,7 @@ export const html = ((first, ...interpolations) => {
         },
         first: {
             get() {
-                const node = implementation.elements[0];
+                const node = implementation.elements.first;
                 if (isHTML(node)) {
                     return node.first();
                 }
@@ -310,15 +481,35 @@ export const html = ((first, ...interpolations) => {
         },
         last: {
             get() {
-                return marker;
+                return implementation.elements.last;
             },
             configurable: false
         },
         parent: {
             get() {
-                return marker.parentNode;
+                return implementation.elements.last.parentNode;
             },
             configurable: false
+        },
+        replaceWith: {
+            get() {
+                return replaceWith;
+            }
+        },
+        remove: {
+            get() {
+                return remove;
+            },
+        },
+        append: {
+            get() {
+                return append;
+            },
+        },
+        insertBefore: {
+            get() {
+                return insertBefore;
+            },
         },
         [Symbol.iterator]: {
             get() {
@@ -352,30 +543,102 @@ html.box = (el, boxed) => {
     }
     return new RHU_NODE(el).box(boxed);
 };
-html.ref = (obj) => {
-    if (isHTML(obj)) {
-        return obj[DOM].ref;
+html.ref = ((target, obj) => {
+    if (obj === undefined) {
+        if (isHTML(target)) {
+            return target[DOM].ref;
+        }
+        const deref = WeakRef.prototype.deref.bind(new WeakRef(target));
+        return {
+            deref,
+            hasref: () => deref() !== undefined
+        };
     }
-    const deref = WeakRef.prototype.deref.bind(new WeakRef(obj));
-    return {
-        deref,
-        hasref: () => deref() !== undefined
-    };
+    else {
+        const wr = isHTML(target) ? target[DOM].ref : new WeakRef(target);
+        const wmap = new WeakMap();
+        wmap.set(target, obj);
+        return {
+            deref() {
+                return wmap.get(wr.deref());
+            },
+            hasref() {
+                return wr.deref() !== undefined;
+            }
+        };
+    }
+});
+html.replaceWith = html_replaceWith;
+html.remove = (target, ...nodes) => {
+    if (isHTML(target)) {
+        target[DOM].remove(...nodes);
+    }
+    else {
+        for (const node of nodes) {
+            if (isHTML(node)) {
+                RHU_COLLECTION.unbind(node);
+                for (const n of node) {
+                    if (n.parentNode === target)
+                        target.removeChild(n);
+                }
+            }
+            else {
+                if (node.parentNode === target) {
+                    RHU_COLLECTION.unbind(node);
+                    target.removeChild(node);
+                }
+            }
+        }
+    }
+};
+html.append = (target, ...nodes) => {
+    if (isHTML(target)) {
+        target[DOM].append(...nodes);
+    }
+    else {
+        for (const node of nodes) {
+            RHU_COLLECTION.unbind(node);
+            if (isHTML(node)) {
+                for (const n of node) {
+                    target.appendChild(n);
+                }
+            }
+            else {
+                target.appendChild(node);
+            }
+        }
+    }
+};
+html.insertBefore = (target, node, ref) => {
+    if (isHTML(target)) {
+        target[DOM].insertBefore(node, ref);
+    }
+    else {
+        RHU_COLLECTION.unbind(node);
+        const nref = isHTML(ref) ? ref[DOM].first : ref;
+        if (isHTML(node)) {
+            for (const n of node) {
+                target.insertBefore(n, nref);
+            }
+        }
+        else {
+            target.insertBefore(node, nref);
+        }
+    }
 };
 html.map = ((signal, factory, iterator) => {
     const dom = html ``;
     dom.signal = signal;
-    const ref = dom[DOM].ref;
-    let existingEls = new Map();
-    let _existingEls = new Map();
+    dom.existingEls = new Map();
+    dom._existingEls = new Map();
     const stack = [];
+    const ref = dom[DOM].ref;
     const update = (value) => {
         const dom = ref.deref();
         if (dom === undefined)
             return;
         const internal = dom[DOM];
         const last = internal.last;
-        const parent = last.parentNode;
         let kvIter = undefined;
         if (iterator !== undefined) {
             kvIter = iterator(value);
@@ -383,80 +646,64 @@ html.map = ((signal, factory, iterator) => {
         else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();
         }
-        internal.elements.length = 0;
         if (kvIter != undefined) {
             let prev = undefined;
             for (const kv of kvIter) {
                 const key = kv[0];
-                if (_existingEls.has(key)) {
+                if (dom._existingEls.has(key)) {
                     console.warn("'html.map' does not support non-unique keys.");
                     continue;
                 }
-                const pos = _existingEls.size;
-                const old = existingEls.get(key);
+                const pos = dom._existingEls.size;
+                const old = dom.existingEls.get(key);
                 const oldEl = old === undefined ? undefined : old[0];
                 const el = factory(kv, oldEl);
                 const inOrder = old === undefined || prev === undefined || old[1] > prev;
                 const outOfOrder = !inOrder;
                 if (old !== undefined && inOrder) {
                     prev = old[1];
-                    if (oldEl !== undefined && parent !== null) {
+                    if (oldEl !== undefined) {
                         for (const el of stack) {
-                            for (const node of el) {
-                                parent.insertBefore(node, oldEl[DOM].first);
-                            }
+                            internal.insertBefore(el, oldEl);
                         }
                         stack.length = 0;
                     }
                 }
                 if (el !== oldEl || outOfOrder) {
                     if (oldEl !== undefined) {
-                        for (const node of oldEl) {
-                            if (node.parentNode !== null) {
-                                node.parentNode.removeChild(node);
-                            }
-                        }
+                        internal.remove(oldEl);
                     }
                     if (el !== undefined) {
                         stack.push(el);
                     }
                 }
                 if (old === undefined) {
-                    _existingEls.set(key, [el, pos]);
+                    dom._existingEls.set(key, [el, pos]);
                 }
                 else {
                     old[0] = el;
                     old[1] = pos;
-                    _existingEls.set(key, old);
+                    dom._existingEls.set(key, old);
                 }
-                if (el !== undefined)
-                    internal.elements.push(el);
             }
-            if (stack.length > 0 && parent !== null) {
+            if (stack.length > 0) {
                 for (const el of stack) {
-                    for (const node of el) {
-                        parent.insertBefore(node, last);
-                    }
+                    internal.insertBefore(el, last);
                 }
             }
             stack.length = 0;
         }
-        for (const [key, [el]] of existingEls) {
-            if (_existingEls.has(key))
+        for (const [key, [el]] of dom.existingEls) {
+            if (dom._existingEls.has(key))
                 continue;
             if (el === undefined)
                 continue;
-            for (const node of el) {
-                if (node.parentNode !== null) {
-                    node.parentNode.removeChild(node);
-                }
-            }
+            internal.remove(el);
         }
-        existingEls.clear();
-        const temp = _existingEls;
-        _existingEls = existingEls;
-        existingEls = temp;
-        internal.elements.push(last);
+        dom.existingEls.clear();
+        const temp = dom._existingEls;
+        dom._existingEls = dom.existingEls;
+        dom.existingEls = temp;
     };
     signal.on(update, { condition: ref.hasref });
     return dom;
@@ -494,7 +741,9 @@ html.observe = function (target) {
 const onDocumentLoad = function () {
     html.observe(document);
 };
-if (document.readyState === "loading")
+if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", onDocumentLoad);
-else
+}
+else {
     onDocumentLoad();
+}

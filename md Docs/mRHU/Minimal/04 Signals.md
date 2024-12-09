@@ -356,3 +356,62 @@ state.on((value) => {
 > This behaviour extends to `computed` and `effect` where if no changes are ever invoked, the callbacks cannot be garbage collected.
 > 
 > To manually trigger a condition check simply use `.check()`, for example in the above code snippet `state.check()` would check all conditions on all of the callbacks assigned to `state`.
+
+**[Be careful of scope rules which can cause memory leaks:](https://jakearchibald.com/2024/garbage-collection-and-closures/#the-problem-case)**
+
+```js
+function demo() {
+  const bigArrayBuffer = new ArrayBuffer(100_000_000);
+
+  const id = setTimeout(() => {
+    console.log(bigArrayBuffer.byteLength);
+  }, 1000);
+
+  return () => clearTimeout(id);
+}
+
+globalThis.cancelDemo = demo();
+// bigArrayBuffer is leaked
+```
+
+This leaks, because:
+
+1. The engine sees `bigArrayBuffer` is referenced by inner functions, so it's kept around. It's associated with the scope that was created when `demo()` was called.
+2. After a second, the function referencing `bigArrayBuffer` is no longer callable.
+3. But, the scope remains, because the 'cancel' function is still callable.
+4. `bigArrayBuffer` is associated with the scope, so it remains in memory.
+
+I thought engines would be smarter, and GC `bigArrayBuffer` since it's no longer referenceable, but that isn't the case.
+
+```js
+globalThis.cancelDemo = null;
+```
+
+_Now_ `bigArrayBuffer` can be GC'd, since nothing within the scope is callable.
+
+This isn't specific to timers, it's just how I encountered the issue. For example:
+
+```js
+function demo() {
+  const bigArrayBuffer = new ArrayBuffer(100_000_000);
+
+  globalThis.innerFunc1 = () => {
+    console.log(bigArrayBuffer.byteLength);
+  };
+
+  globalThis.innerFunc2 = () => {
+    console.log('hello');
+  };
+}
+
+demo();
+// bigArrayBuffer is retained, as expected.
+
+globalThis.innerFunc1 = undefined;
+// bigArrayBuffer is still retained, as unexpected.
+// - innerFunc2 retains the SCOPE which includes bigArrayBuffer,
+//   thus it is retained.
+
+globalThis.innerFunc2 = undefined;
+// bigArrayBuffer can now be collected.
+```
