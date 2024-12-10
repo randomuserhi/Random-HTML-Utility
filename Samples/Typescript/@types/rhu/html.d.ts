@@ -45,6 +45,7 @@ declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, a
     readonly remove: RHU_COLLECTION["remove"];
     readonly append: RHU_COLLECTION["append"];
     readonly insertBefore: RHU_COLLECTION["insertBefore"];
+    readonly replaceWith: (...nodes: (HTML | Node)[]) => void;
     readonly [Symbol.iterator]: () => IterableIterator<Node>;
     readonly [DOM]: HTML<T>;
     readonly ref: {
