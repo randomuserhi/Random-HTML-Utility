@@ -1,5 +1,7 @@
 import { isSignal, Signal, SignalEvent } from "./signal.js";
 
+// TODO(randomuserhi): Clean up code + Standardise calling the produced "Elements" "Fragments" as they are more Fragments than components etc...
+
 // Helper functions
 const isMap: <K = any, V = any>(object: any) => object is Map<K, V> = Object.prototype.isPrototypeOf.bind(Map.prototype);
 const isArray: <T = any>(object: any) => object is Array<T> = Object.prototype.isPrototypeOf.bind(Array.prototype);

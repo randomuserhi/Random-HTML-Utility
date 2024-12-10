@@ -1,5 +1,6 @@
 > *It is recommended to use mRHU with the [es6-string-html](https://marketplace.visualstudio.com/items?itemName=Tobermory.es6-string-html) extension as it provides syntax highlighting for HTML written in JavaScript strings.*
 
+%% TODO: Rewrite to describe HTML as fragments (similar to React-Frag) %%
 ## Basics
 
 mRHU allows you to write inline HTML and easily access its elements via bindings. To do this, import the `html` function from `rhu/html.js`:
