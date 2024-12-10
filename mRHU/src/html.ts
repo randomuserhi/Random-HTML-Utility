@@ -400,8 +400,8 @@ function html_addBind(instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM }, k
     instance[key] = value; 
     (instance[DOM] as any).binds.push(key);
 }
-function html_makeRef(ref: WeakRef<Comment>["deref"]) {
-    return {
+function html_makeRef(implementation: RHU_DOM, ref: WeakRef<Comment>["deref"]) {
+    const wref = {
         deref() {
             const marker = ref();
             if (marker === undefined) return undefined;
@@ -411,6 +411,15 @@ function html_makeRef(ref: WeakRef<Comment>["deref"]) {
             return ref() !== undefined;
         }
     };
+
+    defineProperties(implementation, {
+        ref: {
+            get() {
+                return wref;
+            },
+            configurable: false
+        }
+    });
 }
 function html_replaceWith(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]) {
     const _isHTML = isHTML(target);
@@ -647,17 +656,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     //                     it resides in, we call a separate function. The separate function has its own context (hence
     //                     we can no longer access `marker` as per its scope) and thus circumvents this issue.
     const markerRef = new WeakRef(implementation.last);
-    const ref = html_makeRef(markerRef.deref.bind(markerRef));
-
-    // Setup getters
-    defineProperties(implementation, {
-        ref: {
-            get() {
-                return ref;
-            },
-            configurable: false
-        }
-    });
+    html_makeRef(implementation, markerRef.deref.bind(markerRef));
 
     return instance as RHU_FRAG<T>;
 }) as RHU_HTML;

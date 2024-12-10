@@ -269,8 +269,8 @@ function html_addBind(instance, key, value) {
     instance[key] = value;
     instance[DOM].binds.push(key);
 }
-function html_makeRef(ref) {
-    return {
+function html_makeRef(implementation, ref) {
+    const wref = {
         deref() {
             const marker = ref();
             if (marker === undefined)
@@ -281,6 +281,14 @@ function html_makeRef(ref) {
             return ref() !== undefined;
         }
     };
+    defineProperties(implementation, {
+        ref: {
+            get() {
+                return wref;
+            },
+            configurable: false
+        }
+    });
 }
 function html_replaceWith(target, ...nodes) {
     const _isHTML = isHTML(target);
@@ -480,15 +488,7 @@ export const html = ((first, ...interpolations) => {
     }
     implementation.append(...elements);
     const markerRef = new WeakRef(implementation.last);
-    const ref = html_makeRef(markerRef.deref.bind(markerRef));
-    defineProperties(implementation, {
-        ref: {
-            get() {
-                return ref;
-            },
-            configurable: false
-        }
-    });
+    html_makeRef(implementation, markerRef.deref.bind(markerRef));
     return instance;
 });
 html.close = () => RHU_CLOSURE.instance;
