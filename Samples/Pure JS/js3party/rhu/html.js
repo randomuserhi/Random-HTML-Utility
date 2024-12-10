@@ -4,20 +4,17 @@ const isArray = Object.prototype.isPrototypeOf.bind(Array.prototype);
 const isNode = Object.prototype.isPrototypeOf.bind(Node.prototype);
 const fragNodeMap = new WeakMap();
 const baseNodes = new WeakMap();
-window.debug = {
-    fragNodeMap,
-    baseNodes
-};
-class FRAG {
+class RHU_FRAGMENT_METADATA {
     constructor(owner = undefined) {
         this.owner = owner;
     }
 }
-class RHU_COLLECTION {
+export const DOM = Symbol("html.dom");
+class RHU_FRAGMENT {
     constructor(owner, ...nodes) {
         this.set = new Map();
         this._length = 0;
-        this.owner = owner;
+        this[DOM] = owner;
         this.last = document.createComment(" << rhu-node >> ");
         baseNodes.set(this.last, owner);
         this._first = this._last = { node: this.last };
@@ -29,14 +26,17 @@ class RHU_COLLECTION {
             frag.owner[DOM].remove(node);
         }
     }
+    replaceWith(...nodes) {
+        html_replaceWith(this[DOM], ...nodes);
+    }
     remove(...nodes) {
         for (const node of nodes) {
-            if (node === this.owner)
+            if (node === this[DOM])
                 continue;
             if (baseNodes.has(node))
                 continue;
             const frag = fragNodeMap.get(node);
-            if (frag?.owner === this.owner) {
+            if (frag?.owner === this[DOM]) {
                 frag.owner = undefined;
                 fragNodeMap.delete(node);
             }
@@ -69,18 +69,18 @@ class RHU_COLLECTION {
     }
     append(...nodes) {
         for (const node of nodes) {
-            if (node === this.owner)
+            if (node === this[DOM])
                 continue;
             if (baseNodes.has(node))
                 continue;
             if (!fragNodeMap.has(node)) {
-                fragNodeMap.set(node, new FRAG());
+                fragNodeMap.set(node, new RHU_FRAGMENT_METADATA());
             }
             const frag = fragNodeMap.get(node);
             if (frag.owner !== undefined) {
-                frag.owner[DOM].elements.remove(node);
+                frag.owner[DOM].remove(node);
             }
-            frag.owner = this.owner;
+            frag.owner = this[DOM];
             const linkage = {
                 node,
                 prev: this._last.prev,
@@ -106,22 +106,22 @@ class RHU_COLLECTION {
         }
     }
     insertBefore(node, child) {
-        if (node === this.owner)
+        if (node === this[DOM])
             return;
         if (baseNodes.has(node))
             return;
         if (!fragNodeMap.has(node)) {
-            fragNodeMap.set(node, new FRAG());
+            fragNodeMap.set(node, new RHU_FRAGMENT_METADATA());
         }
         const frag = fragNodeMap.get(node);
         if (frag.owner !== undefined) {
-            frag.owner[DOM].elements.remove(node);
+            frag.owner[DOM].remove(node);
         }
         let target = child === undefined ? undefined : this.set.get(child);
         if (target === undefined) {
             target = this._last;
         }
-        frag.owner = this.owner;
+        frag.owner = this[DOM];
         const linkage = {
             node,
             prev: target.prev,
@@ -134,7 +134,7 @@ class RHU_COLLECTION {
             this._first = linkage;
         this.set.set(node, linkage);
         if (this.last.parentNode !== null) {
-            let appendNode = isHTML(target.node) ? target.node[DOM].first : target.node;
+            let appendNode = isHTML(target.node) ? target.node[DOM].firstNode : target.node;
             if (appendNode.parentNode !== this.last.parentNode) {
                 appendNode = this.last;
             }
@@ -149,6 +149,19 @@ class RHU_COLLECTION {
         }
         ++this._length;
     }
+    get firstNode() {
+        const node = this.first;
+        if (isHTML(node)) {
+            return node.firstNode();
+        }
+        else {
+            return node;
+        }
+    }
+    get lastNode() {
+        return this.last;
+    }
+    get parent() { return this.last.parentNode; }
     get first() { return this._first.node; }
     get length() { return this._length; }
     *[Symbol.iterator]() {
@@ -158,16 +171,22 @@ class RHU_COLLECTION {
             current = current.next;
         }
     }
+    *childNodes() {
+        for (const node of this) {
+            if (isHTML(node)) {
+                yield* node;
+            }
+            else {
+                yield node;
+            }
+        }
+    }
 }
 class RHU_CLOSURE {
 }
 RHU_CLOSURE.instance = new RHU_CLOSURE();
 RHU_CLOSURE.is = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
 class RHU_MARKER {
-    bind(name) {
-        this.name = name;
-        return this;
-    }
 }
 RHU_MARKER.is = Object.prototype.isPrototypeOf.bind(RHU_MARKER.prototype);
 class RHU_NODE {
@@ -189,20 +208,22 @@ class RHU_NODE {
     }
 }
 RHU_NODE.is = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
-const RHU_HTML_PROTOTYPE = {};
-Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.iterator, {
-    get() {
-        return this[DOM][Symbol.iterator];
-    }
-});
-Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.toStringTag, {
-    get() {
-        return "RHU_HTML";
-    }
-});
-export const DOM = Symbol("html.dom");
-class RHU_DOM {
+const RHU_HTML_PROTOTYPE = {
+    [Symbol.iterator]: function* () {
+        for (const node of this[DOM]) {
+            if (isHTML(node)) {
+                yield* node;
+            }
+            else {
+                yield node;
+            }
+        }
+    },
+    [Symbol.toStringTag]: "RHU_FRAG"
+};
+class RHU_DOM extends RHU_FRAGMENT {
     constructor() {
+        super(...arguments);
         this.binds = [];
         this.close = RHU_CLOSURE.instance;
         this.boxed = false;
@@ -216,7 +237,6 @@ class RHU_DOM {
         return this;
     }
 }
-Symbol.iterator;
 RHU_DOM.is = Object.prototype.isPrototypeOf.bind(RHU_DOM.prototype);
 export const isHTML = (object) => {
     if (object === undefined)
@@ -267,9 +287,9 @@ function html_replaceWith(target, ...nodes) {
     const parent = _isHTML ? target[DOM].parent : target.parentNode;
     if (parent === null)
         return;
-    const ref = _isHTML ? target[DOM].first : target;
+    const ref = _isHTML ? target[DOM].firstNode : target;
     for (const node of nodes) {
-        RHU_COLLECTION.unbind(node);
+        RHU_FRAGMENT.unbind(node);
         if (isHTML(node)) {
             for (const n of node) {
                 parent.insertBefore(n, ref);
@@ -313,22 +333,19 @@ export const html = ((first, ...interpolations) => {
     const template = document.createElement("template");
     template.innerHTML = source;
     const fragment = template.content;
-    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT, {
+    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const value = node.nodeValue;
-            if (node.nodeType === Node.COMMENT_NODE && node[DOM] === undefined)
-                node.parentNode?.removeChild(node);
-            else if (value === null || value === undefined)
+            if (value === null || value === undefined)
                 node.parentNode?.removeChild(node);
             else if (value.trim() === "")
                 node.parentNode?.removeChild(node);
             return NodeFilter.FILTER_REJECT;
         }
     }).nextNode();
-    const implementation = new RHU_DOM();
     const instance = Object.create(RHU_HTML_PROTOTYPE);
+    const implementation = new RHU_DOM(instance);
     instance[DOM] = implementation;
-    implementation[DOM] = instance;
     for (const el of fragment.querySelectorAll("*[m-id]")) {
         const key = el.getAttribute("m-id");
         el.removeAttribute("m-id");
@@ -349,7 +366,7 @@ export const html = ((first, ...interpolations) => {
             elements.push(node);
         }
     }
-    let error = false;
+    let filterUndefined = false;
     for (const slotElement of fragment.querySelectorAll("rhu-slot[rhu-internal]")) {
         try {
             const attr = slotElement.getAttribute("rhu-internal");
@@ -370,7 +387,16 @@ export const html = ((first, ...interpolations) => {
                     hole = undefined;
                 }
             }
-            const slot = slots[i];
+            const item = slots[i];
+            let descriptor = undefined;
+            let slot;
+            if (RHU_NODE.is(item)) {
+                descriptor = item;
+                slot = item.node;
+            }
+            else {
+                slot = item;
+            }
             if (isSignal(slot)) {
                 const node = document.createTextNode(`${slot()}`);
                 const ref = new WeakRef(node);
@@ -380,11 +406,19 @@ export const html = ((first, ...interpolations) => {
                         return;
                     node.nodeValue = slot.string(value);
                 }, { condition: () => ref.deref() !== undefined });
+                const slotName = descriptor?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, slot);
+                }
                 html_replaceWith(slotElement, node);
                 if (hole !== undefined)
                     elements[hole] = node;
             }
             else if (isNode(slot)) {
+                const slotName = descriptor?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, slot);
+                }
                 html_replaceWith(slotElement, slot);
                 if (hole !== undefined)
                     elements[hole] = slot;
@@ -392,41 +426,42 @@ export const html = ((first, ...interpolations) => {
             else if (RHU_MARKER.is(slot)) {
                 const node = document.createComment(" << rhu-marker >> ");
                 node[DOM] = "marker";
-                const key = slot.name;
-                if (key !== undefined) {
-                    html_addBind(instance, key, node);
+                const slotName = descriptor?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, node);
                 }
                 html_replaceWith(slotElement, node);
                 if (hole !== undefined)
                     elements[hole] = node;
             }
-            else {
-                let descriptor = undefined;
-                let node;
-                if (RHU_NODE.is(slot)) {
-                    descriptor = slot;
-                    node = slot.node;
-                }
-                else {
-                    node = slot;
-                }
-                const slotImplementation = node[DOM];
+            else if (isHTML(slot)) {
+                const slotImplementation = slot[DOM];
                 let boxed = descriptor?.boxed;
                 if (boxed === undefined)
                     boxed = slotImplementation.boxed;
                 if (boxed || descriptor?.name !== undefined) {
                     const slotName = descriptor?.name;
                     if (slotName !== undefined) {
-                        html_addBind(instance, slotName, node);
+                        html_addBind(instance, slotName, slot);
                     }
                 }
                 else {
                     for (const key of slotImplementation.binds) {
-                        html_addBind(instance, key, node[key]);
+                        html_addBind(instance, key, slot[key]);
                     }
                 }
                 if (slotImplementation.onChildren !== undefined)
                     slotImplementation.onChildren(slotElement.childNodes);
+                html_replaceWith(slotElement, slot);
+                if (hole !== undefined)
+                    elements[hole] = slot;
+            }
+            else {
+                const node = document.createTextNode(`${slot}`);
+                const slotName = descriptor?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, node);
+                }
                 html_replaceWith(slotElement, node);
                 if (hole !== undefined)
                     elements[hole] = node;
@@ -434,93 +469,22 @@ export const html = ((first, ...interpolations) => {
         }
         catch (e) {
             if (slotElement.parentNode === fragment)
-                error = true;
+                filterUndefined = true;
             slotElement.replaceWith();
             console.error(e);
             continue;
         }
     }
-    if (error) {
+    if (filterUndefined) {
         elements = elements.filter(v => v !== undefined);
     }
-    const collection = new RHU_COLLECTION(instance, ...elements);
-    fragment.append(collection.last);
-    const markerRef = new WeakRef(collection.last);
+    implementation.append(...elements);
+    const markerRef = new WeakRef(implementation.last);
     const ref = html_makeRef(markerRef.deref.bind(markerRef));
-    const iter = function* () {
-        for (const node of collection) {
-            if (isHTML(node)) {
-                yield* node;
-            }
-            else {
-                yield node;
-            }
-        }
-    };
-    const replaceWith = html_replaceWith.bind(undefined, instance);
-    const remove = RHU_COLLECTION.prototype.remove.bind(collection);
-    const append = RHU_COLLECTION.prototype.append.bind(collection);
-    const insertBefore = RHU_COLLECTION.prototype.insertBefore.bind(collection);
     defineProperties(implementation, {
-        elements: {
-            get() {
-                return collection;
-            },
-            configurable: false
-        },
         ref: {
             get() {
                 return ref;
-            },
-            configurable: false
-        },
-        first: {
-            get() {
-                const node = collection.first;
-                if (isHTML(node)) {
-                    return node.first();
-                }
-                else {
-                    return node;
-                }
-            },
-            configurable: false
-        },
-        last: {
-            get() {
-                return collection.last;
-            },
-            configurable: false
-        },
-        parent: {
-            get() {
-                return collection.last.parentNode;
-            },
-            configurable: false
-        },
-        replaceWith: {
-            get() {
-                return replaceWith;
-            }
-        },
-        remove: {
-            get() {
-                return remove;
-            },
-        },
-        append: {
-            get() {
-                return append;
-            },
-        },
-        insertBefore: {
-            get() {
-                return insertBefore;
-            },
-        },
-        [Symbol.iterator]: {
-            get() {
-                return iter;
             },
             configurable: false
         }
@@ -529,19 +493,19 @@ export const html = ((first, ...interpolations) => {
 });
 html.close = () => RHU_CLOSURE.instance;
 html.closure = RHU_CLOSURE.instance;
-html.open = (el) => {
-    if (RHU_NODE.is(el)) {
-        el.open();
-        return el;
+html.open = (obj) => {
+    if (RHU_NODE.is(obj)) {
+        obj.open();
+        return obj;
     }
-    return new RHU_NODE(el).open();
+    return new RHU_NODE(obj).open();
 };
-html.bind = (el, name) => {
-    if (RHU_NODE.is(el)) {
-        el.bind(name);
-        return el;
+html.bind = (obj, name) => {
+    if (RHU_NODE.is(obj)) {
+        obj.bind(name);
+        return obj;
     }
-    return new RHU_NODE(el).bind(name);
+    return new RHU_NODE(obj).bind(name);
 };
 html.box = (el, boxed) => {
     if (RHU_NODE.is(el)) {
@@ -583,7 +547,7 @@ html.remove = (target, ...nodes) => {
     else {
         for (const node of nodes) {
             if (isHTML(node)) {
-                RHU_COLLECTION.unbind(node);
+                RHU_FRAGMENT.unbind(node);
                 for (const n of node) {
                     if (n.parentNode === target)
                         target.removeChild(n);
@@ -591,7 +555,7 @@ html.remove = (target, ...nodes) => {
             }
             else {
                 if (node.parentNode === target) {
-                    RHU_COLLECTION.unbind(node);
+                    RHU_FRAGMENT.unbind(node);
                     target.removeChild(node);
                 }
             }
@@ -604,7 +568,7 @@ html.append = (target, ...nodes) => {
     }
     else {
         for (const node of nodes) {
-            RHU_COLLECTION.unbind(node);
+            RHU_FRAGMENT.unbind(node);
             if (isHTML(node)) {
                 for (const n of node) {
                     target.appendChild(n);
@@ -621,8 +585,8 @@ html.insertBefore = (target, node, ref) => {
         target[DOM].insertBefore(node, ref);
     }
     else {
-        RHU_COLLECTION.unbind(node);
-        const nref = isHTML(ref) ? ref[DOM].first : ref;
+        RHU_FRAGMENT.unbind(node);
+        const nref = isHTML(ref) ? ref[DOM].firstNode : ref;
         if (isHTML(node)) {
             for (const n of node) {
                 target.insertBefore(n, nref);
@@ -713,7 +677,7 @@ html.map = ((signal, factory, iterator) => {
     return dom;
 });
 html.marker = (name) => {
-    return new RHU_MARKER().bind(name);
+    return new RHU_NODE(new RHU_MARKER()).bind(name);
 };
 const isElement = Object.prototype.isPrototypeOf.bind(Element.prototype);
 const recursiveDispatch = function (node, event) {

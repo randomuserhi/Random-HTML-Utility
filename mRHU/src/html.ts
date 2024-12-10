@@ -1,4 +1,5 @@
 import { isSignal, Signal, SignalEvent } from "./signal.js";
+import type { ClassName } from "./style.js";
 
 // TODO(randomuserhi): Clean up code + Standardise calling the produced "Elements" "Fragments" as they are more Fragments than components etc...
 
@@ -9,34 +10,31 @@ const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.b
 
 // Maps used to determine what elements belong to what fragments and keep track of
 // base comment nodes used to positionaly disern fragments (HTML).
-const fragNodeMap = new WeakMap<Node | HTML, FRAG>();
-const baseNodes = new WeakMap<Comment, HTML>();
+const fragNodeMap = new WeakMap<Node | RHU_FRAG, RHU_FRAGMENT_METADATA>();
+const baseNodes = new WeakMap<Comment, RHU_FRAG>();
 
-(window as any).debug = {
-    fragNodeMap,
-    baseNodes
-};
+class RHU_FRAGMENT_METADATA<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
+    public owner: RHU_FRAG<T> | undefined;
 
-class FRAG<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    public owner: HTML<T> | undefined;
-
-    constructor(owner: HTML<T> | undefined = undefined) {
+    constructor(owner: RHU_FRAG<T> | undefined = undefined) {
         this.owner = owner;
     }
 }
 
 // Fragment collection manager (manages what elements make up a fragment)
-interface RHU_COLLECTION_NODE {
-    node: HTML | Node;
-    next?: RHU_COLLECTION_NODE;
-    prev?: RHU_COLLECTION_NODE;
+interface RHU_FRAGMENT_NODE {
+    node: RHU_FRAG | Node;
+    next?: RHU_FRAGMENT_NODE;
+    prev?: RHU_FRAGMENT_NODE;
 }
 
-class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    private set = new Map<HTML | Node, RHU_COLLECTION_NODE>();
+export const DOM = Symbol("html.dom");
+
+class RHU_FRAGMENT<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
+    private set = new Map<RHU_FRAG | Node, RHU_FRAGMENT_NODE>();
     
-    constructor(owner: HTML<T>, ...nodes: (HTML | Node)[]) {
-        this.owner = owner;
+    constructor(owner: RHU_FRAG<T>, ...nodes: (RHU_FRAG | Node)[]) {
+        this[DOM] = owner;
 
         // NOTE(randomuserhi): A comment is used to control garbage collection when referencing RHU_HTML elements
         //                     If some code needs to run without holding a strong reference to the elements / html object,
@@ -58,7 +56,7 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
         this.append(...nodes);
     }
 
-    static unbind(node: HTML | Node) {
+    static unbind(node: RHU_FRAG | Node) {
         // Unbind node if it is bounded
         const frag = fragNodeMap.get(node);
         if (frag?.owner !== undefined) {
@@ -66,16 +64,20 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
         }
     }
 
-    public remove(...nodes: (HTML | Node)[]) {
+    public replaceWith(...nodes: (RHU_FRAG | Node)[]) {
+        html_replaceWith(this[DOM], ...nodes);
+    }
+
+    public remove(...nodes: (RHU_FRAG | Node)[]) {
         for (const node of nodes) {
-            if (node === this.owner) continue;
+            if (node === this[DOM]) continue;
 
             // skip if it is a base node
             if (baseNodes.has(node as any)) continue;
 
             // remove from collection
             const frag = fragNodeMap.get(node);
-            if (frag?.owner === this.owner) {
+            if (frag?.owner === this[DOM]) {
                 frag.owner = undefined;
                 fragNodeMap.delete(node);
             }
@@ -107,27 +109,27 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
         }
     }
 
-    public append(...nodes: (HTML | Node)[]) {
+    public append(...nodes: (RHU_FRAG | Node)[]) {
         for (const node of nodes) {
-            if (node === this.owner) continue;
+            if (node === this[DOM]) continue;
 
             // skip if it is a base node
             if (baseNodes.has(node as any)) continue;
             
             // keep track of element in fragNodeMap
             if (!fragNodeMap.has(node)) {
-                fragNodeMap.set(node, new FRAG());
+                fragNodeMap.set(node, new RHU_FRAGMENT_METADATA());
             }
             const frag = fragNodeMap.get(node)!;
 
             // remove from collection
             if (frag.owner !== undefined) {
-                frag.owner[DOM].elements.remove(node);
+                frag.owner[DOM].remove(node);
             }
 
             // add to collection
-            frag.owner = this.owner;
-            const linkage: RHU_COLLECTION_NODE = { 
+            frag.owner = this[DOM];
+            const linkage: RHU_FRAGMENT_NODE = { 
                 node,
                 prev: this._last.prev,
                 next: this._last
@@ -152,21 +154,21 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
         }
     }
 
-    public insertBefore(node: (HTML | Node), child?: (HTML | Node)) {
-        if (node === this.owner) return;
+    public insertBefore(node: (RHU_FRAG | Node), child?: (RHU_FRAG | Node)) {
+        if (node === this[DOM]) return;
 
         // skip if it is a base node
         if (baseNodes.has(node as any)) return;
         
         // keep track of element in fragNodeMap
         if (!fragNodeMap.has(node)) {
-            fragNodeMap.set(node, new FRAG());
+            fragNodeMap.set(node, new RHU_FRAGMENT_METADATA());
         }
         const frag = fragNodeMap.get(node)!;
 
         // remove from old collection
         if (frag.owner !== undefined) {
-            frag.owner[DOM].elements.remove(node);
+            frag.owner[DOM].remove(node);
         }
 
         // find target
@@ -176,8 +178,8 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
         }
 
         // add to collection
-        frag.owner = this.owner;
-        const linkage: RHU_COLLECTION_NODE = { 
+        frag.owner = this[DOM];
+        const linkage: RHU_FRAGMENT_NODE = { 
             node,
             prev: target.prev,
             next: target
@@ -189,7 +191,7 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
 
         // append to dom
         if (this.last.parentNode !== null) {
-            let appendNode = isHTML(target.node) ? target.node[DOM].first : target.node;
+            let appendNode = isHTML(target.node) ? target.node[DOM].firstNode : target.node;
             if (appendNode.parentNode !== this.last.parentNode) {
                 appendNode = this.last;
             }
@@ -206,42 +208,65 @@ class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, an
         ++this._length;
     }
 
-    private readonly owner: HTML<T>;
+    public readonly [DOM]: RHU_FRAG<T>;
 
-    private _first: RHU_COLLECTION_NODE;
-    private _last: RHU_COLLECTION_NODE;
+    private _first: RHU_FRAGMENT_NODE;
+    private _last: RHU_FRAGMENT_NODE;
     private _length: number = 0;
     
+    // Gets the actual first DOM Node instead of
+    // the first Frag / DOM 
+    get firstNode() { 
+        const node = this.first;
+        if (isHTML(node)) {
+            return node.firstNode();
+        } else {
+            return node;
+        }
+    }
+    get lastNode() {
+        return this.last;
+    }
+
+    get parent() { return this.last.parentNode; }
     get first() { return this._first.node; }
     public readonly last: Node;
     get length() { return this._length; }
 
     public *[Symbol.iterator]() {
-        let current: RHU_COLLECTION_NODE | undefined = this._first;
+        let current: RHU_FRAGMENT_NODE | undefined = this._first;
         while (current !== undefined) {
             yield current.node;
             current = current.next;
         }
     }
+
+    public *childNodes() {
+        for (const node of this) {
+            if (isHTML(node)) {
+                yield* node;
+            } else {
+                yield node;
+            }
+        }
+    }
 }
 
 class RHU_CLOSURE {
+    readonly __RHU_CLOSURE__: never; // NOTE(randomuserhi): Here for the type system
+
     static instance = new RHU_CLOSURE();
     static is: (object: any) => object is RHU_CLOSURE = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
 }
 
 class RHU_MARKER {
-    private name?: PropertyKey;
-    public bind(name?: PropertyKey) {
-        this.name = name;
-        return this;
-    }
-
+    readonly __RHU_MARKER__: never; // NOTE(randomuserhi): Here for the type system
+    
     static is: (object: any) => object is RHU_MARKER = Object.prototype.isPrototypeOf.bind(RHU_MARKER.prototype);
 }
 
-class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    public readonly node: HTML<T>;
+class RHU_NODE<T = any> {
+    public readonly node: T;
 
     private name?: PropertyKey;
     private isOpen: boolean = false;
@@ -262,54 +287,32 @@ class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
         return this;
     }
 
-    constructor(node: HTML<T>) {
+    constructor(node: T) {
         this.node = node;
     }
 
     static is: (object: any) => object is RHU_NODE = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
 }
 
-const RHU_HTML_PROTOTYPE = {};
-Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.iterator, {
-    get() {
-        return this[DOM][Symbol.iterator];
-    }
-});
-Object.defineProperty(RHU_HTML_PROTOTYPE, Symbol.toStringTag, {
-    get() {
-        return "RHU_HTML";
-    }
-});
+const RHU_HTML_PROTOTYPE = {
+    [Symbol.iterator]: function*() {
+        for (const node of (this as unknown as RHU_FRAG)[DOM]) {
+            if (isHTML(node)) {
+                yield* node;
+            } else {
+                yield node;
+            }
+        }
+    },
+    [Symbol.toStringTag]: "RHU_FRAG"
+};
 
 type RHU_CHILDREN = NodeListOf<ChildNode>;
 
-export const DOM = Symbol("html.dom");
-
-class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    // NOTE(randomuserhi): List of nodes that belong to this fragment
-    //                     If you stick to the `html` based methods you do not
-    //                     have to worry about managing ownership.
-    //
-    //                     If you move nodes around yourself, you need to manually
-    //                     manage ownership and unregister / remove nodes from this
-    //                     collection.
-    public readonly elements: RHU_COLLECTION;
-
-    // Aliases to collection methods
-    public readonly first: Node;
-    public readonly last: Node;
-    public readonly parent: Node | null;
-    public readonly remove: RHU_COLLECTION["remove"];
-    public readonly append: RHU_COLLECTION["append"];
-    public readonly insertBefore: RHU_COLLECTION["insertBefore"];
-    public readonly replaceWith: (...nodes: (HTML | Node)[]) => void;
-
-    public readonly [Symbol.iterator]: () => IterableIterator<Node>;
-    public readonly [DOM]: HTML<T>;
-
-    public readonly ref: { deref(): HTML<T> | undefined, hasref(): boolean };
-
+class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> extends RHU_FRAGMENT<T> {
     private binds: PropertyKey[] = [];
+    public readonly ref: { deref(): RHU_FRAG<T> | undefined, hasref(): boolean };    
+
     public close: RHU_CLOSURE = RHU_CLOSURE.instance;
 
     private onChildren?: (children: RHU_CHILDREN) => void; 
@@ -327,37 +330,37 @@ class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     static is: (object: any) => object is RHU_DOM = Object.prototype.isPrototypeOf.bind(RHU_DOM.prototype);
 }
 
-type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => HTML<T>;
-type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
-export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
-export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is HTML<T> => {
+type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => RHU_FRAG<T>;
+type RHU_FRAG<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
+export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends RHU_FRAG ? ReturnType<T> : never : RHU_FRAG<T>;
+export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is RHU_FRAG<T> => {
     if (object === undefined) return false;
     return RHU_DOM.is(object[DOM]);
 };
 
 type First = TemplateStringsArray;
-type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | RHU_MARKER | SignalEvent<any>;
-type Slot = Node | HTML | RHU_NODE | SignalEvent<any> | RHU_MARKER
+type Single = Node | string | RHU_FRAG | RHU_NODE | RHU_CLOSURE | RHU_MARKER | SignalEvent<any> | ClassName;
+type Slot = Node | RHU_FRAG | RHU_NODE | SignalEvent<any> | RHU_MARKER
 type Interp = Single | (Single[]);
 
 interface RHU_HTML {
-    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>;
-    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): HTML<T>;
+    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T>): RHU_DOM<T>;
+    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): RHU_FRAG<T>;
     
     observe(node: Node): void;
     
     close(): RHU_CLOSURE;
     readonly closure: RHU_CLOSURE;
     
-    marker(name?: PropertyKey): RHU_MARKER;
+    marker(name?: PropertyKey): RHU_NODE<RHU_MARKER>;
     
-    open<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
-    bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
-    box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
-    children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
+    open<T = any>(object: T | RHU_NODE<T>): RHU_NODE<T>;
+    bind<T = any>(object: T | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
+    box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T> | RHU_NODE<RHU_FRAG<T>>): RHU_NODE<RHU_FRAG<T>>;
+    children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T> | RHU_NODE<RHU_FRAG<T>>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<RHU_FRAG<T>>;
     
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{ readonly signal: Signal<T> }>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{ readonly signal: Signal<T> }>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined): RHU_FRAG<{ readonly signal: Signal<T> }>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): RHU_FRAG<{ readonly signal: Signal<T> }>;
     
     // Creates a weakref to the given object where its lifetime is tied to the provided target.
     // - Whilst the target is still retained, the object is also retained.
@@ -367,10 +370,10 @@ interface RHU_HTML {
     // Creates a weakref to the given object
     ref<T extends object>(obj: T): { deref(): T | undefined, hasref(): boolean };
 
-    append(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
-    insertBefore(target: Node | HTML, node: (Node | HTML), ref: (Node | HTML)): void;
-    remove(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
-    replaceWith(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
+    append(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
+    insertBefore(target: Node | RHU_FRAG, node: (Node | RHU_FRAG), ref: (Node | RHU_FRAG)): void;
+    remove(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
+    replaceWith(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
@@ -409,15 +412,15 @@ function html_makeRef(ref: WeakRef<Comment>["deref"]) {
         }
     };
 }
-function html_replaceWith(target: Node | HTML, ...nodes: (Node | HTML)[]) {
+function html_replaceWith(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]) {
     const _isHTML = isHTML(target);
 
     const parent = _isHTML ? target[DOM].parent : target.parentNode;
     if (parent === null) return;
 
-    const ref = _isHTML ? target[DOM].first : target;
+    const ref = _isHTML ? target[DOM].firstNode : target;
     for (const node of nodes) {
-        RHU_COLLECTION.unbind(node);
+        RHU_FRAGMENT.unbind(node);
 
         if (isHTML(node)) {
             for (const n of node) {
@@ -430,7 +433,7 @@ function html_replaceWith(target: Node | HTML, ...nodes: (Node | HTML)[]) {
     
     html.remove(parent, target);
 }
-export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | HTML, ...interpolations: Interp[]) => {
+export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU_FRAG, ...interpolations: Interp[]) => {
     // edit dom properties func
     
     if (isHTML(first)) {
@@ -470,21 +473,21 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     const fragment = template.content;
 
     // Remove nonsense text nodes
-    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT, {
+    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const value = node.nodeValue;
-            if (node.nodeType === Node.COMMENT_NODE && (node as any)[DOM] === undefined) node.parentNode?.removeChild(node);
-            else if (value === null || value === undefined) node.parentNode?.removeChild(node);
+            if (value === null || value === undefined) node.parentNode?.removeChild(node);
             else if (value.trim() === "") node.parentNode?.removeChild(node);
             return NodeFilter.FILTER_REJECT;
         }
     }).nextNode();
 
+    // create frag instance
+    const instance: RHU_FRAG<T> = Object.create(RHU_HTML_PROTOTYPE);
+    const implementation = new RHU_DOM(instance);
+    (instance as any)[DOM] = implementation;
+
     // create bindings
-    const implementation = new RHU_DOM();
-    const instance: Record<PropertyKey, any> & { [DOM]: RHU_DOM<T> } = Object.create(RHU_HTML_PROTOTYPE);
-    instance[DOM] = implementation;
-    (implementation as any)[DOM] = instance;
     for (const el of fragment.querySelectorAll("*[m-id]")) {
         const key = el.getAttribute("m-id")!;
         el.removeAttribute("m-id");
@@ -492,7 +495,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     }
 
     // create element list
-    let elements: (HTML | Node)[] = [];
+    let elements: (RHU_FRAG | Node)[] = [];
     for (const node of fragment.childNodes) {
         let attr: string | null;
         if (isElement(node) && (attr = node.getAttribute("rhu-internal"))) {
@@ -509,7 +512,7 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     }
     
     // parse slots
-    let error = false;
+    let filterUndefined = false;
     for (const slotElement of fragment.querySelectorAll("rhu-slot[rhu-internal]")) {
         try {
             const attr = slotElement.getAttribute("rhu-internal");
@@ -531,43 +534,58 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 }
             }
 
-            const slot = slots[i];
+            const item = slots[i];
+            
+            // Isolate the descriptor from the actual slot.
+            let descriptor: RHU_NODE | undefined = undefined;
+            let slot: Exclude<typeof item, RHU_NODE>; 
+            if (RHU_NODE.is(item)) {
+                descriptor = item;
+                slot = item.node;
+            } else {
+                slot = item;
+            }
+
             if (isSignal(slot)) {
                 const node = document.createTextNode(`${slot()}`);
                 const ref = new WeakRef(node);
                 slot.on((value) => {
                     const node = ref.deref();
                     if (node === undefined) return;
-                    node.nodeValue = slot.string(value);
+                    node.nodeValue = (slot as SignalEvent).string(value);
                 }, { condition: () => ref.deref() !== undefined });
+
+                // Manage binds
+                const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, slot);
+                }
 
                 html_replaceWith(slotElement, node);
                 if (hole !== undefined) elements[hole] = node;
             } else if (isNode(slot)) {
+                // Manage binds
+                const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, slot);
+                }
+
                 html_replaceWith(slotElement, slot);
                 if (hole !== undefined) elements[hole] = slot;
             } else if (RHU_MARKER.is(slot)) {
                 const node = document.createComment(" << rhu-marker >> ");
                 (node as any)[DOM] = "marker";
 
-                const key: RHU_MARKER["name"] = (slot as any).name;
-                if (key !== undefined) {
-                    html_addBind(instance, key, node);
+                // Manage binds
+                const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, node);
                 }
 
                 html_replaceWith(slotElement, node);
                 if (hole !== undefined) elements[hole] = node;
-            } else {
-                let descriptor: RHU_NODE | undefined = undefined;
-                let node: HTML;
-                if (RHU_NODE.is(slot)) {
-                    descriptor = slot;
-                    node = slot.node;
-                } else {
-                    node = slot;
-                }
-
-                const slotImplementation = node[DOM];
+            } else if (isHTML(slot)) {
+                const slotImplementation = slot[DOM];
 
                 // Obtain overridable settings
                 let boxed: boolean | undefined = (descriptor as any)?.boxed;
@@ -577,34 +595,45 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
                 if (boxed || (descriptor as any)?.name !== undefined) {
                     const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
                     if (slotName !== undefined) {
-                        html_addBind(instance, slotName, node);
+                        html_addBind(instance, slotName, slot);
                     }
                 } else {
                     for (const key of ((slotImplementation as any).binds as RHU_DOM["binds"])) {
-                        html_addBind(instance, key, node[key]);
+                        html_addBind(instance, key, slot[key]);
                     }
                 }
 
                 if ((slotImplementation as any).onChildren !== undefined) (slotImplementation as any).onChildren(slotElement.childNodes);
                 
+                html_replaceWith(slotElement, slot);
+                if (hole !== undefined) elements[hole] = slot;
+            } else {
+                // If its an unknown type, treat it as a text node
+                const node = document.createTextNode(`${slot}`);
+
+                // Manage binds
+                const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
+                if (slotName !== undefined) {
+                    html_addBind(instance, slotName, node);
+                }
+
                 html_replaceWith(slotElement, node);
                 if (hole !== undefined) elements[hole] = node;
             }
         } catch (e) {
-            if (slotElement.parentNode === fragment) error = true;
+            if (slotElement.parentNode === fragment) filterUndefined = true;
             slotElement.replaceWith();
             console.error(e);
             continue;
         }
     }
 
-    if (error) {
+    if (filterUndefined) {
         elements = elements.filter(v => v !== undefined);
     }
 
-    // Create frag collection to manage the fragment
-    const collection = new RHU_COLLECTION<T>(instance as HTML<T>, ...elements);
-    fragment.append(collection.last); // Append the fragment marker
+    // Append elements
+    implementation.append(...elements);
     
     // NOTE(randomuserhi): We have to call a separate function to prevent context hoisting from 
     //                     preventing garbage collection of the marker node.
@@ -617,108 +646,36 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     //                     Since we want to be able to hold a reference to the `ref` inlien function but not the context
     //                     it resides in, we call a separate function. The separate function has its own context (hence
     //                     we can no longer access `marker` as per its scope) and thus circumvents this issue.
-    const markerRef = new WeakRef(collection.last);
+    const markerRef = new WeakRef(implementation.last);
     const ref = html_makeRef(markerRef.deref.bind(markerRef));
-
-    const iter = function* () {
-        for (const node of collection) {
-            if (isHTML(node)) {
-                yield* node;
-            } else {
-                yield node;
-            }
-        }
-    };
-    
-    // Setup alias methods
-    const replaceWith = html_replaceWith.bind(undefined, instance);
-    const remove = RHU_COLLECTION.prototype.remove.bind(collection);
-    const append = RHU_COLLECTION.prototype.append.bind(collection);
-    const insertBefore = RHU_COLLECTION.prototype.insertBefore.bind(collection);
 
     // Setup getters
     defineProperties(implementation, {
-        elements: {
-            get() {
-                return collection;
-            },
-            configurable: false
-        },
         ref: {
             get() {
                 return ref;
             },
             configurable: false
-        },
-        first: {
-            get() {
-                const node = collection.first;
-                if (isHTML(node)) {
-                    return node.first();
-                } else {
-                    return node;
-                }
-            },
-            configurable: false
-        },
-        last: {
-            // NOTE(randomuserhi): The last node should always be the marker comment
-            get() {
-                return collection.last;
-            },
-            configurable: false
-        },
-        parent: {
-            get() {
-                return collection.last.parentNode;
-            },
-            configurable: false
-        },
-        replaceWith: {
-            get() {
-                return replaceWith;
-            }
-        },
-        remove: {
-            get() {
-                return remove;
-            },
-        },
-        append: {
-            get() {
-                return append;
-            },
-        },
-        insertBefore: {
-            get() {
-                return insertBefore;
-            },
-        },
-        [Symbol.iterator]: {
-            get() {
-                return iter;
-            },
-            configurable: false
         }
     });
 
-    return instance as HTML<T>;
+    return instance as RHU_FRAG<T>;
 }) as RHU_HTML;
 html.close = () => RHU_CLOSURE.instance;
 (html as any).closure = RHU_CLOSURE.instance;
-html.open = (el) => {
-    if (RHU_NODE.is(el)) {
-        el.open();
-        return el;
+html.open = (obj) => {
+    if (RHU_NODE.is(obj)) {
+        obj.open();
+        return obj;
     }
-    return new RHU_NODE(el).open();
+    return new RHU_NODE(obj).open();
 };
-html.bind = (el, name: PropertyKey) => {
-    if (RHU_NODE.is(el)) {
-        el.bind(name);
-        return el;
+html.bind = (obj, name: PropertyKey) => {
+    if (RHU_NODE.is(obj)) {
+        obj.bind(name);
+        return obj;
     }
-    return new RHU_NODE(el).bind(name);
+    return new RHU_NODE(obj).bind(name);
 };
 html.box = (el, boxed?: boolean) => {
     if (RHU_NODE.is(el)) {
@@ -758,14 +715,14 @@ html.remove = (target, ...nodes) => {
     } else {
         for (const node of nodes) {
             if (isHTML(node)) {
-                RHU_COLLECTION.unbind(node);
+                RHU_FRAGMENT.unbind(node);
 
                 for (const n of node) {
                     if (n.parentNode === target) target.removeChild(n);
                 }
             } else {
                 if (node.parentNode === target) {
-                    RHU_COLLECTION.unbind(node);
+                    RHU_FRAGMENT.unbind(node);
 
                     target.removeChild(node);
                 }
@@ -778,7 +735,7 @@ html.append = (target, ...nodes) => {
         target[DOM].append(...nodes);
     } else {
         for (const node of nodes) {
-            RHU_COLLECTION.unbind(node);
+            RHU_FRAGMENT.unbind(node);
 
             if (isHTML(node)) {
                 for (const n of node) {
@@ -794,9 +751,9 @@ html.insertBefore = (target, node, ref) => {
     if (isHTML(target)) {
         target[DOM].insertBefore(node, ref);
     } else {
-        RHU_COLLECTION.unbind(node);
+        RHU_FRAGMENT.unbind(node);
 
-        const nref = isHTML(ref) ? ref[DOM].first : ref;
+        const nref = isHTML(ref) ? ref[DOM].firstNode : ref;
         if (isHTML(node)) {
             for (const n of node) {
                 target.insertBefore(n, nref);
@@ -806,12 +763,12 @@ html.insertBefore = (target, node, ref) => {
         }
     }
 };
-html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => HTML | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
+html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: RHU_FRAG) => RHU_FRAG | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
     const dom = html<{ 
         signal: Signal<any>; 
         
-        existingEls: Map<any, [el: HTML | undefined, pos: number]>;
-        _existingEls: Map<any, [el: HTML | undefined, pos: number]>;
+        existingEls: Map<any, [el: RHU_FRAG | undefined, pos: number]>;
+        _existingEls: Map<any, [el: RHU_FRAG | undefined, pos: number]>;
     }>``;
     
     dom.signal = signal;
@@ -833,7 +790,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
 
     // NOTE(randomuserhi): As the stack is empty by the end of `update`, it does not need to be a member as it holds no strong
     //                     references to anything else (its empty array). Thus we can ignore the above.
-    const stack: HTML[] = [];
+    const stack: RHU_FRAG[] = [];
 
     const ref = dom[DOM].ref;
 
@@ -941,7 +898,7 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: HTML) => 
     return dom;
 }) as any;
 html.marker = (name) => {
-    return new RHU_MARKER().bind(name);
+    return new RHU_NODE(new RHU_MARKER()).bind(name);
 };
 
 // Custom event and observer to add some nice events

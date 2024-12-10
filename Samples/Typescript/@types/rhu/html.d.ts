@@ -1,58 +1,54 @@
 import { Signal, SignalEvent } from "./signal.js";
-declare class RHU_COLLECTION<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
+import type { ClassName } from "./style.js";
+export declare const DOM: unique symbol;
+declare class RHU_FRAGMENT<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
     private set;
-    constructor(owner: HTML<T>, ...nodes: (HTML | Node)[]);
-    static unbind(node: HTML | Node): void;
-    remove(...nodes: (HTML | Node)[]): void;
-    append(...nodes: (HTML | Node)[]): void;
-    insertBefore(node: (HTML | Node), child?: (HTML | Node)): void;
-    private readonly owner;
+    constructor(owner: RHU_FRAG<T>, ...nodes: (RHU_FRAG | Node)[]);
+    static unbind(node: RHU_FRAG | Node): void;
+    replaceWith(...nodes: (RHU_FRAG | Node)[]): void;
+    remove(...nodes: (RHU_FRAG | Node)[]): void;
+    append(...nodes: (RHU_FRAG | Node)[]): void;
+    insertBefore(node: (RHU_FRAG | Node), child?: (RHU_FRAG | Node)): void;
+    readonly [DOM]: RHU_FRAG<T>;
     private _first;
     private _last;
     private _length;
-    get first(): Node | HTML<Record<PropertyKey, any>>;
+    get firstNode(): any;
+    get lastNode(): Node;
+    get parent(): ParentNode | null;
+    get first(): Node | RHU_FRAG<Record<PropertyKey, any>>;
     readonly last: Node;
     get length(): number;
-    [Symbol.iterator](): Generator<Node | HTML<Record<PropertyKey, any>>, void, unknown>;
+    [Symbol.iterator](): Generator<Node | RHU_FRAG<Record<PropertyKey, any>>, void, unknown>;
+    childNodes(): Generator<Node, void, undefined>;
 }
 declare class RHU_CLOSURE {
+    readonly __RHU_CLOSURE__: never;
     static instance: RHU_CLOSURE;
     static is: (object: any) => object is RHU_CLOSURE;
 }
 declare class RHU_MARKER {
-    private name?;
-    bind(name?: PropertyKey): this;
+    readonly __RHU_MARKER__: never;
     static is: (object: any) => object is RHU_MARKER;
 }
-declare class RHU_NODE<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    readonly node: HTML<T>;
+declare class RHU_NODE<T = any> {
+    readonly node: T;
     private name?;
     private isOpen;
     bind(name?: PropertyKey): this;
     open(): this;
     private boxed?;
     box(boxed?: boolean): this;
-    constructor(node: HTML<T>);
+    constructor(node: T);
     static is: (object: any) => object is RHU_NODE;
 }
 type RHU_CHILDREN = NodeListOf<ChildNode>;
-export declare const DOM: unique symbol;
-declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> {
-    readonly elements: RHU_COLLECTION;
-    readonly first: Node;
-    readonly last: Node;
-    readonly parent: Node | null;
-    readonly remove: RHU_COLLECTION["remove"];
-    readonly append: RHU_COLLECTION["append"];
-    readonly insertBefore: RHU_COLLECTION["insertBefore"];
-    readonly replaceWith: (...nodes: (HTML | Node)[]) => void;
-    readonly [Symbol.iterator]: () => IterableIterator<Node>;
-    readonly [DOM]: HTML<T>;
+declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> extends RHU_FRAGMENT<T> {
+    private binds;
     readonly ref: {
-        deref(): HTML<T> | undefined;
+        deref(): RHU_FRAG<T> | undefined;
         hasref(): boolean;
     };
-    private binds;
     close: RHU_CLOSURE;
     private onChildren?;
     children(cb?: (children: RHU_CHILDREN) => void): this;
@@ -60,31 +56,31 @@ declare class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, a
     box(boxed?: boolean): this;
     static is: (object: any) => object is RHU_DOM;
 }
-type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => HTML<T>;
-type HTML<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & {
+type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => RHU_FRAG<T>;
+type RHU_FRAG<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & {
     readonly [DOM]: RHU_DOM<T>;
     [Symbol.iterator]: () => IterableIterator<Node>;
 };
-export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends HTML ? ReturnType<T> : never : HTML<T>;
-export declare const isHTML: <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any) => object is HTML<T>;
+export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends RHU_FRAG ? ReturnType<T> : never : RHU_FRAG<T>;
+export declare const isHTML: <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any) => object is RHU_FRAG<T>;
 type First = TemplateStringsArray;
-type Single = Node | string | HTML | RHU_NODE | RHU_CLOSURE | RHU_MARKER | SignalEvent<any>;
+type Single = Node | string | RHU_FRAG | RHU_NODE | RHU_CLOSURE | RHU_MARKER | SignalEvent<any> | ClassName;
 type Interp = Single | (Single[]);
 interface RHU_HTML {
-    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T>): RHU_DOM<T>;
-    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): HTML<T>;
+    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T>): RHU_DOM<T>;
+    <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): RHU_FRAG<T>;
     observe(node: Node): void;
     close(): RHU_CLOSURE;
     readonly closure: RHU_CLOSURE;
-    marker(name?: PropertyKey): RHU_MARKER;
-    open<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
-    bind<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
-    box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>): RHU_NODE<T>;
-    children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: HTML<T> | RHU_NODE<T>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<T>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined): HTML<{
+    marker(name?: PropertyKey): RHU_NODE<RHU_MARKER>;
+    open<T = any>(object: T | RHU_NODE<T>): RHU_NODE<T>;
+    bind<T = any>(object: T | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
+    box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T> | RHU_NODE<RHU_FRAG<T>>): RHU_NODE<RHU_FRAG<T>>;
+    children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T> | RHU_NODE<RHU_FRAG<T>>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<RHU_FRAG<T>>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined): RHU_FRAG<{
         readonly signal: Signal<T>;
     }>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: HTML<H>) => HTML<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): HTML<{
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): RHU_FRAG<{
         readonly signal: Signal<T>;
     }>;
     ref<T extends object, R extends object>(target: T, obj: R): {
@@ -95,10 +91,10 @@ interface RHU_HTML {
         deref(): T | undefined;
         hasref(): boolean;
     };
-    append(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
-    insertBefore(target: Node | HTML, node: (Node | HTML), ref: (Node | HTML)): void;
-    remove(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
-    replaceWith(target: Node | HTML, ...nodes: (Node | HTML)[]): void;
+    append(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
+    insertBefore(target: Node | RHU_FRAG, node: (Node | RHU_FRAG), ref: (Node | RHU_FRAG)): void;
+    remove(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
+    replaceWith(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
 }
 export declare const html: RHU_HTML;
 declare global {
