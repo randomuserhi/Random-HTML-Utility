@@ -481,12 +481,15 @@ export const html: RHU_HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     template.innerHTML = source;
     const fragment = template.content;
 
-    // Remove nonsense text nodes
-    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+    // Remove nonsense text nodes and comments
+    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT, {
         acceptNode(node) {
-            const value = node.nodeValue;
-            if (value === null || value === undefined) node.parentNode?.removeChild(node);
-            else if (value.trim() === "") node.parentNode?.removeChild(node);
+            if (node.nodeType === Node.COMMENT_NODE) node.parentNode?.removeChild(node);
+            else {
+                const value = node.nodeValue;
+                if (value === null || value === undefined) node.parentNode?.removeChild(node);
+                else if (value.trim() === "") node.parentNode?.removeChild(node);
+            }
             return NodeFilter.FILTER_REJECT;
         }
     }).nextNode();

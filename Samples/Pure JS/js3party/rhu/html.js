@@ -341,13 +341,17 @@ export const html = ((first, ...interpolations) => {
     const template = document.createElement("template");
     template.innerHTML = source;
     const fragment = template.content;
-    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT, {
+    document.createNodeIterator(fragment, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_COMMENT, {
         acceptNode(node) {
-            const value = node.nodeValue;
-            if (value === null || value === undefined)
+            if (node.nodeType === Node.COMMENT_NODE)
                 node.parentNode?.removeChild(node);
-            else if (value.trim() === "")
-                node.parentNode?.removeChild(node);
+            else {
+                const value = node.nodeValue;
+                if (value === null || value === undefined)
+                    node.parentNode?.removeChild(node);
+                else if (value.trim() === "")
+                    node.parentNode?.removeChild(node);
+            }
             return NodeFilter.FILTER_REJECT;
         }
     }).nextNode();
