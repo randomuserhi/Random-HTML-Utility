@@ -3,11 +3,6 @@ import type { ClassName } from "./style.js";
 
 // TODO(randomuserhi): Clean up code + Standardise calling the produced "Elements" "Fragments" as they are more Fragments than components etc...
 
-// NOTE(randomuserhi): Helper types
-export type Mutable<T> = { 
-    -readonly [key in keyof T]: T[key]
-};
-
 // Helper functions
 const isMap: <K = any, V = any>(object: any) => object is Map<K, V> = Object.prototype.isPrototypeOf.bind(Map.prototype);
 const isArray: <T = any>(object: any) => object is Array<T> = Object.prototype.isPrototypeOf.bind(Array.prototype);
@@ -335,8 +330,11 @@ class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> ext
     static is: (object: any) => object is RHU_DOM = Object.prototype.isPrototypeOf.bind(RHU_DOM.prototype);
 }
 
+type Mutable<T> = { -readonly [key in keyof T]: T[key] };
 type RHU_FRAG<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
-export type html<T extends ((...args: any[]) => any) | Record<PropertyKey, any>> = T extends ((...args: any[]) => any) ? ReturnType<T> extends RHU_FRAG ? ReturnType<T> : never : RHU_FRAG<T>;
+type RHU_TYPE_OPTIONS = "mutable" | never;
+type RHU_FRAG_OPTIONS<T, Options extends RHU_TYPE_OPTIONS = never> = T extends RHU_FRAG<infer K> ? Options extends "mutable" ? Mutable<K> : K : never;
+export type html<T extends ((...args: any[]) => any) | Record<PropertyKey, any>, Options extends RHU_TYPE_OPTIONS = never> = T extends ((...args: any[]) => any) ? ReturnType<T> extends RHU_FRAG ? RHU_FRAG_OPTIONS<ReturnType<T>, Options> : never : RHU_FRAG_OPTIONS<RHU_FRAG<T>, Options>;
 export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is RHU_FRAG<T> => {
     if (object === undefined) return false;
     return RHU_DOM.is(object[DOM]);
