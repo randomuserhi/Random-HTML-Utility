@@ -221,10 +221,10 @@ class RHU_FRAGMENT<T extends Record<PropertyKey, any> = Record<PropertyKey, any>
     
     // Gets the actual first DOM Node instead of
     // the first Frag / DOM 
-    get firstNode() { 
+    get firstNode(): Node { 
         const node = this.first;
         if (isHTML(node)) {
-            return node.firstNode();
+            return node[DOM].firstNode;
         } else {
             return node;
         }
@@ -289,6 +289,11 @@ class RHU_NODE<T = any> {
     private boxed?: boolean;
     public box(boxed: boolean = true) {
         this.boxed = boxed;
+        return this;
+    }
+
+    public transform(transform: (node: T) => void) {
+        transform(this.node);
         return this;
     }
 
@@ -363,10 +368,11 @@ interface RHU_HTML {
     bind<T = any>(object: T | RHU_NODE<T>, name: PropertyKey): RHU_NODE<T>;
     box<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T> | RHU_NODE<RHU_FRAG<T>>): RHU_NODE<RHU_FRAG<T>>;
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T> | RHU_NODE<RHU_FRAG<T>>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<RHU_FRAG<T>>;
+    transform<T = any>(object: T | RHU_NODE<T>, transform: (node: T) => void): RHU_NODE<T>;
     
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined): RHU_FRAG<{ readonly signal: Signal<T> }>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]> | [key: K, value: V][]): RHU_FRAG<{ readonly signal: Signal<T> }>;
-    
+    map<T, H extends RHU_FRAG, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, iterator: undefined, factory: (kv: [k: K, v: V], el?: H) => H | undefined): RHU_FRAG<{ readonly signal: Signal<T> }>;
+    map<T, K, V, H extends RHU_FRAG>(signal: Signal<T>, iterator: (value: T) => IterableIterator<[key: K, value: V]> | [key: K, value: V][], factory: (kv: [k: K, v: V], el?: H) => H | undefined): RHU_FRAG<{ readonly signal: Signal<T> }>;
+
     // Creates a weakref to the given object where its lifetime is tied to the provided target.
     // - Whilst the target is still retained, the object is also retained.
     // - If the target is GC'd, the object may be GC'd as long as no other references to it exist.
@@ -379,6 +385,7 @@ interface RHU_HTML {
     insertBefore(target: Node | RHU_FRAG, node: (Node | RHU_FRAG), ref: (Node | RHU_FRAG)): void;
     remove(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
     replaceWith(target: Node | RHU_FRAG, ...nodes: (Node | RHU_FRAG)[]): void;
+    replaceChildren(target: Element, ...nodes: (Node | RHU_FRAG)[]): void;
 }
 
 function stitch(interp: Interp, slots: Slot[]): string | undefined {
@@ -770,7 +777,11 @@ html.insertBefore = (target, node, ref) => {
         }
     }
 };
-html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: RHU_FRAG) => RHU_FRAG | undefined, iterator: (value: any) => IterableIterator<[key: any, value: any]>) => {
+html.replaceChildren = (target, ...nodes) => {
+    target.replaceChildren();
+    html.append(target, ...nodes);
+};
+html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[key: any, value: any]> | undefined, factory: (kv: [k: any, v: any], el?: RHU_FRAG) => RHU_FRAG | undefined) => {
     const dom = html<{ 
         signal: Signal<any>; 
         
@@ -904,6 +915,13 @@ html.map = ((signal: Signal<any>, factory: (kv: [k: any, v: any], el?: RHU_FRAG)
 
     return dom;
 }) as any;
+html.transform = (el, transform) => {
+    if (RHU_NODE.is(el)) {
+        el.transform(transform);
+        return el;
+    }
+    return new RHU_NODE(el).transform(transform);
+};
 html.marker = (name) => {
     return new RHU_NODE(new RHU_MARKER()).bind(name);
 };
