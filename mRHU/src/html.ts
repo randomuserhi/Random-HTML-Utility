@@ -335,8 +335,9 @@ class RHU_DOM<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> ext
     static is: (object: any) => object is RHU_DOM = Object.prototype.isPrototypeOf.bind(RHU_DOM.prototype);
 }
 
+type FACTORY<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => RHU_FRAG<T>;
 type RHU_FRAG<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_DOM<T>; [Symbol.iterator]: () => IterableIterator<Node> }; 
-export type html<T extends ((...args: any[]) => any) | Record<PropertyKey, any>> = T extends ((...args: any[]) => any) ? ReturnType<T> extends RHU_FRAG ? ReturnType<T> : never : RHU_FRAG<T>;
+export type html<T extends FACTORY | Record<PropertyKey, any>> = T extends FACTORY ? ReturnType<T> extends RHU_FRAG ? ReturnType<T> : never : RHU_FRAG<T>;
 export const isHTML = <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(object: any): object is RHU_FRAG<T> => {
     if (object === undefined) return false;
     return RHU_DOM.is(object[DOM]);
