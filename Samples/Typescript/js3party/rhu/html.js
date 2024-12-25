@@ -152,7 +152,7 @@ class RHU_FRAGMENT {
     get firstNode() {
         const node = this.first;
         if (isHTML(node)) {
-            return node.firstNode();
+            return node[DOM].firstNode;
         }
         else {
             return node;
@@ -200,6 +200,10 @@ class RHU_NODE {
     }
     box(boxed = true) {
         this.boxed = boxed;
+        return this;
+    }
+    transform(transform) {
+        transform(this.node);
         return this;
     }
     constructor(node) {
@@ -601,7 +605,11 @@ html.insertBefore = (target, node, ref) => {
         }
     }
 };
-html.map = ((signal, factory, iterator) => {
+html.replaceChildren = (target, ...nodes) => {
+    target.replaceChildren();
+    html.append(target, ...nodes);
+};
+html.map = ((signal, iterator, factory) => {
     const dom = html ``;
     dom.signal = signal;
     dom.existingEls = new Map();
@@ -623,7 +631,7 @@ html.map = ((signal, factory, iterator) => {
         if (kvIter != undefined) {
             let prev = undefined;
             for (const kv of kvIter) {
-                const key = kv[0];
+                const [key] = kv;
                 if (dom._existingEls.has(key)) {
                     console.warn("'html.map' does not support non-unique keys.");
                     continue;
@@ -632,6 +640,8 @@ html.map = ((signal, factory, iterator) => {
                 const old = dom.existingEls.get(key);
                 const oldEl = old === undefined ? undefined : old[0];
                 const el = factory(kv, oldEl);
+                if (oldEl === undefined && el === undefined)
+                    continue;
                 const inOrder = old === undefined || prev === undefined || old[1] > prev;
                 const outOfOrder = !inOrder;
                 if (old !== undefined && inOrder) {
@@ -680,6 +690,13 @@ html.map = ((signal, factory, iterator) => {
     signal.on(update, { condition: ref.hasref });
     return dom;
 });
+html.transform = (el, transform) => {
+    if (RHU_NODE.is(el)) {
+        el.transform(transform);
+        return el;
+    }
+    return new RHU_NODE(el).transform(transform);
+};
 html.marker = (name) => {
     return new RHU_NODE(new RHU_MARKER()).bind(name);
 };

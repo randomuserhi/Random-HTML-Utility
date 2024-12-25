@@ -826,12 +826,13 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
             kvIter = value.entries();
         }
 
+        
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
             let prev: number | undefined = undefined;
 
             for (const kv of kvIter) {
-                const key = kv[0];
+                const [key] = kv;
 
                 if (dom._existingEls.has(key)) {
                     console.warn("'html.map' does not support non-unique keys.");
@@ -846,6 +847,9 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
 
                 // Generate new state
                 const el = factory(kv, oldEl);
+                
+                // Skip if both old element and new element are undefined
+                if (oldEl === undefined && el === undefined) continue;
 
                 // If the element previously existed, and its old position is less than
                 // the last seen existing element, then it must be out of order since
