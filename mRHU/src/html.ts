@@ -3,6 +3,9 @@ import type { ClassName } from "./style.js";
 
 // TODO(randomuserhi): Clean up code + Standardise calling the produced "Elements" "Fragments" as they are more Fragments than components etc...
 
+// NOTE(randomuserhi): Helper type
+export type Mutable<T> = { -readonly [key in keyof T]: T[key] };
+
 // Helper functions
 const isMap: <K = any, V = any>(object: any) => object is Map<K, V> = Object.prototype.isPrototypeOf.bind(Map.prototype);
 const isArray: <T = any>(object: any) => object is Array<T> = Object.prototype.isPrototypeOf.bind(Array.prototype);
