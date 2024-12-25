@@ -365,7 +365,7 @@ interface RHU_HTML {
     children<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU_FRAG<T> | RHU_NODE<RHU_FRAG<T>>, cb: (children: RHU_CHILDREN) => void): RHU_NODE<RHU_FRAG<T>>;
     
     map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = T extends any[] ? number : T extends Map<infer K, any> ? K : any, V = T extends (infer V)[] ? V : T extends Map<any, infer V> ? V : any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined): RHU_FRAG<{ readonly signal: Signal<T> }>;
-    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]>): RHU_FRAG<{ readonly signal: Signal<T> }>;
+    map<T, H extends Record<PropertyKey, any> = Record<PropertyKey, any>, K = any, V = any>(signal: Signal<T>, factory: (kv: [k: K, v: V], el?: RHU_FRAG<H>) => RHU_FRAG<H> | undefined, iterator: (value: T) => IterableIterator<[key: K, value: V]> | [key: K, value: V][]): RHU_FRAG<{ readonly signal: Signal<T> }>;
     
     // Creates a weakref to the given object where its lifetime is tied to the provided target.
     // - Whilst the target is still retained, the object is also retained.
