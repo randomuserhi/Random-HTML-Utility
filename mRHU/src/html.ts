@@ -4,14 +4,8 @@ import type { ClassName } from "./style.js";
 // TODO(randomuserhi): Clean up code + Standardise calling the produced "Elements" "Fragments" as they are more Fragments than components etc...
 
 // NOTE(randomuserhi): Helper types
-type IfEquals<X, Y, A = X, B = never> =
-  (<T>() => T extends X ? 1 : 2) extends
-  (<T>() => T extends Y ? 1 : 2) ? A : B;
-
-type ShouldBeReadOnly<T> = T & { readonly __rhu__shouldBeReadonly: unique symbol };
-
 export type Mutable<T> = { 
-    -readonly [key in keyof T]: IfEquals<{ [k in key]: T[key] }, { -readonly [k in key]: T[key] }, key, ShouldBeReadOnly<T[key]>>
+    -readonly [key in keyof T]: T[key]
 };
 
 // Helper functions
