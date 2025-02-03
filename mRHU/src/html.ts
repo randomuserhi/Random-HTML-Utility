@@ -826,7 +826,7 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
             kvIter = value.entries();
         }
 
-        
+    
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
             let prev: number | undefined = undefined;
@@ -846,8 +846,15 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
                 const oldEl = old === undefined ? undefined : old[0];
 
                 // Generate new state
-                const el = factory(kv, oldEl);
-                
+                const el = undefined;
+                try {
+                    factory(kv, oldEl);
+                } catch (e) {
+                    // Continue on error
+                    console.error(e);
+                    continue;
+                }
+            
                 // Skip if both old element and new element are undefined
                 if (oldEl === undefined && el === undefined) continue;
 
@@ -861,10 +868,10 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
                 const outOfOrder = !inOrder;
 
                 if (old !== undefined && inOrder) {
-                    // If the element last existed and is in order, append
-                    // elements from the stack and update `prev`.
+                // If the element last existed and is in order, append
+                // elements from the stack and update `prev`.
                     prev = old[1];
-                    
+                
                     if (oldEl !== undefined) {
                         for (const el of stack) {
                             internal.insertBefore(el, oldEl);
@@ -872,8 +879,8 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
                         stack.length = 0;
                     }
                 } else if (el !== oldEl || outOfOrder) {
-                    // If the element is out of order / is different to the existing 
-                    // one, remove it and append to stack
+                // If the element is out of order / is different to the existing 
+                // one, remove it and append to stack
                     if (oldEl !== undefined) {
                         internal.remove(oldEl);
                     }
