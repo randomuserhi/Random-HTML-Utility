@@ -846,9 +846,9 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
                 const oldEl = old === undefined ? undefined : old[0];
 
                 // Generate new state
-                const el = undefined;
+                let el = undefined;
                 try {
-                    factory(kv, oldEl);
+                    el = factory(kv, oldEl);
                 } catch (e) {
                     // Continue on error
                     console.error(e);
