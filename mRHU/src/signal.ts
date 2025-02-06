@@ -62,7 +62,13 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
                     if (condition !== undefined && !condition()) {
                         continue;
                     }
-                    callback(ref.value);
+                    
+                    try {
+                        callback(ref.value);
+                    } catch (e) {
+                        console.error(e);
+                    }
+
                     callbacks.buffer.set(callback, condition);
                 }
                 callbacks.value.clear();
@@ -87,7 +93,12 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
                 return callback;
             }
 
-            callback(ref.value);
+            try {
+                callback(ref.value);
+            } catch (e) {
+                console.error(e);
+            }
+
             callbacks.value.set(callback, options?.condition);
             if (options?.signal !== undefined) {
                 options.signal.addEventListener("abort", () => callbacks.value.delete(callback), { once: true });
