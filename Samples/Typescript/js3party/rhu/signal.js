@@ -12,15 +12,33 @@ export function signal(value, equality) {
         if (args.length !== 0) {
             let [value] = args;
             if (signal.guard !== undefined) {
-                value = signal.guard(value, ref.value);
+                try {
+                    value = signal.guard(value, ref.value);
+                }
+                catch (e) {
+                    console.error(e);
+                }
             }
-            if ((equality === undefined && ref.value !== value) ||
-                (equality !== undefined && !equality(ref.value, value))) {
+            let isNotEqual = (equality === undefined && ref.value !== value);
+            if (!isNotEqual && equality !== undefined) {
+                try {
+                    isNotEqual = !equality(ref.value, value);
+                }
+                catch (e) {
+                    console.error(e);
+                }
+            }
+            if (isNotEqual) {
                 const dependencies = dependencyMap.get(signal);
                 if (dependencies !== undefined) {
                     for (const effect of dependencies) {
                         for (const destructor of effect[destructors]) {
-                            destructor();
+                            try {
+                                destructor();
+                            }
+                            catch (e) {
+                                console.error(e);
+                            }
                         }
                     }
                 }
@@ -29,7 +47,12 @@ export function signal(value, equality) {
                     if (condition !== undefined && !condition()) {
                         continue;
                     }
-                    callback(ref.value);
+                    try {
+                        callback(ref.value);
+                    }
+                    catch (e) {
+                        console.error(e);
+                    }
                     callbacks.buffer.set(callback, condition);
                 }
                 callbacks.value.clear();
@@ -50,7 +73,12 @@ export function signal(value, equality) {
             if (options?.condition !== undefined && !options.condition()) {
                 return callback;
             }
-            callback(ref.value);
+            try {
+                callback(ref.value);
+            }
+            catch (e) {
+                console.error(e);
+            }
             callbacks.value.set(callback, options?.condition);
             if (options?.signal !== undefined) {
                 options.signal.addEventListener("abort", () => callbacks.value.delete(callback), { once: true });
