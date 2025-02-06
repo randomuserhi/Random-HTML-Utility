@@ -699,7 +699,7 @@ html.box = (el, boxed?: boolean) => {
     return new RHU_NODE(el).box(boxed);
 };
 html.ref = ((target: any, obj: any) => {
-    if (obj ===  undefined) {
+    if (obj === undefined) {
         if (isHTML(target)) {
             return target[DOM].ref;
         }
@@ -821,11 +821,14 @@ html.map = ((signal: Signal<any>, iterator: (value: any) => IterableIterator<[ke
         // Obtain iterable
         let kvIter: Iterable<[key: any, value: any]> | undefined = undefined;
         if (iterator !== undefined) {
-            kvIter = iterator(value);
+            try {
+                kvIter = iterator(value);
+            } catch (e) {
+                console.error(e);
+            }
         } else if (isMap(value) || isArray(value)) {
             kvIter = value.entries();
         }
-
     
         if (kvIter != undefined) {
             // Store the old position of the previous existing element
