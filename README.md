@@ -80,10 +80,14 @@ const b = computed<number>((b) => {
 const onA = effect(() => {
     console.log(`A changed: ${a()}`);
 }, [a]);
-const HTML = html`
+const fragment = html`
     <div>a: ${a}</div>
     <div>b: ${b}</div>
     `;
 
 a(10); // "A changed: 10"
+```
+```html
+<div>a: 10</div>
+<div>b: 20</div>
 ```
