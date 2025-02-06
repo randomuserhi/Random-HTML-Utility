@@ -13,8 +13,7 @@ const Counter = () => {
         </ul>
     </div>
     `;
-    html.box(dom);
-    html.children(dom, (children) => {
+    html(dom).box().children((children) => {
         if (children.length === 0) return;
         dom.list.replaceWith(...children);
     });
