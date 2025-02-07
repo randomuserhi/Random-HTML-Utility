@@ -48,7 +48,7 @@ const nested = html`
 const nestedBoxed = html`
     <p m-id="text2">Lorem Ipsum</p>
     `;
-html.box(nestedBoxed);
+html(nestedBoxed).box();
 
 const fragment = html`
     <h1>Some Title</h1>
