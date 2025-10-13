@@ -192,7 +192,7 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
                 // Trigger effect dependencies AFTER updating internal value
                 if (dependencies !== undefined) {
                     for (const effect of dependencies) {
-                        effect();
+                        effect[internal].trigger();
                     }
                 }
             }
@@ -311,6 +311,9 @@ export interface Effect {
     [internal]: {
         /** Destructor thats called prior the effect triggering. */
         destructor: (() => void) | void | undefined;
+
+        /** Internally used to trigger the effect without calling the destructors */
+        trigger(): void;
     }
 
     /** Debug name that can be used for debugging. */
@@ -342,12 +345,8 @@ export function effect(expression: () => ((() => void) | void | undefined), depe
     // Instantiate main object and interface
     const effect = function Effect() {
         const self = effect[internal];
-
-        // Check guard
-        if (!effect.check()) return;
-
-        // Execute effect
-        self.destructor = expression();
+        self.destructor?.();
+        self.trigger();
     } as Effect;
     effect.release = function() {
         if (dependencySets === undefined) return;
@@ -369,7 +368,16 @@ export function effect(expression: () => ((() => void) | void | undefined), depe
 
     // Generate internal state
     effect[internal] = {
-        destructor: undefined
+        destructor: undefined,
+        trigger: function() {
+            const self = effect[internal];
+
+            // Check guard
+            if (!effect.check()) return;
+
+            // Execute effect
+            self.destructor = expression();
+        }
     };
 
     // Add effect to dependency map
@@ -392,7 +400,7 @@ export function effect(expression: () => ((() => void) | void | undefined), depe
         options.signal.addEventListener("abort", () => { effect.release(); }, { once: true });
     }
 
-    // Execute effect for the first time
+    // Execute effect for the first time manually
     effect();
 
     return effect;
