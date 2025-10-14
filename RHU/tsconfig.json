@@ -1,11 +1,11 @@
-{ 
+{
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "build/rhu",
     "declarationDir": "build/@types/rhu",
     "target": "ES2021",
     "module": "ES2022",
-    "moduleResolution": "Node",
+    "moduleResolution": "classic",
     "noImplicitAny": true,
     "noImplicitThis": true,
     "strictNullChecks": true,
@@ -15,5 +15,8 @@
     "sourceMap": false,
     "declaration": true,
   },
-  "include": ["./src/**/*","./types/**/*"],
+  "include": [
+    "./src/**/*",
+    "./types/**/*"
+  ],
 }
