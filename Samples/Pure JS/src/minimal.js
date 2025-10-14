@@ -1,5 +1,5 @@
 import { html } from "rhu/html.js";
-import { signal, computed, effect } from "rhu/signal.js";
+import { signal } from "rhu/signal.js";
 
 const Counter = () => {
     const state = signal(0);

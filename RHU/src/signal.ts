@@ -4,10 +4,6 @@
 
 // TODO(randomuserhi): Reformat in such a way that its easily convertible to be used in JS without modules.
 
-// TODO(randomuserhi): Fix problems with removing dependencies during event trigger chain, similarly callbacks in signal trigger chains
-//                     Ultimately needs a marker system that marks callbacks / events as dirty and at the end of a trigger call-chain
-//                     performs cleanup.
-
 /** Type representing a signal callback for type `T` */
 type Callback<T> = (value: T) => void;
 
@@ -112,7 +108,7 @@ export interface Signal<T> extends SignalBase<T> {
  */
 const signalProto = {};
 
-/** Utiltiy function that checks if the provided object is a signal. */
+/** Utility function that checks if the provided object is a signal. */
 export const isSignal: <T>(obj: any) => obj is SignalBase<T> = Object.prototype.isPrototypeOf.bind(signalProto);
 
 /**

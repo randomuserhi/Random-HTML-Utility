@@ -1,12 +1,12 @@
 import { html } from "rhu/html.js";
 import { signal } from "rhu/signal.js";
 
-const Counter = () => {
-    interface Counter {
-        list: HTMLUListElement;
-        btn: HTMLButtonElement;
-    }
+interface Counter {
+    list: HTMLUListElement;
+    btn: HTMLButtonElement;
+}
 
+const Counter = () => {
     const state = signal(0);
 
     const dom = html<Counter>/**//*html*/`
@@ -29,8 +29,6 @@ const Counter = () => {
 };
 
 document.body.replaceChildren(...html`
-    ${Counter()}
-
     ${html.open(Counter())}
         <div>Child!</div>
     ${html.close()}

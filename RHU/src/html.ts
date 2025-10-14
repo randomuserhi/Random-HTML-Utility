@@ -683,11 +683,36 @@ function stitch(interp: Interp, slots: Slot[]): string | undefined {
 
 const defineProperties = Object.defineProperties;
 
-/** Helper function that binds a value to the target instance. */
+/** Tag used to tell the difference between a regular array and an array that holds a collection of binds. */
+const bindArrayTag = Symbol("RHU_HTML.[[BIND_ARRAY_TAG]]");
+
+/** Utility function that checks if the provided object is the special array holding a collection of binds. */
+const isBindArray: <T = any>(obj: any) => obj is T = ((obj: any) => /**Array.isArray(obj) &&*/ bindArrayTag in obj) as any;
+
+/** 
+ * Helper function that binds a value to the target instance.
+ * If the bind already exists, converts it to an array and pushes the new value.
+ */
 function bind(instance: Record<PropertyKey, any> & { [DOM]: RHU_COMPONENT }, key: PropertyKey, value: any) {
-    if (key in instance) throw new Error(`The binding '${key.toString()}' already exists.`);
-    instance[key] = value; 
-    (instance[DOM] as any).binds.push(key);
+    if (key in instance) {
+        // If the key already exists, then the value should be converted to a "bind array".
+        // A "bind array" is just a tagged js array indicating it holds a collection of values.
+        // This is to distinguish it from a regular array so that we can support a collection of arrays.
+
+        if (isBindArray<any[]>(instance[key])) {
+            // If it is already a bind array, push the value to it.
+            instance[key].push(value);
+        } else {
+            // If it is not already a bind array, make it one.
+            const collection = [instance[key], value];
+            (collection as any)[bindArrayTag] = undefined;
+            instance[key] = collection;
+        }
+    } else {
+        // If the key does not exist, store it as a single value.
+        instance[key] = value; 
+        (instance[DOM] as any).binds.push(key);
+    }
 }
 
 /**
