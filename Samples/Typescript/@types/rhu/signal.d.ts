@@ -74,7 +74,7 @@ export interface Signal<T> extends SignalBase<T> {
         readonly equality?: Equality<T>;
     };
 }
-/** Utiltiy function that checks if the provided object is a signal. */
+/** Utility function that checks if the provided object is a signal. */
 export declare const isSignal: <T>(obj: any) => obj is SignalBase<T>;
 /**
  * Creates a signal

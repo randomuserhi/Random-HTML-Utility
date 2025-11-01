@@ -494,7 +494,7 @@ function stitch(interp, slots) {
 }
 const defineProperties = Object.defineProperties;
 /** Tag used to tell the difference between a regular array and an array that holds a collection of binds. */
-const bindArrayTag = Symbol("RHU_HTML.[[BIND_ARRAY_TAG]]");
+const bindArrayTag = Symbol("RHU_HTML.[[BIND_ARRAY]]");
 /** Utility function that checks if the provided object is the special array holding a collection of binds. */
 const isBindArray = ((obj) => /**Array.isArray(obj) &&*/ bindArrayTag in obj);
 /**
