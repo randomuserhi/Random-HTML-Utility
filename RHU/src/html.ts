@@ -11,10 +11,10 @@ export type Mutable<T> = {
 };
 
 // Internal helper functions for runtime type information.
-const isMap: <K = any, V = any>(object: any) => object is Map<K, V> = Object.prototype.isPrototypeOf.bind(Map.prototype);
-const isArray: <T = any>(object: any) => object is Array<T> = Object.prototype.isPrototypeOf.bind(Array.prototype);
-const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.bind(Node.prototype);
-const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype);
+const isMap: <K = any, V = any>(object: any) => object is Map<K, V> = Object.prototype.isPrototypeOf.bind(Map.prototype) as any;
+const isArray: <T = any>(object: any) => object is Array<T> = Object.prototype.isPrototypeOf.bind(Array.prototype) as any;
+const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.bind(Node.prototype) as any;
+const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype) as any;
 
 /** Symbol for accessing DOM interface on a Fragment. */
 export const DOM = Symbol("RHU_HTML.[[DOM]]");
@@ -50,7 +50,7 @@ class RHU_METADATA<T extends Record<PropertyKey, any> = Record<PropertyKey, any>
  * the elements / components within said fragment.
  */
 class RHU_FRAGMENT_NODE {
-    node: RHU.Component | Node;
+    node: RHU.Component | Node = undefined!;
     next?: RHU_FRAGMENT_NODE;
     prev?: RHU_FRAGMENT_NODE;
 }
@@ -452,7 +452,7 @@ class RHU_COMPONENT<T extends Record<PropertyKey, any> = Record<PropertyKey, any
     private binds: PropertyKey[] = [];
 
     /** Weak ref to the component's fragment marker. */
-    public readonly ref: { deref(): RHU.Component<T> | undefined, hasref(): boolean };    
+    public readonly ref: { deref(): RHU.Component<T> | undefined, hasref(): boolean } = undefined!;    
 
     public close: RHU_CLOSURE = RHU_CLOSURE.instance;
 
@@ -472,16 +472,16 @@ class RHU_COMPONENT<T extends Record<PropertyKey, any> = Record<PropertyKey, any
         return this;
     }
 
-    static is: (object: any) => object is RHU_COMPONENT = Object.prototype.isPrototypeOf.bind(RHU_COMPONENT.prototype);
+    static is: (object: any) => object is RHU_COMPONENT = Object.prototype.isPrototypeOf.bind(RHU_COMPONENT.prototype) as any;
 }
 
 /** 
  * A marker is just a html comment that marks a position in the DOM tree. 
  */
 class RHU_MARKER {
-    readonly __RHU_MARKER__: never; // Only exists for the type system.
+    readonly __RHU_MARKER__: never = undefined!; // Only exists for the type system.
     
-    static is: (object: any) => object is RHU_MARKER = Object.prototype.isPrototypeOf.bind(RHU_MARKER.prototype);
+    static is: (object: any) => object is RHU_MARKER = Object.prototype.isPrototypeOf.bind(RHU_MARKER.prototype) as any;
 }
 
 /** 
@@ -536,7 +536,7 @@ class RHU_NODE<T = any> {
         this.node = node;
     }
 
-    static is: (object: any) => object is RHU_NODE = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype);
+    static is: (object: any) => object is RHU_NODE = Object.prototype.isPrototypeOf.bind(RHU_NODE.prototype) as any;
 }
 
 /** 
@@ -545,10 +545,10 @@ class RHU_NODE<T = any> {
  * Used with opening tags to mark the end.
  */ 
 class RHU_CLOSURE {
-    readonly __RHU_CLOSURE__: never; // Only exists for the type system.
+    readonly __RHU_CLOSURE__: never = undefined!; // Only exists for the type system.
 
     static instance = new RHU_CLOSURE();
-    static is: (object: any) => object is RHU_CLOSURE = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype);
+    static is: (object: any) => object is RHU_CLOSURE = Object.prototype.isPrototypeOf.bind(RHU_CLOSURE.prototype) as any;
 }
 
 /** 
@@ -719,7 +719,7 @@ function bind(instance: Record<PropertyKey, any> & { [DOM]: RHU_COMPONENT }, key
  * Helper function that creates a weak reference to the fragment marker and binds it to the component.
  * This helper function exists to prevent capturing unnecessary scopes when binding the weak ref which could prevent GC.
  */
-function makeRef(implementation: RHU_COMPONENT, ref: WeakRef<Comment>["deref"]) {
+function makeRef(implementation: RHU_COMPONENT, ref: WeakRef<Node>["deref"]) {
     const wref = {
         deref() {
             const marker = ref();
@@ -739,6 +739,18 @@ function makeRef(implementation: RHU_COMPONENT, ref: WeakRef<Comment>["deref"]) 
             configurable: false
         }
     });
+}
+
+/**
+ * Helper function that binds a signal to a given node reference. 
+ * This helper function exists to prevent capturing the Text node itself in the scope of the main function.
+ */
+function bindRefToSignal(ref: WeakRef<Text>, slot: SignalBase) {
+    slot.on((value) => {
+        const node = ref.deref();
+        if (node === undefined) return;
+        node.nodeValue = (slot as SignalBase).string(value);
+    }, { condition: () => ref.deref() !== undefined });
 }
 
 export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU.Component, ...interpolations: Interp[]) => {
@@ -862,11 +874,7 @@ export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<Prop
             if (isSignal(slot)) {
                 const node = document.createTextNode(`${slot()}`);
                 const ref = new WeakRef(node);
-                slot.on((value) => {
-                    const node = ref.deref();
-                    if (node === undefined) return;
-                    node.nodeValue = (slot as SignalBase).string(value);
-                }, { condition: () => ref.deref() !== undefined });
+                bindRefToSignal(ref, slot);
 
                 // Manage binds
                 const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
@@ -956,7 +964,7 @@ export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     // inline functions scope. However, this means that the inline function holds a reference
     // to the context, thus preventing GC of variables inside of said context (such as `marker`).
     //
-    // Since we want to be able to hold a reference to the `ref` inlien function but not the context
+    // Since we want to be able to hold a reference to the `ref` inline function but not the context
     // it resides in, we call a separate function. The separate function has its own context (hence
     // we can no longer access `marker` as per its scope) and thus circumvents this issue.
     const markerRef = new WeakRef((implementation as any).marker as RHU_COMPONENT<T>["marker"]);
@@ -990,6 +998,25 @@ html.box = (el, boxed?: boolean) => {
     // Wrap object as a RHU_NODE, if it isn't already
     return new RHU_NODE(el).box(boxed);
 };
+/// Helper functions for `html.ref` that prevent capturing objects in scopes
+/// to allow for proper garbage collection
+function makeRef_noTarget(deref: () => any) {
+    return {
+        deref,
+        hasref: () => deref() !== undefined
+    };
+}
+function makeRef_withTarget(wr: { deref: () => any }, wmap: WeakMap<any, any>) {
+    return {
+        deref() {
+            return wmap.get(wr.deref()!);
+        },
+        hasref() {
+            return wr.deref() !== undefined;
+        }
+    };
+}
+///
 html.ref = ((target: any, obj: any) => {
     if (obj === undefined) {
         // Overload for obtaining a weakRef to the target
@@ -998,10 +1025,7 @@ html.ref = ((target: any, obj: any) => {
             return target[DOM].ref;
         }
         const deref = WeakRef.prototype.deref.bind(new WeakRef(target));
-        return {
-            deref,
-            hasref: () => deref() !== undefined
-        };
+        return makeRef_noTarget(deref);
     } else {
         // Overload for creating a weakref to the given object where its lifetime is tied to the provided target.
         // - Whilst the target is still retained, the object is also retained.
@@ -1010,14 +1034,7 @@ html.ref = ((target: any, obj: any) => {
         const wr = isHTML(target) ? target[DOM].ref : new WeakRef(target);
         const wmap = new WeakMap();
         wmap.set(target, obj);
-        return {
-            deref() {
-                return wmap.get(wr.deref()!);
-            },
-            hasref() {
-                return wr.deref() !== undefined;
-            }
-        };
+        return makeRef_withTarget(wr, wmap);
     }
 }) as any;
 html.replaceWith = replaceWith;
