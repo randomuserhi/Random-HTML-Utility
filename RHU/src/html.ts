@@ -753,6 +753,15 @@ function bindRefToSignal(ref: WeakRef<Text>, slot: SignalBase) {
     }, { condition: () => ref.deref() !== undefined });
 }
 
+/** Helper that generates a HTML text node from a signal. */
+export function textFromSignal(signal: SignalBase): Text {
+    const text = document.createTextNode(`${signal()}`);
+    const ref = new WeakRef(text);
+    bindRefToSignal(ref, signal);
+
+    return text;
+}
+
 export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU.Component, ...interpolations: Interp[]) => {
     if (isHTML(first)) {
         // Handle overload which just gets the underlying DOM interface of the provided component.
