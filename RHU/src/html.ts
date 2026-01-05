@@ -592,6 +592,11 @@ export namespace RHU {
     export type Component<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_COMPONENT<T>; [Symbol.iterator]: () => IterableIterator<globalThis.Node> }; 
     
     export type FC<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => Component<T>;
+
+    export type Template<T extends Record<PropertyKey, any>> = {
+        (): RHU.Component<T>;
+        prototype: Partial<T>;
+    };
 }
 
 export type html<T extends RHU.FC | Record<PropertyKey, any> = Record<PropertyKey, any>> = T extends RHU.FC ? ReturnType<T> extends RHU.Component ? ReturnType<T> : never : RHU.Component<T>;
@@ -1014,11 +1019,16 @@ function createComponent<Proto, T extends Record<PropertyKey, any> & Proto = Rec
 }
 
 /**
+ * createComponent but without a prototype
+ */
+const defaultCreateComponent = arrowBind(createComponent<unknown>, undefined);
+
+/**
  * Map of component factories so we don't create a new one for the same prototype every call
  */
 const componentFactoryMap = new WeakMap<object, (first: First, ...interpolations: Interp[]) => RHU.Component>();
 
-export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU.Component | object, ...interpolations: Interp[]) => {
+export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU.Component | object | undefined, ...interpolations: Interp[]) => {
     if (isHTML(first)) {
         // Handle overload which just gets the underlying DOM interface of the provided component.
         return first[DOM];
@@ -1033,7 +1043,10 @@ export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     
     // Assign necessary methods for RHU.Component interface
     // Without these, RHU component methods fail, so we just override them
-    const proto = first as any;
+    const proto = first;
+
+    if (proto === undefined) return defaultCreateComponent;
+
     let factory = componentFactoryMap.get(proto);
     if (factory === undefined) {
         factory = arrowBind(createComponent<any, T>, proto);
