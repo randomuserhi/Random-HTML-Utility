@@ -2,8 +2,8 @@
 ///
 /// @randomuserhi
 
-import { isSignal, SignalBase } from "rhu/signal.asl";
-import type { ClassName } from "./style.asl";
+import { isSignal, SignalBase } from "./signal.js";
+import type { ClassName } from "./style.js";
 
 /** Utility type that makes type `T` mutable, even if its marked as readonly. */
 export type Mutable<T> = { 
@@ -846,7 +846,7 @@ function createComponent<Proto, T extends Record<PropertyKey, any> & Proto = Rec
         if (_proto[Symbol.iterator] !== COMPONENT_PROTOTYPE[Symbol.iterator])
             _proto[Symbol.iterator] = COMPONENT_PROTOTYPE[Symbol.iterator];
         if (_proto[Symbol.toStringTag] !== COMPONENT_PROTOTYPE[Symbol.toStringTag])
-            _proto[Symbol.toStringTag] = "RHU.Component(Custom Prototype)"; // Signal the component has a custom prototype
+            _proto[Symbol.toStringTag] = `RHU.Component(Custom Prototype)`; // Signal the component has a custom prototype
     } else 
         _proto = COMPONENT_PROTOTYPE; // Otherwise use default proto
     const instance: RHU.Component<T> = Object.create(_proto);
@@ -1017,8 +1017,6 @@ function createComponent<Proto, T extends Record<PropertyKey, any> & Proto = Rec
  * Map of component factories so we don't create a new one for the same prototype every call
  */
 const componentFactoryMap = new WeakMap<object, (first: First, ...interpolations: Interp[]) => RHU.Component>();
-
-(window as any).cache = componentFactoryMap;
 
 export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU.Component | object, ...interpolations: Interp[]) => {
     if (isHTML(first)) {
