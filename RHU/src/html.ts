@@ -617,14 +617,14 @@ export namespace RHU {
          */ 
         <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU.Component<T>): RHU_COMPONENT<T>;
 
+        /** @returns `RHU.Component` */ 
+        <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): RHU.Component<T>;
+        
         /**
          * Internally caches the prototypes in a WeakMap so the same factory object is used per proto.
          * @returns A factory that generates RHU.Components with the given prototype
          */
         <P extends object>(prototype: P): (<T extends Record<PropertyKey, any> & P = Record<PropertyKey, any> & P>(first: First, ...interpolations: Interp[]) => RHU.Component<T>);
-
-        /** @returns `RHU.Component` */ 
-        <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): RHU.Component<T>;
 
         /** Creates a closure to close any open components. */
         close(): RHU_CLOSURE;
