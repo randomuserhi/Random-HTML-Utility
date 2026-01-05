@@ -10,11 +10,28 @@ export type Mutable<T> = {
     -readonly [key in keyof T]: T[key]
 };
 
+/**
+ * For a given function, creates a bound function that has the same body as the original function.
+ * The this object of the bound function is associated with the specified object, and has the specified initial parameters.
+ * 
+ * This is used over `Function.prototype.bind` as it has arrow function semantics which optimize better.
+ * It is also used over an inline arrow function as it doesnt capture unnecessary variables due to scoping.
+ * 
+ * @param func The function to bind
+ * @param args Arguments to bind to the parameters of the function.
+ */
+function arrowBind<A extends any[], B extends any[], R>(func: (...args: [...A, ...B]) => R, ...args: A): (...args: B) => R {
+    return (...remaining: B) => func(...args, ...remaining);
+}
+
 // Internal helper functions for runtime type information.
 const isMap: <K = any, V = any>(object: any) => object is Map<K, V> = Object.prototype.isPrototypeOf.bind(Map.prototype) as any;
 const isArray: <T = any>(object: any) => object is Array<T> = Object.prototype.isPrototypeOf.bind(Array.prototype) as any;
-const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.bind(Node.prototype) as any;
-const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype) as any;
+function isTemplateStringsArray(object: any): object is TemplateStringsArray {
+    return isArray(object) && Object.prototype.hasOwnProperty.call(object, "raw");
+}
+export const isNode: (object: any) => object is Node = Object.prototype.isPrototypeOf.bind(Node.prototype) as any;
+export const isElement:(object: any) => object is Element = Object.prototype.isPrototypeOf.bind(Element.prototype) as any;
 
 /** Symbol for accessing DOM interface on a Fragment. */
 export const DOM = Symbol("RHU_HTML.[[DOM]]");
@@ -554,7 +571,7 @@ class RHU_CLOSURE {
 /** 
  * Prototype used to determine if an object is a RHU.Component
  */ 
-const componentProto = {
+export const COMPONENT_PROTOTYPE = {
     [Symbol.iterator]: function*() {
         for (const node of (this as unknown as RHU.Component)[DOM]) {
             if (isHTML(node)) {
@@ -599,6 +616,12 @@ export namespace RHU {
          * The internal DOM component state controls the whether the component is boxed, or how it reacts to children.
          */ 
         <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(html: RHU.Component<T>): RHU_COMPONENT<T>;
+
+        /**
+         * Internally caches the prototypes in a WeakMap so the same factory object is used per proto.
+         * @returns A factory that generates RHU.Components with the given prototype
+         */
+        <P extends object>(prototype: P): (<T extends Record<PropertyKey, any> & P = Record<PropertyKey, any> & P>(first: First, ...interpolations: Interp[]) => RHU.Component<T>);
 
         /** @returns `RHU.Component` */ 
         <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): RHU.Component<T>;
@@ -762,14 +785,15 @@ export function textFromSignal(signal: SignalBase): Text {
     return text;
 }
 
-export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU.Component, ...interpolations: Interp[]) => {
-    if (isHTML(first)) {
-        // Handle overload which just gets the underlying DOM interface of the provided component.
-        return first[DOM];
-    }
-
-    // Handle overload for creating `RHU.Component`
-
+/**
+ * Actually creates a component from template string.
+ * 
+ * @param proto Prototype of returned component - Must extend `componentProto`
+ * @param first The template string array
+ * @param interpolations Template string array substitutions
+ * @returns 
+ */
+function createComponent<Proto, T extends Record<PropertyKey, any> & Proto = Record<PropertyKey, any> & Proto>(proto: Proto, first: First, ...interpolations: Interp[]): RHU.Component<T> {
     // Stitch together source to form valid HTML.
     // Replaces objects that should be interpreted as custom elements with slots
     // that will get replaced with actual DOM later.
@@ -816,7 +840,16 @@ export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     }).nextNode();
 
     // Create component instance
-    const instance: RHU.Component<T> = Object.create(componentProto);
+    let _proto = proto as any;
+    if (_proto !== undefined) {
+        // If a custom proto is provided, we need to ensure it has the right interface:
+        if (_proto[Symbol.iterator] !== COMPONENT_PROTOTYPE[Symbol.iterator])
+            _proto[Symbol.iterator] = COMPONENT_PROTOTYPE[Symbol.iterator];
+        if (_proto[Symbol.toStringTag] !== COMPONENT_PROTOTYPE[Symbol.toStringTag])
+            _proto[Symbol.toStringTag] = COMPONENT_PROTOTYPE[Symbol.toStringTag];
+    } else 
+        _proto = COMPONENT_PROTOTYPE; // Otherwise use default proto
+    const instance: RHU.Component<T> = Object.create(_proto);
     const implementation = new RHU_COMPONENT(instance);
     (instance as any)[DOM] = implementation;
 
@@ -881,9 +914,7 @@ export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<Prop
             }
 
             if (isSignal(slot)) {
-                const node = document.createTextNode(`${slot()}`);
-                const ref = new WeakRef(node);
-                bindRefToSignal(ref, slot);
+                const node = textFromSignal(slot);
 
                 // Manage binds
                 const slotName: RHU_NODE["name"] = (descriptor as any)?.name;
@@ -980,6 +1011,35 @@ export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<Prop
     makeRef(implementation, markerRef.deref.bind(markerRef));
 
     return instance as RHU.Component<T>;
+}
+
+/**
+ * Map of component factories so we don't create a new one for the same prototype every call
+ */
+const componentFactoryMap = new WeakMap<object, (first: First, ...interpolations: Interp[]) => RHU.Component>();
+
+export const html: RHU.HTML = (<T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First | RHU.Component | object, ...interpolations: Interp[]) => {
+    if (isHTML(first)) {
+        // Handle overload which just gets the underlying DOM interface of the provided component.
+        return first[DOM];
+    }
+
+    if (isTemplateStringsArray(first)) {
+        // Handle overload for creating `RHU.Component`
+        return createComponent<unknown, T>(undefined, first, ...interpolations);
+    }
+
+    // Handle overload for creating `RHU.Component` with prototype
+    
+    // Assign necessary methods for RHU.Component interface
+    // Without these, RHU component methods fail, so we just override them
+    const proto = first as any;
+    let factory = componentFactoryMap.get(proto);
+    if (factory === undefined) {
+        factory = arrowBind(createComponent<any, T>, proto);
+        componentFactoryMap.set(proto, factory);
+    }
+    return factory;
 }) as RHU.HTML;
 html.close = () => RHU_CLOSURE.instance;
 (html as any).closure = RHU_CLOSURE.instance;
