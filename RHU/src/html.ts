@@ -592,11 +592,6 @@ export namespace RHU {
     export type Component<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_COMPONENT<T>; [Symbol.iterator]: () => IterableIterator<globalThis.Node> }; 
     
     export type FC<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => Component<T>;
-
-    export type Template<T extends Record<PropertyKey, any>> = {
-        (): RHU.Component<T>;
-        prototype: Partial<T>;
-    };
 }
 
 export type html<T extends RHU.FC | Record<PropertyKey, any> = Record<PropertyKey, any>> = T extends RHU.FC ? ReturnType<T> extends RHU.Component ? ReturnType<T> : never : RHU.Component<T>;
