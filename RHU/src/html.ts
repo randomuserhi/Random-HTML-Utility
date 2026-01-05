@@ -591,6 +591,11 @@ export namespace RHU {
 
     export type Component<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = T & { readonly [DOM]: RHU_COMPONENT<T>; [Symbol.iterator]: () => IterableIterator<globalThis.Node> }; 
     
+    /**
+     * RHU Functional Component.
+     * 
+     * Similar to React Functional component, but you can assign a prototype
+     */
     export type FC<T extends Record<PropertyKey, any> = Record<PropertyKey, any>> = (...args: any[]) => Component<T>;
 }
 
@@ -619,7 +624,7 @@ export namespace RHU {
 
         /** @returns `RHU.Component` */ 
         <T extends Record<PropertyKey, any> = Record<PropertyKey, any>>(first: First, ...interpolations: Interp[]): RHU.Component<T>;
-        
+
         /**
          * Internally caches the prototypes in a WeakMap so the same factory object is used per proto.
          * @returns A factory that generates RHU.Components with the given prototype

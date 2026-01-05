@@ -2,8 +2,6 @@
 ///
 /// @randomuserhi
 
-// TODO(randomuserhi): Reformat in such a way that its easily convertible to be used in JS without modules.
-
 /** Type representing a signal callback for type `T` */
 type Callback<T> = (value: T) => void;
 
@@ -44,6 +42,12 @@ export interface SignalBase<T = any> {
 
     /** Remove the provided `callback` from the signal. */
     off(handle: Callback<T>): boolean;
+
+    /** Triggers signal as if a value change occured */
+    trigger(): void;
+
+    /** Triggers signal with the given value, circumventing the equality checks */
+    trigger(value: T): void;
 
     /** Removes all attached callbacks from the signal. */
     release(): void;
@@ -109,7 +113,7 @@ export interface Signal<T> extends SignalBase<T> {
 const signalProto = {};
 
 /** Utility function that checks if the provided object is a signal. */
-export const isSignal: <T>(obj: any) => obj is SignalBase<T> = Object.prototype.isPrototypeOf.bind(signalProto);
+export const isSignal: <T>(obj: any) => obj is SignalBase<T> = Object.prototype.isPrototypeOf.bind(signalProto) as any;
 
 /**
  * Signal prototype implementation.
@@ -177,6 +181,59 @@ const signalImpl = {
 
         return self.callbacks.size;
     },
+    trigger(this: Signal<any>, ...args: [...any[]]) {
+        const self = this[internal];
+        
+        let value: any;
+        if (args.length === 0) {
+            value = self.value;
+        } else {
+            value = args[0];
+        }
+        
+        // Get any effects that depend on this signal
+        const dependencies = dependencyMap.get(this);
+
+        // Call and clear destructors PRIOR updating the internal value
+        // destructors should run accessing the old value of the updating signal
+        if (dependencies !== undefined) {
+            for (const effect of dependencies) {
+                const { destructor } = effect[internal];
+                if (destructor !== undefined) {
+                    try {
+                        destructor();
+                    } catch (e) {
+                        console.error(e);
+                    }
+
+                    effect[internal].destructor = undefined;
+                }
+            }
+        }
+
+        // Update value and trigger regular callbacks, removing callbacks as per conditions.
+        self.value = value;
+        for (const [callback, condition] of self.callbacks) {
+            // Skip and remove callbacks that are no longer valid as per their condition.
+            if (condition !== undefined && !condition()) {
+                self.callbacks.delete(callback);
+                continue;
+            }
+
+            try {
+                callback(self.value);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Trigger effect dependencies AFTER updating internal value
+        if (dependencies !== undefined) {
+            for (const effect of dependencies) {
+                effect(internal);
+            }
+        }
+    },
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     [Symbol.toPrimitive](this: Signal<any>, hint) {
         const self = this[internal];
@@ -219,49 +276,7 @@ export function signal<T>(value: T, equality?: Equality<T>): Signal<T> {
             }
             if (isNotEqual) {
                 // If new value is not equal to current value, trigger state change.
-
-                // Get any effects that depend on this signal
-                const dependencies = dependencyMap.get(signal);
-
-                // Call and clear destructors PRIOR updating the internal value
-                // destructors should run accessing the old value of the updating signal
-                if (dependencies !== undefined) {
-                    for (const effect of dependencies) {
-                        const { destructor } = effect[internal];
-                        if (destructor !== undefined) {
-                            try {
-                                destructor();
-                            } catch (e) {
-                                console.error(e);
-                            }
-
-                            effect[internal].destructor = undefined;
-                        }
-                    }
-                }
-
-                // Update value and trigger regular callbacks, removing callbacks as per conditions.
-                self.value = value;
-                for (const [callback, condition] of self.callbacks) {
-                    // Skip and remove callbacks that are no longer valid as per their condition.
-                    if (condition !== undefined && !condition()) {
-                        self.callbacks.delete(callback);
-                        continue;
-                    }
-
-                    try {
-                        callback(self.value);
-                    } catch (e) {
-                        console.error(e);
-                    }
-                }
-
-                // Trigger effect dependencies AFTER updating internal value
-                if (dependencies !== undefined) {
-                    for (const effect of dependencies) {
-                        effect(internal);
-                    }
-                }
+                signal.trigger(value);
             }
         }
 
@@ -336,7 +351,7 @@ export interface Effect {
  * Used for identifying effect objects.
  */
 const effectProto = {};
-export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototypeOf.bind(effectProto);
+export const isEffect: (obj: any) => obj is Effect = Object.prototype.isPrototypeOf.bind(effectProto) as any;
 
 /**
  * Effect prototype implementation.
@@ -491,6 +506,10 @@ const computedImpl = {
             self.value.release();
         }
         return 0;
+    },
+    trigger(this: Computed<any>, ...args: [...any[]]) {
+        const self = this[internal];
+        (self.value.trigger as any)(...args);
     },
     [Symbol.toPrimitive](this: Computed<any>, hint) {
         const self = this[internal];
